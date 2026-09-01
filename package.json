@@ -1,0 +1,29 @@
+{
+  "name": "toolfactory",
+  "version": "0.0.0",
+  "description": "Build an agent tool once; ship it as skills, MCP servers, plugins for every agent host, CLIs, UIs, and packages.",
+  "license": "MIT",
+  "repository": "github:GoatInAHat/toolfactory",
+  "type": "module",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "biome check . && tsc -p tsconfig.json --noEmit",
+    "format": "biome format --write .",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "yaml": "^2.9.0",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.11",
+    "@types/node": "^22.19.0",
+    "tsx": "^4.23.13",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
+  }
+}

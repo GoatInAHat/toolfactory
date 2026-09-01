@@ -132,5 +132,15 @@ else
         "hooks). The devcontainer provides the fully wired, isolated setup."
 fi
 
-# Project setup goes here (dependency install, codegen, migrations). Keep it
-# idempotent and fast when there is nothing to do.
+# Project setup: install the pinned Node toolchain's dependencies. pnpm is the
+# package manager (package.json#packageManager); corepack provides it where it
+# is not already on PATH.
+if ! command -v pnpm >/dev/null 2>&1; then
+    corepack enable >/dev/null 2>&1 || true
+fi
+if command -v pnpm >/dev/null 2>&1; then
+    pnpm install --frozen-lockfile --prefer-offline >/dev/null 2>&1 ||
+        pnpm install --frozen-lockfile
+else
+    echo "pnpm not found; install Node >= 22 with corepack, then run: pnpm install" >&2
+fi
