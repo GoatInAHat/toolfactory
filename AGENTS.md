@@ -1,11 +1,5 @@
 # <Project>
 
-<!-- setup keep=GoatInAHat/template -->
-One-time bootstrap: if no environment hook ran it yet, run
-`bash .agents/setup`. Its first successful run makes everything in Agent
-config automatic and deletes this notice.
-<!-- /setup -->
-
 Created from a blank, stack-agnostic template. The first real task defines
 the project: pick the stack that fits, set up its tooling, and replace this
 paragraph with what the project is.
