@@ -1,0 +1,75 @@
+# ─── Agent local state ────────────────────────────────────
+# .agents/local/ is the personal overlay: same shape as .agents/ (skills/,
+# mcp/servers.json, AGENTS.md), rendered into your harnesses on this machine
+# only, never absorbed into the canon, never committed.
+/.agents/local/
+CLAUDE.local.md
+.claude/settings.local.json
+.claude/worktrees/
+
+# ─── Generated agent adapters ─────────────────────────────
+# Rendered per checkout from .agents/ by .agents/sync.py; never hand-edited
+# or committed. Keep in step with sync.py's renderers — `sync.py check` fails
+# if a renderer output is unignored or tracked.
+/CLAUDE.md
+/GEMINI.md
+/.mcp.json
+/.claude/skills/
+/.codebuddy/skills/
+/.gemini/settings.json
+/.qwen/settings.json
+/.cursor/mcp.json
+/.codex/config.toml
+/.vscode/mcp.json
+/.factory/mcp.json
+/.amp/settings.json
+/opencode.json
+/kilo.jsonc
+
+# ─── Secrets & env ────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+id_rsa*
+id_ed25519*
+service-account*.json
+.netrc
+
+# ─── Dependencies ─────────────────────────────────────────
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# ─── Build output ─────────────────────────────────────────
+dist/
+build/
+out/
+target/
+coverage/
+*.egg-info/
+
+# ─── Logs & caches ────────────────────────────────────────
+*.log
+logs/
+.cache/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+tmp/
+
+# ─── Editors & OS ─────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+*~
+
+# ─── Local data ───────────────────────────────────────────
+*.sqlite
+*.sqlite3
+*.db
