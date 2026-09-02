@@ -142,7 +142,7 @@ export const operations = [
   operation({
     name: "doctor",
     description:
-      "Report which upstream CLIs this machine can delegate to (claude, openclaw, clawhub, hermes, uvx, agentskills, MCP Inspector, docker).",
+      "Report which upstream CLIs this machine can delegate to (git, gh, npm, uv, claude, openclaw, clawhub, hermes, uvx, agentskills, MCP Inspector, docker).",
     input: z.object({}),
     output: z.object({
       toolfactory: z.string(),

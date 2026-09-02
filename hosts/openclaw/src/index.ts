@@ -96,7 +96,7 @@ export default defineToolPlugin({
     }),
     tool({
       name: "doctor",
-      description: "Report which upstream CLIs this machine can delegate to (claude, openclaw, clawhub, hermes, uvx, agentskills, MCP Inspector, docker).",
+      description: "Report which upstream CLIs this machine can delegate to (git, gh, npm, uv, claude, openclaw, clawhub, hermes, uvx, agentskills, MCP Inspector, docker).",
       parameters: Type.Unsafe({
         "type": "object",
         "properties": {}

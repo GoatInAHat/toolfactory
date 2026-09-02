@@ -18,7 +18,7 @@ npm test
 - `build` — Generate every selected surface in-tree from the identity file and the operation snapshot, and refresh the lock. (native)
 - `check` — Fail if the operation snapshot or any generated file drifted from the code (the CI drift gate). (native)
 - `coverage` — The operation × surface verdict matrix: native, bridged, degraded, or excluded, with reasons. (native)
-- `doctor` — Report which upstream CLIs this machine can delegate to (claude, openclaw, clawhub, hermes, uvx, agentskills, MCP Inspector, docker). (native)
+- `doctor` — Report which upstream CLIs this machine can delegate to (git, gh, npm, uv, claude, openclaw, clawhub, hermes, uvx, agentskills, MCP Inspector, docker). (native)
 - `eject` — Adopt every file a surface owns, so the author takes it over entirely. (native)
 - `init` — Create a new tool: dev.toolfactory/tool.json, the authored identity file, the kernel scaffold for the chosen language, and the first build of every selected surface. (native)
 - `introspect` — Spawn the kernel MCP server, list its tools, and snapshot them to dev.toolfactory/ops.json. (native)

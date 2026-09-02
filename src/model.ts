@@ -111,10 +111,6 @@ export const ToolConfigSchema = z
     hermes: z.object({ toolset: z.string().optional() }).optional(),
     openclaw: z
       .object({
-        type: z
-          .enum(["tool", "provider"])
-          .default("tool")
-          .describe("Which `openclaw plugins init --type` scaffold hosts/openclaw mirrors."),
         registers: z
           .array(
             z.object({

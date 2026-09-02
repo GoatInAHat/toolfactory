@@ -42,7 +42,7 @@
       "state": "generated"
     },
     "dev.toolfactory/tool.schema.json": {
-      "sha256": "2ca7e6916330fd0e8c6e46d94b582261ddb74a4c89e03f72c2f4b12966cb8de6",
+      "sha256": "d4d4724399679255cab920447bb939c0bafc87ae4f16a979c418be52e8a5df97",
       "state": "generated"
     },
     "hosts/hermes/pyproject.toml": {
@@ -50,11 +50,11 @@
       "state": "generated"
     },
     "hosts/hermes/README.md": {
-      "sha256": "57fce64907f67f4a70117a0dfe673664b3bded188cd2e41e8a23a40a4c1db37b",
+      "sha256": "f674300418fa869499130eb93f7f74b55a2399aa743d7535b477b89c1c1791a2",
       "state": "generated"
     },
     "hosts/hermes/toolfactory_hermes/__init__.py": {
-      "sha256": "9155c03356aa96da9961ca32e69c737415dad153e8ee2a4ee164dba9b675df59",
+      "sha256": "182248a1249ce3225303ae9b034f5111c5dbe36f53e3bad59f51cfc0d3d185ac",
       "state": "generated"
     },
     "hosts/hermes/toolfactory_hermes/plugin.yaml": {
@@ -70,7 +70,7 @@
       "state": "generated"
     },
     "hosts/openclaw/README.md": {
-      "sha256": "a28cb8797086677ba43b9c2da59fa9d4fc07201ccaa64582b426e40d469bfda6",
+      "sha256": "79b98e78f9585036fba6940e572dfe6e3516f78ab1880fad8fa2c1a9b85c6e20",
       "state": "generated"
     },
     "hosts/openclaw/src/index.test.ts": {
@@ -78,7 +78,7 @@
       "state": "generated"
     },
     "hosts/openclaw/src/index.ts": {
-      "sha256": "07aeb77d36c068015fbf538383faa0dcb8c746353a9a9fbafc2df72ca46c05e0",
+      "sha256": "38a91072999cf5dde3993a0c194f756714bdcc029f23d0434745be9341d871a5",
       "state": "generated"
     },
     "hosts/openclaw/tsconfig.json": {
@@ -106,7 +106,7 @@
       "state": "generated"
     },
     "skills/toolfactory/SKILL.md": {
-      "sha256": "d49a205c198c7d2455dfeec6047d2b8b04c9f43847e25929c6cde38bd371738b",
+      "sha256": "486c5c1d58108874ff1a03355b107ea19dac277b0ce2be26e2a963d9ebd6f808",
       "state": "generated"
     },
     "src/toolfactory/cli.ts": {
@@ -162,7 +162,7 @@
       "state": "generated"
     },
     "web/src/ops.json": {
-      "sha256": "65769e5c3691474048416c14f996946aa8b578cfce097ca0feda6c28cd018291",
+      "sha256": "288cc6964a7f7310b88e794d4ca4607b2159b008392609cb8a23a1f853a37965",
       "state": "generated"
     },
     "web/src/schema-form.tsx": {
