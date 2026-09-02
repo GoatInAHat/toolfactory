@@ -6,6 +6,10 @@ import { z } from "zod";
 export const TOOLFACTORY_DIR = "dev.toolfactory";
 export const LOCK_PATH = `${TOOLFACTORY_DIR}/lock.json`;
 
+/** A region's marker pair, without its content: what the lock records, and the inverse it enables. */
+export const MarkersSchema = z.object({ begin: z.string(), end: z.string() });
+export type Markers = z.infer<typeof MarkersSchema>;
+
 export const LockSchema = z.object({
   toolfactoryVersion: z.string(),
   files: z.record(
@@ -19,6 +23,14 @@ export const LockSchema = z.object({
        * patch — or deselecting the surface that added it — uninstalls it instead of stranding it.
        */
       keys: z.array(z.string()).optional(),
+      /**
+       * A region file's inverse, exactly as `keys` is a merge file's: the marker pairs its
+       * projector wrote. Regions the current plan no longer writes are emptied before the current
+       * ones are replaced, so dropping a region from a projector — or deselecting the surface that
+       * added it — uninstalls its content instead of stranding it, and a region file that leaves
+       * the plan loses its regions, not its existence.
+       */
+      regions: z.array(MarkersSchema).optional(),
     }),
   ),
 });

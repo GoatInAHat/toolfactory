@@ -106,8 +106,12 @@ in the lock: `files[<path>].keys` records the dotted paths its patch wrote, so t
 removes the ones the current patch no longer writes — pruning the objects that empties — before
 merging. Dropping a key from a patch, or deselecting the surface that added it, therefore
 uninstalls the key instead of stranding it, and a merge file that leaves the plan altogether loses
-its keys, not its existence: the author keeps the file and everything else in it. The identity
-file's unrecognised top-level keys are preserved on rewrite.
+its keys, not its existence: the author keeps the file and everything else in it. Every region file
+carries the same inverse: `files[<path>].regions` records the marker pairs its projector wrote, so a
+region the current plan no longer writes is emptied before the current ones are filled, and a region
+file that leaves the plan loses its regions, not its existence — the author keeps the file, the
+markers and every byte outside them, and re-selecting the surface refills the markers the strip
+preserved. The identity file's unrecognised top-level keys are preserved on rewrite.
 
 **S9: Schema direction is native → JSON only.** Zod or Pydantic produce JSON Schema 2020-12 for the
 wire and for generated manifests. toolfactory never converts JSON Schema back into a native schema;
@@ -143,7 +147,8 @@ running `build`; `check` never rewrites anything.
 - **L1.** A file exists iff a selected surface owns it, with one always-on owner besides
   `workflows`: the binding's kernel (`types`, `config`, `mcp`) is generated for every tool because
   the author's operation module imports it and `introspect` spawns it, even for a tool with zero
-  operations. `build` deletes orphans left by removing a surface from `tool.json`; `check` reports them.
+  operations. `build` deletes the generated orphans left by removing a surface from `tool.json`
+  and empties the regions of the authored ones; `check` reports both.
 - **L2.** The repo root belongs to the binding's package (`package.json` or `pyproject.toml`).
   Host-native packages nest under `hosts/<id>/`.
 - **L3.** The portable bundle (`plugin.json`, `mcp.json`, `skills/`) sits at the repo root iff a
@@ -437,7 +442,8 @@ live-tests environment — is simply absent from a project built without it; `to
 - **C2: Mirror scaffolds by execution.** The OpenClaw validator diffs the generated package against
   a fresh `openclaw plugins init`, so an upstream scaffold change fails validation by name instead
   of rotting silently.
-- **C3: Preserve the unknown** (S8).
+- **C3: Preserve the unknown** (S8). Deselecting a surface uninstalls its keys and empties its
+  regions; it never deletes a file the author writes in.
 - **C4: Grow by fixed location.** A new host location means a projector, a validator and a coverage
   row. No model change, because the model is the ecosystem's own specs.
 - **C5: Version the lock.** `lock.json` records the toolfactory version that wrote it.

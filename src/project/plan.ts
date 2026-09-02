@@ -5,7 +5,7 @@
  */
 import { z } from "zod";
 import { getBinding } from "../bindings/index.js";
-import type { PlannedFile, Project, Surface } from "../model.js";
+import type { PlannedFile, Project, RegionFile, Surface } from "../model.js";
 import { ToolConfigSchema } from "../model.js";
 import { computeCoverage, renderCoverageMarkdown } from "../report/coverage.js";
 import { assertSurfaceRequirements, getSurface, selectedSurfaces } from "../surfaces/registry.js";
@@ -20,14 +20,38 @@ export function toolJsonSchema(): Record<string, unknown> {
   return z.toJSONSchema(ToolConfigSchema, { io: "input" }) as Record<string, unknown>;
 }
 
+/**
+ * Two projectors may own different regions of one author-owned file (`readme`'s install block and
+ * `pypi`'s mcp-name marker both live in README.md), so the plan carries their union and the
+ * template grows the marker pairs it is missing. Only the same marker holding different content is
+ * a conflict.
+ */
+function mergeRegions(base: RegionFile, extra: RegionFile): RegionFile {
+  const regions = [...base.regions];
+  for (const region of extra.regions) {
+    const owner = regions.find((planned) => planned.begin === region.begin);
+    if (!owner) regions.push(region);
+    else if (owner.content !== region.content) {
+      throw new Error(`Two surfaces plan different content for ${base.path} ${region.begin}.`);
+    }
+  }
+  const missing = regions.filter((region) => !base.template.includes(region.begin));
+  if (missing.length === 0) return { ...base, regions };
+  const appended = missing.map((region) => `${region.begin}\n${region.end}`).join("\n");
+  return { ...base, regions, template: `${base.template}\n${appended}\n` };
+}
+
 function dedupe(files: PlannedFile[]): PlannedFile[] {
   const byPath = new Map<string, PlannedFile>();
   for (const file of files) {
     const existing = byPath.get(file.path);
-    if (existing && managedContent(existing) !== managedContent(file)) {
+    if (!existing) {
+      byPath.set(file.path, file);
+    } else if (existing.kind === "region" && file.kind === "region") {
+      byPath.set(file.path, mergeRegions(existing, file));
+    } else if (managedContent(existing) !== managedContent(file)) {
       throw new Error(`Two surfaces plan different content for ${file.path}.`);
     }
-    if (!existing) byPath.set(file.path, file);
   }
   return [...byPath.values()].sort((a, b) => a.path.localeCompare(b.path));
 }

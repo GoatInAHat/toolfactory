@@ -17,8 +17,8 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
-import type { MergeFile, PlannedFile, Region, RegionFile } from "../model.js";
-import { LOCK_PATH, type Lock, readLock, serializeLock, sha256 } from "./lock.js";
+import type { MergeFile, PlannedFile, Region } from "../model.js";
+import { LOCK_PATH, type Lock, type Markers, readLock, serializeLock, sha256 } from "./lock.js";
 
 export interface Drift {
   path: string;
@@ -30,9 +30,11 @@ export interface ApplyResult {
   deleted: string[];
   unchanged: string[];
   manual: string[];
+  /** Region files a deselected surface stopped writing: emptied of their regions and kept, because everything outside the markers is the author's. */
+  stripped: string[];
 }
 
-function locate(text: string, region: Region): { start: number; end: number } | undefined {
+function locate(text: string, region: Markers): { start: number; end: number } | undefined {
   const start = text.indexOf(region.begin);
   if (start < 0) return undefined;
   const end = text.indexOf(region.end, start + region.begin.length);
@@ -40,7 +42,10 @@ function locate(text: string, region: Region): { start: number; end: number } | 
   return { start: start + region.begin.length, end };
 }
 
-export function extractRegions(text: string, file: RegionFile): string[] | undefined {
+export function extractRegions(
+  text: string,
+  file: { regions: readonly Markers[] },
+): string[] | undefined {
   const parts: string[] = [];
   for (const region of file.regions) {
     const at = locate(text, region);
@@ -50,7 +55,10 @@ export function extractRegions(text: string, file: RegionFile): string[] | undef
   return parts;
 }
 
-export function replaceRegions(text: string, file: RegionFile): string | undefined {
+export function replaceRegions(
+  text: string,
+  file: { regions: readonly Region[] },
+): string | undefined {
   let next = text;
   for (const region of file.regions) {
     const at = locate(next, region);
@@ -58,6 +66,11 @@ export function replaceRegions(text: string, file: RegionFile): string | undefin
     next = next.slice(0, at.start) + region.content + next.slice(at.end);
   }
   return next;
+}
+
+/** A region file's inverse: the named regions blanked, their markers and the author's bytes kept. */
+function emptyRegions(text: string, markers: readonly Markers[]): string | undefined {
+  return replaceRegions(text, { regions: markers.map((region) => ({ ...region, content: "" })) });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -206,6 +219,25 @@ function stranded(root: string, path: string, keys: string[]): boolean {
   return keys.some((key) => hasKey(document, key));
 }
 
+/** The marker pairs the lock recorded for a path that the current plan no longer writes. */
+function staleRegions(lock: Lock, path: string, current: readonly Markers[] = []): Markers[] {
+  return (lock.files[path]?.regions ?? []).filter(
+    (region) => !current.some((planned) => planned.begin === region.begin),
+  );
+}
+
+/** Whether any uninstalled region still carries content — the only reason to touch a region file. */
+function filled(root: string, path: string, markers: readonly Markers[]): boolean {
+  if (markers.length === 0 || !existsSync(join(root, path))) return false;
+  const parts = extractRegions(readFileSync(join(root, path), "utf8"), { regions: markers });
+  return parts?.some((part) => part.trim() !== "") === true;
+}
+
+/** lstat, not stat: a dangling symlink (its target just deleted) is still present and still ours. */
+function present(root: string, path: string): boolean {
+  return lstatSync(join(root, path), { throwIfNoEntry: false }) !== undefined;
+}
+
 /** Compare a plan to the tree without writing. */
 export function check(root: string, plan: PlannedFile[], toolfactoryVersion: string): Drift[] {
   const lock = readLock(root) ?? { toolfactoryVersion, files: {} };
@@ -228,25 +260,35 @@ export function check(root: string, plan: PlannedFile[], toolfactoryVersion: str
       stranded(root, file.path, staleKeys(lock, file.path, patchKeys(file.patch, file.owned)))
     ) {
       drift.push({ path: file.path, kind: "changed" });
+    } else if (
+      file.kind === "region" &&
+      filled(root, file.path, staleRegions(lock, file.path, file.regions))
+    ) {
+      drift.push({ path: file.path, kind: "changed" });
     }
   }
   for (const path of Object.keys(lock.files)) {
     const entry = lock.files[path];
-    if (planned.has(path) || entry?.state !== "generated" || !existsSync(join(root, path)))
-      continue;
+    if (planned.has(path) || entry?.state !== "generated" || !present(root, path)) continue;
     // A merge file toolfactory stops writing loses its keys, not its existence.
     if (entry.keys && !stranded(root, path, entry.keys)) continue;
+    // A region file likewise loses its regions: once they are empty, nothing of ours is stranded.
+    if (entry.regions && !filled(root, path, entry.regions)) continue;
     drift.push({ path, kind: "orphan" });
   }
   return drift;
 }
 
-function render(root: string, file: PlannedFile, stale: string[] = []): string {
+function render(root: string, file: PlannedFile, previous: Lock): string {
   const path = join(root, file.path);
   if (file.kind === "file") return file.content;
   if (file.kind === "region") {
     if (existsSync(path)) {
-      const replaced = replaceRegions(readFileSync(path, "utf8"), file);
+      const text = readFileSync(path, "utf8");
+      // The region inverse first: a marker pair a previous plan wrote and this one dropped — a
+      // shared file that lost one of its owners — is emptied before the current regions are filled.
+      const stale = staleRegions(previous, file.path, file.regions);
+      const replaced = replaceRegions(emptyRegions(text, stale) ?? text, file);
       if (replaced === undefined) {
         throw new Error(
           `${file.path} exists but is missing a toolfactory region marker; restore the markers or run \`toolfactory adopt ${file.path}\`.`,
@@ -260,7 +302,10 @@ function render(root: string, file: PlannedFile, stale: string[] = []): string {
   const text = readFileSync(path, "utf8");
   const document = parseDocument(text, file.format);
   // The patch's inverse first: keys a previous patch wrote and this one dropped are uninstalled.
-  const uninstalled = removeKeys(document, stale);
+  const uninstalled = removeKeys(
+    document,
+    staleKeys(previous, file.path, patchKeys(file.patch, file.owned)),
+  );
   // A document that already carries the patch is left byte-for-byte alone, so a rebuild never
   // reserializes the author's file (and, for TOML, never drops their comments).
   if (
@@ -276,7 +321,13 @@ function render(root: string, file: PlannedFile, stale: string[] = []): string {
 export function apply(root: string, plan: PlannedFile[], toolfactoryVersion: string): ApplyResult {
   const previous = readLock(root) ?? { toolfactoryVersion, files: {} };
   const lock: Lock = { toolfactoryVersion, files: {} };
-  const result: ApplyResult = { written: [], deleted: [], unchanged: [], manual: [] };
+  const result: ApplyResult = {
+    written: [],
+    deleted: [],
+    unchanged: [],
+    manual: [],
+    stripped: [],
+  };
   for (const file of plan) {
     const state = previous.files[file.path]?.state ?? "generated";
     const path = join(root, file.path);
@@ -286,6 +337,8 @@ export function apply(root: string, plan: PlannedFile[], toolfactoryVersion: str
       continue;
     }
     const keys = file.kind === "merge" ? patchKeys(file.patch, file.owned) : undefined;
+    const regions =
+      file.kind === "region" ? file.regions.map(({ begin, end }) => ({ begin, end })) : undefined;
     if (isLink(file)) {
       if (currentManagedContent(root, file) === managedContent(file)) {
         result.unchanged.push(file.path);
@@ -297,7 +350,7 @@ export function apply(root: string, plan: PlannedFile[], toolfactoryVersion: str
         result.written.push(file.path);
       }
     } else {
-      const next = render(root, file, staleKeys(previous, file.path, keys));
+      const next = render(root, file, previous);
       if (existsSync(path) && readFileSync(path, "utf8") === next) {
         result.unchanged.push(file.path);
       } else {
@@ -306,7 +359,12 @@ export function apply(root: string, plan: PlannedFile[], toolfactoryVersion: str
         result.written.push(file.path);
       }
     }
-    lock.files[file.path] = { sha256: sha256(managedContent(file)), state: "generated", keys };
+    lock.files[file.path] = {
+      sha256: sha256(managedContent(file)),
+      state: "generated",
+      keys,
+      regions,
+    };
   }
   for (const [path, entry] of Object.entries(previous.files)) {
     if (lock.files[path]) continue;
@@ -314,7 +372,7 @@ export function apply(root: string, plan: PlannedFile[], toolfactoryVersion: str
       lock.files[path] = entry;
       continue;
     }
-    if (!existsSync(join(root, path))) continue;
+    if (!present(root, path)) continue;
     if (entry.keys) {
       // The inverse of a merge file is its keys: the author keeps the file and everything else in it.
       const format = documentFormat(path);
@@ -323,6 +381,17 @@ export function apply(root: string, plan: PlannedFile[], toolfactoryVersion: str
         writeFileSync(join(root, path), serializeDocument(document, format));
         result.written.push(path);
       }
+      continue;
+    }
+    if (entry.regions) {
+      // The inverse of a region file is its markers: the author keeps the file, the markers, and
+      // every byte outside them, so re-selecting the surface refills them with no further code.
+      const text = readFileSync(join(root, path), "utf8");
+      const emptied = emptyRegions(text, entry.regions);
+      // Markers already gone: nothing of ours is left to uninstall.
+      if (emptied === undefined || emptied === text) continue;
+      writeFileSync(join(root, path), emptied);
+      result.stripped.push(path);
       continue;
     }
     rmSync(join(root, path));

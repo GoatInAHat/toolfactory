@@ -106,6 +106,11 @@ export const operations = [
       deleted: z.array(z.string()),
       unchanged: z.array(z.string()),
       manual: z.array(z.string()),
+      stripped: z
+        .array(z.string())
+        .describe(
+          "Region files whose generated regions were emptied because their surface is no longer selected; the authored remainder stays.",
+        ),
     }),
     annotations: { idempotentHint: true },
     handler: async ({ root }) => commands.build(root).result,

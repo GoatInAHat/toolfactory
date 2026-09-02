@@ -101,6 +101,15 @@ describe("apply / check — full files", () => {
     expect(apply(root, [], "0.1.0").deleted).toEqual([".agents/skills/hello"]);
     expect(existsSync(join(root, ".agents/skills/hello"))).toBe(false);
     expect(existsSync(join(root, "skills/hello/SKILL.md"))).toBe(true);
+
+    // lstat, not stat: with its target gone the link is dangling — still present, still ours.
+    apply(root, [link], "0.1.0");
+    rmSync(join(root, "skills"), { recursive: true });
+    expect(check(root, [], "0.1.0")).toEqual([{ path: ".agents/skills/hello", kind: "orphan" }]);
+    expect(apply(root, [], "0.1.0").deleted).toEqual([".agents/skills/hello"]);
+    expect(
+      lstatSync(join(root, ".agents/skills/hello"), { throwIfNoEntry: false }),
+    ).toBeUndefined();
   });
 });
 
@@ -128,6 +137,67 @@ describe("apply / check — region files", () => {
     const text = readFileSync(path, "utf8");
     expect(text).toContain("More notes the author wrote by hand.");
     expect(text).toContain("- op-b\n");
+  });
+
+  it("a region file toolfactory stops writing loses its regions, not its existence", () => {
+    const root = tmp();
+    apply(root, [regionPlan("- op-a\n")], "0.1.0");
+    const path = join(root, "SKILL.md");
+    const authored = readFileSync(path, "utf8").replace(
+      "Author prose.",
+      "Author prose.\n\nA paragraph only the author can write.",
+    );
+    writeFileSync(path, authored);
+    expect(check(root, [], "0.1.0")).toEqual([{ path: "SKILL.md", kind: "orphan" }]);
+
+    const result = apply(root, [], "0.1.0");
+    expect(result).toMatchObject({ stripped: ["SKILL.md"], deleted: [] });
+    const emptied = readFileSync(path, "utf8");
+    expect(emptied).toContain("A paragraph only the author can write.");
+    expect(emptied).toContain("<!-- tf:ops --><!-- /tf:ops -->");
+    expect(emptied).not.toContain("- op-a");
+    // Silent once emptied: nothing of toolfactory's is stranded in the file any more.
+    expect(check(root, [], "0.1.0")).toEqual([]);
+
+    // Re-selection needs no code of its own: the preserved markers are refilled in place.
+    apply(root, [regionPlan("- op-a\n")], "0.1.0");
+    expect(readFileSync(path, "utf8")).toBe(authored);
+  });
+
+  it("empties the region a surface stopped owning while another surface keeps the file", () => {
+    const root = tmp();
+    const install = { begin: "<!-- tf:install -->", end: "<!-- /tf:install -->" };
+    const mcpName = { begin: "<!-- tf:mcp-name -->", end: "<!-- /tf:mcp-name -->" };
+    const plan = (registry: boolean): RegionFile[] => [
+      {
+        kind: "region",
+        path: "README.md",
+        regions: [
+          { ...install, content: "\n`npx -y hello mcp`\n" },
+          ...(registry
+            ? [{ ...mcpName, content: "\n<!-- mcp-name: io.github.o/hello -->\n" }]
+            : []),
+        ],
+        template: [
+          "# hello",
+          "",
+          install.begin,
+          install.end,
+          "",
+          mcpName.begin,
+          mcpName.end,
+          "",
+        ].join("\n"),
+      },
+    ];
+    apply(root, plan(true), "0.1.0");
+    expect(check(root, plan(false), "0.1.0")).toEqual([{ path: "README.md", kind: "changed" }]);
+    apply(root, plan(false), "0.1.0");
+    const text = readFileSync(join(root, "README.md"), "utf8");
+    expect(text).not.toContain("mcp-name: io.github.o/hello");
+    expect(text).toContain("<!-- tf:mcp-name --><!-- /tf:mcp-name -->");
+    expect(text).toContain("`npx -y hello mcp`");
+    expect(check(root, plan(false), "0.1.0")).toEqual([]);
   });
 
   it("check reports a missing region marker as unmarked", () => {

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { Operation, Project, SurfaceId } from "../model.js";
+import { buildPlan } from "../project/plan.js";
 import { surface as claude } from "./claude.js";
 import { surface as npm } from "./npm.js";
+import { MCP_NAME_BEGIN, MCP_NAME_END } from "./pypi.js";
 import { INSTALL_BEGIN, INSTALL_END, surface as readme } from "./readme.js";
 
 const echo: Operation = { name: "echo", inputSchema: { type: "object" }, requires: [] };
@@ -110,6 +112,21 @@ describe("readme", () => {
     );
     expect(body).toContain("Mozilla-signed `.xpi`");
     expect(body).toContain("`npx -y hello mcp --http --pair`");
+  });
+
+  it("carries pypi's mcp-name region beside its own, in one README the plan merges", () => {
+    const surfaces: SurfaceId[] = ["pypi", "mcp-registry"];
+    const python = project(surfaces, {
+      root: "/nonexistent",
+      tool: { ...project(surfaces).tool, binding: "python" },
+    });
+    const file = buildPlan(python).find((planned) => planned.path === "README.md");
+    if (file?.kind !== "region") throw new Error("expected a region file");
+    expect(file.regions.map((entry) => entry.begin).sort()).toEqual(
+      [INSTALL_BEGIN, MCP_NAME_BEGIN].sort(),
+    );
+    expect(file.template).toContain(`${INSTALL_BEGIN}\n${INSTALL_END}`);
+    expect(file.template).toContain(`${MCP_NAME_BEGIN}\n${MCP_NAME_END}`);
   });
 
   it("falls back to the local checkout when the identity carries no GitHub repository", () => {

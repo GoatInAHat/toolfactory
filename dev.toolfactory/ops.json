@@ -159,13 +159,21 @@
             "items": {
               "type": "string"
             }
+          },
+          "stripped": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Region files whose generated regions were emptied because their surface is no longer selected; the authored remainder stays."
           }
         },
         "required": [
           "written",
           "deleted",
           "unchanged",
-          "manual"
+          "manual",
+          "stripped"
         ],
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false

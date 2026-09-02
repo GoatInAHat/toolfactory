@@ -20,7 +20,13 @@
     },
     ".agents/setup": {
       "sha256": "7c5f59994d62a9c8e0862ea55e405870528d1bd46864daa4695ebcfee080952b",
-      "state": "generated"
+      "state": "generated",
+      "regions": [
+        {
+          "begin": "# tf:setup",
+          "end": "# /tf:setup"
+        }
+      ]
     },
     ".agents/skills/.gitkeep": {
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -92,11 +98,23 @@
     },
     ".gitignore": {
       "sha256": "da1943520932ad08ba8a18396ea4c6e64e9a74b70c8c10fa05f7e2947ab37044",
-      "state": "generated"
+      "state": "generated",
+      "regions": [
+        {
+          "begin": "# tf:ignore",
+          "end": "# /tf:ignore"
+        }
+      ]
     },
     "AGENTS.md": {
       "sha256": "46e59d2923e2c39df4c108b5e397175551c2457527eb04787f26e8384b259251",
-      "state": "generated"
+      "state": "generated",
+      "regions": [
+        {
+          "begin": "<!-- tf:agents -->",
+          "end": "<!-- /tf:agents -->"
+        }
+      ]
     },
     "compose.toolfactory.yaml": {
       "sha256": "78bd8ddb3cc47147b508c5e466ef1b4a313ba6556df33d6167af2a0d50a4ebae",
@@ -132,11 +150,23 @@
     },
     "hosts/browser/entrypoints/background.ts": {
       "sha256": "37abc1913f07391e70c683fd06b5c5ec75bf483a43b613d3374a0d66d2ee4448",
-      "state": "generated"
+      "state": "generated",
+      "regions": [
+        {
+          "begin": "// tf:bg",
+          "end": "// /tf:bg"
+        }
+      ]
     },
     "hosts/browser/entrypoints/example.content.ts": {
       "sha256": "af0ccf8dfdf49ee3740375b4eccd955a78decdfb227d31295b06b44be6bb8237",
-      "state": "generated"
+      "state": "generated",
+      "regions": [
+        {
+          "begin": "// tf:content",
+          "end": "// /tf:content"
+        }
+      ]
     },
     "hosts/browser/entrypoints/options/index.html": {
       "sha256": "1d91728547796836a107407c6fcc73b54cd1b64fd45f2558e5c28abb45ba73ff",
@@ -233,7 +263,13 @@
     },
     "hosts/browser/wxt.config.ts": {
       "sha256": "0432b14ec149a0c7f79883e68055f85250d6c25aebf946de61274a5b29822c19",
-      "state": "generated"
+      "state": "generated",
+      "regions": [
+        {
+          "begin": "// tf:config",
+          "end": "// /tf:config"
+        }
+      ]
     },
     "hosts/dsh/cordis.local.patch.yml": {
       "sha256": "1dc11e67d58aea8a0b5f3c90cceb2a90f319a41463abb20970cb6b5f96083fab",
@@ -301,7 +337,13 @@
     },
     "hosts/openclaw/src/index.ts": {
       "sha256": "829d14b17f0542c592495c672510842ab73b72289b6388ca72dafb2ba9a8ad60",
-      "state": "generated"
+      "state": "generated",
+      "regions": [
+        {
+          "begin": "// tf:entry",
+          "end": "// /tf:entry"
+        }
+      ]
     },
     "hosts/openclaw/tsconfig.json": {
       "sha256": "106c946ea50b5c1a334631ad22dbbadcc7d1c19d416d7d02fd8bff0f75b2d603",
@@ -339,7 +381,13 @@
     },
     "README.md": {
       "sha256": "b762c3b1ff1d366d3f82f96b02d8ce3024c9585d8a174adae4135122928173c5",
-      "state": "generated"
+      "state": "generated",
+      "regions": [
+        {
+          "begin": "<!-- tf:install -->",
+          "end": "<!-- /tf:install -->"
+        }
+      ]
     },
     "renovate.json": {
       "sha256": "f708debb8452ad31dfcdcfb3c82d1519fe50363d614528143becd90ab55af1b9",
@@ -357,7 +405,17 @@
     },
     "skills/toolfactory/SKILL.md": {
       "sha256": "c8dbdd57321a77efe7f172ad2b46f66f35dfc843d029e029b36159dcef520f51",
-      "state": "generated"
+      "state": "generated",
+      "regions": [
+        {
+          "begin": "---",
+          "end": "---"
+        },
+        {
+          "begin": "<!-- tf:operations -->",
+          "end": "<!-- /tf:operations -->"
+        }
+      ]
     },
     "src/toolfactory/cli.ts": {
       "sha256": "d354a3307a54f620ac3d92486dd1bf96210f2ce8bcd61ac56f902557f72df84b",
@@ -428,7 +486,13 @@
     },
     "web/src/App.tsx": {
       "sha256": "d7887e5e9ee5e2ba7cfa88f58cea8fc9e0b43fbebe29568e64e461ec13e648d3",
-      "state": "generated"
+      "state": "generated",
+      "regions": [
+        {
+          "begin": "// tf:app",
+          "end": "// /tf:app"
+        }
+      ]
     },
     "web/src/index.css": {
       "sha256": "9bde270cb8d0493a24091df8ae292e3a2b3484f91d738fa70a037866fe206d48",

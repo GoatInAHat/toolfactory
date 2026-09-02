@@ -10,7 +10,7 @@
  * (checkout, toolchains, caches) and stay in `src/surfaces/workflows.ts`, which wraps this list.
  */
 import { projectName } from "../identity/name.js";
-import type { PackageManager, Project } from "../model.js";
+import type { PackageManager, Project, SurfaceId } from "../model.js";
 import {
   HOST_DIR as BROWSER_HOST_DIR,
   sourcesZipName,
@@ -19,7 +19,7 @@ import {
 import { HOST_DIR as DSH_HOST_DIR } from "../surfaces/dsh.js";
 import { MANIFEST_PATH as MCPB_MANIFEST_PATH, MCPB_PIN } from "../surfaces/mcpb.js";
 import { HOST_DIR as OPENCLAW_HOST_DIR } from "../surfaces/openclaw-native.js";
-import { has, npmName } from "../surfaces/shared.js";
+import { configProperties, envName, has, isSensitive, npmName } from "../surfaces/shared.js";
 
 export interface GateStep {
   /** Step label: the CI step name, and the banner the shell script echoes. */
@@ -290,4 +290,142 @@ export function packageSteps(project: Project): GateStep[] {
 export function openclawTarball(project: Project): string {
   const pkg = projectName.openclawPackage(project.identity.name);
   return `${pkg}-${project.identity.version ?? "0.0.0"}.tgz`;
+}
+
+/**
+ * One row per (surface, registry): what publishing needs, what proves it, how to retract.
+ * DESIGN.md §1 (research3). `secrets status`/`check`, the release legs' presence gating and the
+ * unpublish step all read this table and nothing else.
+ */
+export interface Registry {
+  /** Stable id: the release job suffix, the `secrets status` row, the unpublish step name. */
+  id:
+    | "npm"
+    | "pypi"
+    | "mcp-registry"
+    | "oci"
+    | "clawhub-package"
+    | "clawhub-skill"
+    | "pages"
+    | "chrome"
+    | "firefox"
+    | "edge"
+    | "safari";
+  /** The surfaces whose selection publishes here; all must be selected. */
+  surfaces: SurfaceId[];
+  /** Environment names the publish leg consumes (repository scope); [] for OIDC/GITHUB_TOKEN legs. */
+  secrets: string[];
+  /** Environment names retraction consumes when they differ from `secrets`. */
+  retractSecrets?: string[];
+  /** Where a human mints the credential or does the one-time web step. */
+  url: string;
+  /** Shell: exit 0 iff the credential in the environment is accepted (`secrets check`). Absent = no probe exists. */
+  probe?: string;
+  /** Shell: exit 0 iff the current version is published (anonymous; idempotency for publish and unpublish). */
+  exists?: string;
+  /** Shell: the retraction, one upstream CLI; absent = manual. */
+  retract?: string;
+  /** With `--hard`: the destructive form. */
+  retractHard?: string;
+  /** A one-time human step with no API, gated by a repository variable the human sets when done. */
+  confirmVariable?: string;
+}
+
+const CHROME_SECRETS = [
+  "CHROME_EXTENSION_ID",
+  "CHROME_PUBLISHER_ID",
+  "CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL",
+  "CHROME_SERVICE_ACCOUNT_PRIVATE_KEY",
+];
+const FIREFOX_SECRETS = ["FIREFOX_EXTENSION_ID", "FIREFOX_JWT_ISSUER", "FIREFOX_JWT_SECRET"];
+const EDGE_SECRETS = ["EDGE_PRODUCT_ID", "EDGE_CLIENT_ID", "EDGE_API_KEY"];
+const ASC_SECRETS = ["ASC_KEY_ID", "ASC_ISSUER_ID", "ASC_PRIVATE_KEY"];
+
+/** Every registry row whose surfaces are all selected. STUB: probe/exists/retract are filled by the secrets-release task. */
+export function registries(project: Project): Registry[] {
+  const rows: Registry[] = [
+    {
+      id: "npm",
+      surfaces: ["npm"],
+      secrets: ["NPM_TOKEN"],
+      url: "https://www.npmjs.com/settings/~/tokens",
+    },
+    {
+      id: "pypi",
+      surfaces: ["pypi"],
+      secrets: [],
+      url: "https://pypi.org/manage/account/publishing/",
+      confirmVariable: "PYPI_TRUSTED_PUBLISHER",
+    },
+    {
+      id: "mcp-registry",
+      surfaces: ["mcp-registry"],
+      secrets: [],
+      url: "https://registry.modelcontextprotocol.io",
+    },
+    {
+      id: "oci",
+      surfaces: ["mcp-registry"],
+      secrets: [],
+      retractSecrets: ["GH_TOKEN"],
+      url: "https://github.com/settings/packages",
+    },
+    {
+      id: "clawhub-package",
+      surfaces: ["clawhub", "openclaw-native"],
+      secrets: ["CLAWHUB_TOKEN"],
+      url: "https://clawhub.ai",
+    },
+    {
+      id: "clawhub-skill",
+      surfaces: ["clawhub", "skill"],
+      secrets: ["CLAWHUB_TOKEN"],
+      url: "https://clawhub.ai",
+    },
+    {
+      id: "pages",
+      surfaces: ["web"],
+      secrets: [],
+      retractSecrets: ["GH_TOKEN"],
+      url: "https://docs.github.com/en/pages",
+    },
+    {
+      id: "chrome",
+      surfaces: ["browser-extension"],
+      secrets: CHROME_SECRETS,
+      url: "https://chrome.google.com/webstore/devconsole",
+    },
+    {
+      id: "firefox",
+      surfaces: ["browser-extension"],
+      secrets: FIREFOX_SECRETS,
+      url: "https://addons.mozilla.org/developers/addon/api/key/",
+    },
+    {
+      id: "edge",
+      surfaces: ["browser-extension"],
+      secrets: EDGE_SECRETS,
+      url: "https://partner.microsoft.com/dashboard/microsoftedge/publishapi",
+    },
+    {
+      id: "safari",
+      surfaces: ["browser-extension"],
+      secrets: ASC_SECRETS,
+      url: "https://appstoreconnect.apple.com/access/integrations/api",
+    },
+  ];
+  return rows.filter(
+    (row) =>
+      row.surfaces.every((surface) => has(project, surface)) &&
+      (row.id !== "safari" || project.tool.browserExtension?.safari === true),
+  );
+}
+
+/** Every environment name a secret can be set under: sensitive config keys, then the release registries' tokens. */
+export function secretsOf(project: Project): string[] {
+  const config = Object.entries(configProperties(project))
+    .filter(([, property]) => isSensitive(property))
+    .map(([key]) => envName(key));
+  const release = registries(project).flatMap((row) => row.secrets);
+  return [...new Set([...config, ...release])];
 }

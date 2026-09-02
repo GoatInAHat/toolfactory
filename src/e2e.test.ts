@@ -6,6 +6,7 @@
 import { execFileSync } from "node:child_process";
 import {
   existsSync,
+  lstatSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
@@ -87,6 +88,16 @@ function scratch(): string {
   return dir;
 }
 
+/** The one thing a projector may never write: a paragraph, in the body a region file leaves alone. */
+const PROSE_ANCHOR = "Explain here when an agent should reach for this tool";
+const PROSE = "Reach for it when a demo needs a real tool, not a mock.";
+
+function authorProse(root: string): void {
+  const path = join(root, "skills/hello/SKILL.md");
+  const text = readFileSync(path, "utf8");
+  writeFileSync(path, text.replace(PROSE_ANCHOR, `${PROSE}\n\n${PROSE_ANCHOR}`));
+}
+
 function setSurfaces(root: string, surfaces: SurfaceId[]): void {
   const path = join(root, "dev.toolfactory/tool.json");
   writeFileSync(
@@ -120,6 +131,26 @@ describe.skipIf(!existsSync(repoNodeModules))(
       await commands.introspect(walked);
       setSurfaces(walked, end);
       commands.build(walked);
+
+      // The region inverse: deselecting `skill` empties its regions instead of deleting the file
+      // the author writes prose in, and re-selecting refills the markers the strip preserved.
+      authorProse(walked);
+      setSurfaces(
+        walked,
+        end.filter((id) => id !== "skill"),
+      );
+      expect(commands.build(walked).result.stripped).toEqual(["skills/hello/SKILL.md"]);
+      const husk = readFileSync(join(walked, "skills/hello/SKILL.md"), "utf8");
+      expect(husk).toContain(PROSE);
+      expect(husk).toContain("<!-- tf:operations --><!-- /tf:operations -->");
+      expect(husk).not.toContain("## Operations");
+      expect(
+        lstatSync(join(walked, ".agents/skills/hello"), { throwIfNoEntry: false }),
+      ).toBeUndefined();
+      await expect(commands.check(walked)).resolves.toBeDefined();
+      setSurfaces(walked, end);
+      commands.build(walked);
+
       commands.adopt(walked, "COVERAGE.md");
       writeFileSync(join(walked, "COVERAGE.md"), "hand-written while adopted\n");
       commands.build(walked);
@@ -129,6 +160,7 @@ describe.skipIf(!existsSync(repoNodeModules))(
       const fresh = scratch();
       commands.init({ ...identity, root: fresh, surfaces: end, setup: false });
       await commands.introspect(fresh);
+      authorProse(fresh);
       commands.build(fresh);
 
       expect(tree(walked)).toEqual(tree(fresh));
