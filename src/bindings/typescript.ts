@@ -90,15 +90,16 @@ for (const op of operations) {
     op.name,
     {
       description: op.description,
-      inputSchema: op.input,
-      outputSchema: op.output ?? z.unknown(),
+      inputSchema: op.input as z.ZodObject,
+      outputSchema: (op.output ?? z.unknown()) as z.ZodType,
       annotations: op.annotations,
       _meta: { "dev.toolfactory": { requires: op.requires ?? [] } },
     },
-    async (args) => {
+    async (args: Record<string, unknown>) => {
       const result = await op.handler(args as never, context());
       return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+        resultType: "complete" as const,
+        content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
         structuredContent: result as Record<string, unknown>,
       };
     },

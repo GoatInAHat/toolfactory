@@ -1,0 +1,582 @@
+{
+  "tools": [
+    {
+      "name": "adopt",
+      "description": "Stop regenerating one file; it becomes the author's (recorded as manual in the lock).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "root": {
+            "default": ".",
+            "description": "Project root (directory containing dev.toolfactory/)",
+            "type": "string"
+          },
+          "path": {
+            "type": "string",
+            "description": "Repo-relative path of a generated file"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "adopted": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "adopted"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false
+      },
+      "_meta": {
+        "dev.toolfactory": {
+          "requires": []
+        }
+      }
+    },
+    {
+      "name": "build",
+      "description": "Generate every selected surface in-tree from the identity file and the operation snapshot, and refresh the lock.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "root": {
+            "default": ".",
+            "description": "Project root (directory containing dev.toolfactory/)",
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "written": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "deleted": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unchanged": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "manual": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "written",
+          "deleted",
+          "unchanged",
+          "manual"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "idempotentHint": true
+      },
+      "_meta": {
+        "dev.toolfactory": {
+          "requires": []
+        }
+      }
+    },
+    {
+      "name": "check",
+      "description": "Fail if any generated file drifted from what build would write (the CI drift gate).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "root": {
+            "default": ".",
+            "description": "Project root (directory containing dev.toolfactory/)",
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "_meta": {
+        "dev.toolfactory": {
+          "requires": []
+        }
+      }
+    },
+    {
+      "name": "coverage",
+      "description": "The operation × surface verdict matrix: native, bridged, degraded, or excluded, with reasons.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "root": {
+            "default": ".",
+            "description": "Project root (directory containing dev.toolfactory/)",
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "surfaces": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "operation": {
+                  "type": "string"
+                },
+                "verdicts": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string"
+                      },
+                      "reason": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "operation",
+                "verdicts"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "surfaces",
+          "rows"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "_meta": {
+        "dev.toolfactory": {
+          "requires": []
+        }
+      }
+    },
+    {
+      "name": "doctor",
+      "description": "Report which upstream CLIs this machine can delegate to (claude, openclaw, clawhub, hermes, uvx, agentskills, MCP Inspector, docker).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "toolfactory": {
+            "type": "string"
+          },
+          "node": {
+            "type": "string"
+          },
+          "tools": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "toolfactory",
+          "node",
+          "tools"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "_meta": {
+        "dev.toolfactory": {
+          "requires": []
+        }
+      }
+    },
+    {
+      "name": "eject",
+      "description": "Adopt every file a surface owns, so the author takes it over entirely.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "root": {
+            "default": ".",
+            "description": "Project root (directory containing dev.toolfactory/)",
+            "type": "string"
+          },
+          "surface": {
+            "type": "string",
+            "enum": [
+              "skill",
+              "agent-plugins",
+              "claude",
+              "codex",
+              "cursor",
+              "mcp",
+              "mcp-registry",
+              "cli",
+              "npm",
+              "pypi",
+              "openclaw-native",
+              "hermes-native",
+              "clawhub",
+              "web",
+              "dsh",
+              "workflows"
+            ]
+          }
+        },
+        "required": [
+          "surface"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "adopted": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "adopted"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false
+      },
+      "_meta": {
+        "dev.toolfactory": {
+          "requires": []
+        }
+      }
+    },
+    {
+      "name": "init",
+      "description": "Create a new tool: dev.toolfactory/tool.json, the authored identity file, the kernel scaffold for the chosen language, and the first build of every selected surface.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "root": {
+            "default": ".",
+            "description": "Project root (directory containing dev.toolfactory/)",
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "description": "Tool name: lowercase letters, digits, hyphens, dots (Agent Plugins rule)"
+          },
+          "binding": {
+            "type": "string",
+            "enum": [
+              "typescript",
+              "python"
+            ],
+            "description": "Language of the core logic: typescript or python"
+          },
+          "surfaces": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "skill",
+                "agent-plugins",
+                "claude",
+                "codex",
+                "cursor",
+                "mcp",
+                "mcp-registry",
+                "cli",
+                "npm",
+                "pypi",
+                "openclaw-native",
+                "hermes-native",
+                "clawhub",
+                "web",
+                "dsh",
+                "workflows"
+              ]
+            },
+            "description": "Surfaces to generate"
+          },
+          "description": {
+            "description": "One-line description",
+            "type": "string"
+          },
+          "license": {
+            "description": "SPDX license identifier",
+            "type": "string"
+          },
+          "repository": {
+            "description": "Source repository URL (GitHub URL enables the MCP Registry name)",
+            "type": "string"
+          },
+          "author": {
+            "description": "Author name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "binding",
+          "surfaces"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "written": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "written"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "idempotentHint": true
+      },
+      "_meta": {
+        "dev.toolfactory": {
+          "requires": []
+        }
+      }
+    },
+    {
+      "name": "introspect",
+      "description": "Spawn the kernel MCP server, list its tools, and snapshot them to dev.toolfactory/ops.json.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "root": {
+            "default": ".",
+            "description": "Project root (directory containing dev.toolfactory/)",
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "changed": {
+            "type": "boolean"
+          },
+          "operations": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "path",
+          "changed",
+          "operations"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "idempotentHint": true
+      },
+      "_meta": {
+        "dev.toolfactory": {
+          "requires": []
+        }
+      }
+    },
+    {
+      "name": "unadopt",
+      "description": "Return an adopted file to toolfactory and regenerate it.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "root": {
+            "default": ".",
+            "description": "Project root (directory containing dev.toolfactory/)",
+            "type": "string"
+          },
+          "path": {
+            "type": "string",
+            "description": "Repo-relative path of an adopted file"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "regenerated": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "regenerated"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false
+      },
+      "_meta": {
+        "dev.toolfactory": {
+          "requires": []
+        }
+      }
+    },
+    {
+      "name": "validate",
+      "description": "Run each selected surface's own upstream validator (agentskills, claude plugin validate, MCP Inspector, openclaw, hermes, npm pack, uv build).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "root": {
+            "default": ".",
+            "description": "Project root (directory containing dev.toolfactory/)",
+            "type": "string"
+          },
+          "surface": {
+            "description": "Only this surface",
+            "type": "string",
+            "enum": [
+              "skill",
+              "agent-plugins",
+              "claude",
+              "codex",
+              "cursor",
+              "mcp",
+              "mcp-registry",
+              "cli",
+              "npm",
+              "pypi",
+              "openclaw-native",
+              "hermes-native",
+              "clawhub",
+              "web",
+              "dsh",
+              "workflows"
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "outcomes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "command": {
+                  "type": "string"
+                },
+                "ok": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "label",
+                "command",
+                "ok"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "outcomes"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "_meta": {
+        "dev.toolfactory": {
+          "requires": []
+        }
+      }
+    }
+  ]
+}

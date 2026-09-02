@@ -1,0 +1,65 @@
+{
+  "toolfactoryVersion": "0.1.0",
+  "files": {
+    ".claude-plugin/plugin.json": {
+      "sha256": "ba3dd55659fd1dd070c2c510554a8afcac6edc243414c5385c29ad4f4a60b150",
+      "state": "generated"
+    },
+    ".codex-plugin/plugin.json": {
+      "sha256": "76b4491c803d9934d957a79019c9af74ecaa629919683df733a65eba92e728d8",
+      "state": "generated"
+    },
+    ".cursor-plugin/plugin.json": {
+      "sha256": "40def3ca731a1e29096d9c0aa5a8be4295746ab411a03beeead051247e1a9127",
+      "state": "generated"
+    },
+    "COVERAGE.md": {
+      "sha256": "4256ef7fdc0bd7dcd55384b3f433dcf6c63af3befee61b5f943f10b9a9014738",
+      "state": "generated"
+    },
+    "dev.toolfactory/coverage.json": {
+      "sha256": "0668313e09c7be21cd3215b6c0018ba8c0fd29d7b19463f94dd20cc9d90310bb",
+      "state": "generated"
+    },
+    "dev.toolfactory/inspector.json": {
+      "sha256": "f5eec3e6dcbed33cf0053de4bbcd8502c8b09a9cb7f659340e54c060ddaa1306",
+      "state": "generated"
+    },
+    "dev.toolfactory/tool.schema.json": {
+      "sha256": "7ac7aa7a563ecdd63e33459d2e0c7afbef6790bc0eb35a064ab71ed5e7e437c4",
+      "state": "generated"
+    },
+    "mcp.json": {
+      "sha256": "9606a3103a6c875fc946dd1103e680a478a953b3fcd01bb8085dcaa21b5f5ea1",
+      "state": "generated"
+    },
+    "package.json": {
+      "sha256": "d598d1e731835294553f31c58f07f4da18f6e86962c12621d43bb04fe3d99718",
+      "state": "generated"
+    },
+    "server.json": {
+      "sha256": "a7ada565178b1ef152daed81f73edcf652dab31ad51084ecf89a351cf2998c5f",
+      "state": "generated"
+    },
+    "skills/toolfactory/SKILL.md": {
+      "sha256": "0c4b499eace3b46a47f44568d749d4dd8ba6d4c16b6b4f16c1c2aca6c4855e02",
+      "state": "generated"
+    },
+    "src/toolfactory/cli.ts": {
+      "sha256": "d50992b2017cff1b1e357f9a646955d0e78e668abdfd42f78cb6cfc4900482e0",
+      "state": "generated"
+    },
+    "src/toolfactory/config.ts": {
+      "sha256": "ab94b2833ddfc5eea2ac7d63a4a0bd79e117985481490937e017c3be57a8adfb",
+      "state": "generated"
+    },
+    "src/toolfactory/mcp.ts": {
+      "sha256": "01c4b678bcd31425ec05d95beb61f2870b1ef88c55a88820f6c6bced3cab2e74",
+      "state": "generated"
+    },
+    "src/toolfactory/types.ts": {
+      "sha256": "1b4f3959dbef839f5f533a3da44bae448e6e50b2ac76593669a848a9dfe56045",
+      "state": "generated"
+    }
+  }
+}

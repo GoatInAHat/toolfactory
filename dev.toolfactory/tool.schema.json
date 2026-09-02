@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schemaVersion": {
+      "type": "number",
+      "const": 1
+    },
+    "identity": {
+      "type": "string",
+      "description": "Repo-relative path of the authored identity file (plugin.json, package.json, pyproject.toml, or a host manifest)."
+    },
+    "binding": {
+      "type": "string",
+      "enum": [
+        "typescript",
+        "python"
+      ],
+      "description": "Language of the core logic and its kernel surfaces."
+    },
+    "surfaces": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "skill",
+          "agent-plugins",
+          "claude",
+          "codex",
+          "cursor",
+          "mcp",
+          "mcp-registry",
+          "cli",
+          "npm",
+          "pypi",
+          "openclaw-native",
+          "hermes-native",
+          "clawhub",
+          "web",
+          "dsh",
+          "workflows"
+        ]
+      },
+      "description": "Selected surfaces. A file exists iff a selected surface owns it."
+    },
+    "kernel": {
+      "description": "How to spawn the kernel MCP server for introspection; defaults from the binding.",
+      "type": "object",
+      "properties": {
+        "command": {
+          "type": "string"
+        },
+        "args": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "command"
+      ]
+    },
+    "bundle": {
+      "default": {
+        "runtime": "package"
+      },
+      "description": "How mcp.json reaches the kernel: a published package (npx/uvx) or a committed single-file build.",
+      "type": "object",
+      "properties": {
+        "runtime": {
+          "default": "package",
+          "type": "string",
+          "enum": [
+            "package",
+            "bundled"
+          ]
+        }
+      }
+    },
+    "config": {
+      "description": "JSON Schema 2020-12 object for the tool's configuration; mark secrets with x-toolfactory.sensitive.",
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {}
+    },
+    "tests": {
+      "default": {
+        "examples": {}
+      },
+      "description": "Example arguments per operation, used by the generated surface-smoke tests.",
+      "type": "object",
+      "properties": {
+        "examples": {
+          "default": {},
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        }
+      }
+    },
+    "npm": {
+      "type": "object",
+      "properties": {
+        "scope": {
+          "type": "string"
+        }
+      }
+    },
+    "codex": {
+      "type": "object",
+      "properties": {
+        "interface": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {}
+        }
+      }
+    },
+    "hermes": {
+      "type": "object",
+      "properties": {
+        "toolset": {
+          "type": "string"
+        }
+      }
+    },
+    "openclaw": {
+      "type": "object",
+      "properties": {
+        "profiles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "identity",
+    "binding",
+    "surfaces"
+  ],
+  "additionalProperties": false
+}
