@@ -54,29 +54,39 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** Objects merge key by key, except the paths a merge file owns whole, which are replaced. */
 export function deepMerge(
   base: Record<string, unknown>,
   patch: Record<string, unknown>,
+  owned: string[] = [],
+  prefix = "",
 ): Record<string, unknown> {
   const out: Record<string, unknown> = { ...base };
   for (const [key, value] of Object.entries(patch)) {
+    const path = prefix ? `${prefix}.${key}` : key;
     out[key] =
-      isRecord(value) && isRecord(out[key])
-        ? deepMerge(out[key] as Record<string, unknown>, value)
+      isRecord(value) && isRecord(out[key]) && !owned.includes(path)
+        ? deepMerge(out[key] as Record<string, unknown>, value, owned, path)
         : value;
   }
   return out;
 }
 
-/** The values a merge file owns, read back out of a document. */
+/** The values a merge file owns, read back out of a document; an owned object comes back whole. */
 export function pickPatch(
   document: Record<string, unknown>,
   patch: Record<string, unknown>,
+  owned: string[] = [],
+  prefix = "",
 ): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(patch)) {
     const current = document[key];
-    out[key] = isRecord(value) && isRecord(current) ? pickPatch(current, value) : current;
+    const path = prefix ? `${prefix}.${key}` : key;
+    out[key] =
+      isRecord(value) && isRecord(current) && !owned.includes(path)
+        ? pickPatch(current, value, owned, path)
+        : current;
   }
   return out;
 }
@@ -104,7 +114,7 @@ function currentManagedContent(root: string, file: PlannedFile): string | undefi
   const text = readFileSync(path, "utf8");
   if (file.kind === "file") return text;
   if (file.kind === "region") return extractRegions(text, file)?.join(" ");
-  return JSON.stringify(pickPatch(parseDocument(text, file.format), file.patch));
+  return JSON.stringify(pickPatch(parseDocument(text, file.format), file.patch, file.owned));
 }
 
 /** Compare a plan to the tree without writing. */
@@ -156,8 +166,10 @@ function render(root: string, file: PlannedFile): string {
   const document = parseDocument(text, file.format);
   // A document that already carries the patch is left byte-for-byte alone, so a rebuild never
   // reserializes the author's file (and, for TOML, never drops their comments).
-  if (JSON.stringify(pickPatch(document, file.patch)) === JSON.stringify(file.patch)) return text;
-  return serializeDocument(deepMerge(document, file.patch), file.format);
+  if (JSON.stringify(pickPatch(document, file.patch, file.owned)) === JSON.stringify(file.patch)) {
+    return text;
+  }
+  return serializeDocument(deepMerge(document, file.patch, file.owned), file.format);
 }
 
 /** Write a plan to the tree and refresh the lock. */

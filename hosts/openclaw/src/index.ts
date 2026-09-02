@@ -41,6 +41,37 @@ export default defineToolPlugin({
         }),
     }),
     tool({
+      name: "bootstrap-repo",
+      description: "Prepare the GitHub repository for the live-test tier: create the `live-tests` environment with required reviewers, then set every required sensitive config key as an environment secret from the local .env.",
+      parameters: Type.Unsafe({
+        "type": "object",
+        "properties": {
+          "root": {
+            "default": ".",
+            "description": "Project root (directory containing dev.toolfactory/)",
+            "type": "string"
+          },
+          "reviewers": {
+            "default": [],
+            "description": "GitHub logins that must approve a live run",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dryRun": {
+            "default": false,
+            "description": "Print the gh invocations instead of running them",
+            "type": "boolean"
+          }
+        }
+      }),
+      execute: async (params, config) =>
+        operation("bootstrap-repo").handler(params as never, {
+          config: config as Record<string, string | undefined>,
+        }),
+    }),
+    tool({
       name: "build",
       description: "Generate every selected surface in-tree from the identity file and the operation snapshot, and refresh the lock.",
       parameters: Type.Unsafe({

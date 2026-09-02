@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse as yamlParse } from "yaml";
+import { bootstrapRepo } from "../hosts/github.js";
 import type { Operation, Project, SurfaceId } from "../model.js";
 import { surface } from "./workflows.js";
 
@@ -167,6 +168,35 @@ describe("workflows", () => {
     expect(composeHermes.services.openclaw).toBeUndefined();
   });
 
+  it("adds the T4 live job, and workflow_dispatch, iff a config key is required and sensitive", () => {
+    const ci = yamlParse(emitted(project(["cli"]))[".github/workflows/ci.yml"]);
+    expect(ci.on.workflow_dispatch).toEqual({});
+    const live = ci.jobs.live;
+    expect(live.needs).toBe("test");
+    expect(live.environment).toBe("live-tests");
+    // A fork's pull request must never see the live-tests secrets.
+    expect(live.if).toBe(
+      "github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository",
+    );
+    // Every sensitive key, not only the required ones: an optional credential is still a secret.
+    expect(live.env).toEqual({ API_KEY: "${{ secrets.API_KEY }}" });
+    expect((live.steps as { run?: string }[]).at(-1)?.run).toBe("npm run --if-present test:live");
+
+    const python = project(["cli"], { tool: { ...project(["cli"]).tool, binding: "python" } });
+    expect(
+      (
+        yamlParse(emitted(python)[".github/workflows/ci.yml"]).jobs.live.steps as { run?: string }[]
+      ).at(-1)?.run,
+    ).toBe("uv run --with pytest pytest -q tests/test_live.py");
+
+    // api_key optional: nothing gates a live run, so no live job and no workflow_dispatch.
+    const noCredential = project(["cli"]);
+    noCredential.tool.config = { ...noCredential.tool.config, required: [] };
+    const plain = yamlParse(emitted(noCredential)[".github/workflows/ci.yml"]);
+    expect(plain.jobs.live).toBeUndefined();
+    expect(plain.on.workflow_dispatch).toBeUndefined();
+  });
+
   it(".env.example lists every config key uppercased, secrets and required marked", () => {
     const env = emitted(project(["cli"]))[".env.example"];
     expect(env).toContain("API_KEY=");
@@ -202,5 +232,33 @@ describe.skipIf(!actionlintAvailable())("actionlint", () => {
     // actionlint otherwise walks up looking for a git repo to find `.github/workflows`;
     // point it straight at the files instead.
     execFileSync("actionlint", workflowPaths, { cwd: dir });
+  });
+});
+
+/**
+ * `bootstrap-repo`: the one-time I/O the live job depends on. It shells to the official `gh`
+ * CLI, so the unit under test is the invocation list — which `--dry-run` returns without
+ * touching the network — and the fact that no secret value appears in it.
+ */
+describe("bootstrap-repo", () => {
+  it("prepares the live-tests environment through gh, with values only ever on stdin", () => {
+    const target = project(["cli"], {
+      root: "/repo",
+      identity: { name: "hello", repository: "https://github.com/acme/hello.git" },
+    });
+    const result = bootstrapRepo(target, { reviewers: ["ada"], dryRun: true });
+    expect(result.repository).toBe("acme/hello");
+    expect(result.secrets).toEqual(["API_KEY"]);
+    expect(result.commands).toEqual([
+      "gh api users/ada --jq .id",
+      'gh api --method PUT repos/acme/hello/environments/live-tests --input - <<< \'{"reviewers":[{"type":"User","id":"<id of ada>"}]}\'',
+      "gh secret set API_KEY --env live-tests --repo acme/hello  # value from /repo/.env, on stdin",
+    ]);
+
+    const anonymous = project(["cli"], { identity: { name: "hello" } });
+    expect(() => bootstrapRepo(anonymous, { dryRun: true })).toThrow(/GitHub repository URL/);
+    const noCredential = project(["cli"], { identity: target.identity });
+    noCredential.tool.config = { ...noCredential.tool.config, required: [] };
+    expect(() => bootstrapRepo(noCredential, { dryRun: true })).toThrow(/nothing to do/);
   });
 });

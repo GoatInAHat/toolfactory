@@ -15,6 +15,7 @@
  * - `renovate.json` — always: `config:recommended` already covers npm/PyPI/Actions/Docker.
  */
 import { stringify as yamlStringify } from "yaml";
+import { LIVE_TEST_COMMAND } from "../bindings/python.js";
 import type { PackageManager, PlannedFile, Project, Surface } from "../model.js";
 import { hermesInstall, pluginDir as hermesPluginDir } from "./hermes-native.js";
 import {
@@ -24,6 +25,7 @@ import {
   has,
   isSensitive,
   json,
+  liveCredentials,
   requiredConfig,
 } from "./shared.js";
 
@@ -144,6 +146,49 @@ function checkSteps(project: Project, node: string, matrix: boolean): Step[] {
 // ci.yml — always.
 // ---------------------------------------------------------------------------------------------
 
+/**
+ * T4: the live tier runs the binding's live test with the real credentials, so it exists iff
+ * the generated live test does — when `config` declares a key that is both required and
+ * sensitive. Its secrets come from the `live-tests` environment, whose required reviewers
+ * `toolfactory bootstrap-repo` sets, and the `if` keeps a fork's pull request away from them
+ * (an environment gates deployments, not the checkout an untrusted PR ships).
+ */
+function liveJob(project: Project): Record<string, unknown> | undefined {
+  if (liveCredentials(project).length === 0) return undefined;
+  const properties = configProperties(project);
+  const secrets = Object.keys(properties).filter((key) =>
+    isSensitive(properties[key] as Record<string, unknown>),
+  );
+  const pmName = project.packageManager ?? "npm";
+  const pm = PACKAGE_MANAGERS[pmName];
+  const steps: Step[] =
+    project.tool.binding === "typescript"
+      ? [
+          { uses: "actions/checkout@v6" },
+          ...pm.setup,
+          { uses: "actions/setup-node@v6", with: { "node-version": "24", cache: pmName } },
+          { run: pm.install },
+          { run: pm.run("build") },
+          { name: "live tests", run: pm.run("test:live") },
+        ]
+      : [
+          { uses: "actions/checkout@v6" },
+          { uses: "astral-sh/setup-uv@v6", with: { "python-version": "3.12" } },
+          { run: "uv sync" },
+          { name: "live tests", run: LIVE_TEST_COMMAND },
+        ];
+  return {
+    needs: "test",
+    if: "github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository",
+    "runs-on": "ubuntu-latest",
+    environment: "live-tests",
+    env: Object.fromEntries(
+      secrets.map((key) => [envName(key), `\${{ secrets.${envName(key)} }}`]),
+    ),
+    steps,
+  };
+}
+
 function ciDocument(project: Project): Record<string, unknown> {
   const typescript = project.tool.binding === "typescript";
   const job = compact({
@@ -151,11 +196,17 @@ function ciDocument(project: Project): Record<string, unknown> {
     strategy: typescript ? { matrix: { "node-version": ["22", "24"] } } : undefined,
     steps: checkSteps(project, typescript ? "${{ matrix.node-version }}" : "24", typescript),
   });
+  const live = liveJob(project);
   return {
     name: "CI",
-    on: { push: { branches: ["main"] }, pull_request: {} },
+    on: compact({
+      push: { branches: ["main"] },
+      pull_request: {},
+      // The live tier is also the one job a maintainer wants to fire by hand.
+      workflow_dispatch: live ? {} : undefined,
+    }),
     permissions: { contents: "read" },
-    jobs: { test: job },
+    jobs: compact({ test: job, live }),
   };
 }
 

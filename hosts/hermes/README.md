@@ -20,6 +20,7 @@ hermes plugins enable toolfactory
 ## Tools
 
 - `adopt` — Stop regenerating one file; it becomes the author's (recorded as manual in the lock). (degraded:out-of-process)
+- `bootstrap-repo` — Prepare the GitHub repository for the live-test tier: create the `live-tests` environment with required reviewers, then set every required sensitive config key as an environment secret from the local .env. (degraded:out-of-process)
 - `build` — Generate every selected surface in-tree from the identity file and the operation snapshot, and refresh the lock. (degraded:out-of-process)
 - `check` — Fail if the operation snapshot or any generated file drifted from the code (the CI drift gate). (degraded:out-of-process)
 - `coverage` — The operation × surface verdict matrix: native, bridged, degraded, or excluded, with reasons. (degraded:out-of-process)

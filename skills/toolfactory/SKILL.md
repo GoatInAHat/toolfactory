@@ -56,6 +56,14 @@ Arguments: `root`, `path`.
 
 `toolfactory adopt --json '<arguments>'` prints a JSON result. MCP tool `adopt` on server `toolfactory` returns the same result as `structuredContent`.
 
+### bootstrap-repo
+
+Prepare the GitHub repository for the live-test tier: create the `live-tests` environment with required reviewers, then set every required sensitive config key as an environment secret from the local .env.
+
+Arguments: `root`, `reviewers`, `dryRun`.
+
+`toolfactory bootstrap-repo --json '<arguments>'` prints a JSON result. MCP tool `bootstrap-repo` on server `toolfactory` returns the same result as `structuredContent`.
+
 ### build
 
 Generate every selected surface in-tree from the identity file and the operation snapshot, and refresh the lock.

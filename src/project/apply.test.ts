@@ -125,6 +125,31 @@ describe("apply / check — merge files", () => {
     expect(check(root, plan, "0.1.0")).toEqual([]);
   });
 
+  it("replaces an owned object whole, so a renamed key does not leave its old name behind", () => {
+    const root = tmp();
+    mkdirSync(root, { recursive: true });
+    const bin = (name: string): MergeFile[] => [
+      {
+        kind: "merge",
+        path: "package.json",
+        format: "json",
+        patch: { name, bin: { [name]: "./dist/cli.js" } },
+        owned: ["bin"],
+      },
+    ];
+    apply(root, bin("hello"), "0.1.0");
+    apply(root, bin("renamed"), "0.1.0");
+    const document = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+    expect(document.bin).toEqual({ renamed: "./dist/cli.js" });
+    writeFileSync(
+      join(root, "package.json"),
+      JSON.stringify({ ...document, bin: { ...document.bin, stale: "./x" } }),
+    );
+    expect(check(root, bin("renamed"), "0.1.0")).toEqual([
+      { path: "package.json", kind: "changed" },
+    ]);
+  });
+
   it("round-trips a TOML patch, merging into and preserving existing content", () => {
     const root = tmp();
     mkdirSync(root, { recursive: true });

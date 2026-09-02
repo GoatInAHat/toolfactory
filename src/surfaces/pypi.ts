@@ -30,7 +30,13 @@ export const surface: Surface = {
       }),
     };
     const files = [
-      { kind: "merge" as const, path: "pyproject.toml", format: "toml" as const, patch },
+      {
+        kind: "merge" as const,
+        path: "pyproject.toml",
+        format: "toml" as const,
+        patch,
+        owned: ["project.scripts"],
+      },
     ];
     if (!registry) return files;
     const marker = `\n<!-- mcp-name: ${registryName(project)} -->\n`;

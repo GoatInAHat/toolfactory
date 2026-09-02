@@ -45,6 +45,7 @@ export function buildPlan(
   // The kernel exists for every tool: it is what the author's operation module imports and
   // what `introspect` spawns, whether or not the mcp surface ships it.
   files.push(...getBinding(project.tool.binding).kernel(project));
+  files.push(...getBinding(project.tool.binding).liveTest(project));
   files.push({ kind: "file", path: TOOL_SCHEMA_PATH, content: json(toolJsonSchema()) });
   const coverage = computeCoverage(project, surfaces);
   files.push({ kind: "file", path: COVERAGE_PATH, content: json(coverage) });

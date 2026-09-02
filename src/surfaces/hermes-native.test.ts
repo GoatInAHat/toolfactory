@@ -81,7 +81,6 @@ describe("hermes-native", () => {
       {
         name: "APIKEY",
         description: "Acme key",
-        prompt: "Acme key",
         secret: true,
         url: "https://a",
       },
@@ -109,6 +108,8 @@ describe("hermes-native", () => {
     });
     expect(shim).toContain('KERNEL = ["node", "--import", "tsx", "src/toolfactory/cli.ts"]');
     expect(shim).toContain('_ROOT = os.environ.get("HELLO_ROOT")');
+    // Hermes' own per-plugin data directory reaches the kernel through the shared variable.
+    expect(shim).toContain('os.environ.setdefault("HELLO_DATA_DIR", str(ctx.state.data_dir))');
 
     const native = emitted(python)[`${pluginDir(python)}/__init__.py`] ?? "";
     expect(surface.verdict?.(echo, python)).toEqual({ kind: "native" });
