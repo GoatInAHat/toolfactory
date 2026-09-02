@@ -46,7 +46,8 @@
           "agents",
           "readme",
           "gemini",
-          "mcpb"
+          "mcpb",
+          "browser-extension"
         ]
       },
       "description": "Selected surfaces. A file exists iff a selected surface owns it."
@@ -135,6 +136,42 @@
             "type": "string"
           },
           "additionalProperties": {}
+        }
+      }
+    },
+    "browserExtension": {
+      "type": "object",
+      "properties": {
+        "endpoint": {
+          "description": "The kernel's mcp --http URL the extension pairs with; defaults to the kernel's own default port.",
+          "type": "string"
+        },
+        "authDomains": {
+          "description": "Match patterns the extension may act in with the user's own session (host_permissions).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cookieExport": {
+          "description": "Opt in to exporting the session cookies of authDomains to the kernel (needs the cookies permission; Chromium and Firefox only).",
+          "type": "boolean"
+        },
+        "geckoId": {
+          "description": "Firefox add-on id; defaults to <name>@<github owner>.github.io.",
+          "type": "string"
+        },
+        "icon": {
+          "description": "Repo-relative source PNG or SVG the icon set is resized from; the placeholder set otherwise.",
+          "type": "string"
+        },
+        "sidePanel": {
+          "description": "Also register a Chromium side panel (Chromium only).",
+          "type": "boolean"
+        },
+        "safari": {
+          "description": "Add the macOS Safari packaging leg to the release workflow.",
+          "type": "boolean"
         }
       }
     },

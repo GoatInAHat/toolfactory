@@ -157,6 +157,7 @@ def context() -> Context:
 }
 
 function mcpTemplate(project: Project): string {
+  const tokenEnv = `${envName(project.identity.name)}_MCP_TOKEN`;
   return `${HEADER}"""The kernel MCP server: every operation registered from its pydantic input model.
 
 Serves over stdio by default; \`serve_http()\` (or the CLI's \`mcp --http [port]\`) serves the
@@ -164,14 +165,18 @@ same server over MCP streamable HTTP instead, via \`MCPServer.run(transport="str
 """
 
 import argparse
+import hashlib
+import hmac
 import inspect
 import os
+import secrets
+from pathlib import Path
 from typing import Annotated, Any
 
 from mcp.server.mcpserver import MCPServer
 
 from ..ops import OPERATIONS
-from .config import context
+from .config import context, data_dir
 from .types import Operation, serves
 
 server = MCPServer(
@@ -224,9 +229,70 @@ def serve() -> None:
     server.run("stdio")
 
 
-def serve_http(host: str = "127.0.0.1", port: int = 3000, path: str = "/mcp") -> None:
+#: The pairing token, so a browser extension (or anything else on loopback) can prove it is the
+#: client the user paired: the endpoint requires \`Authorization: Bearer <token>\` when
+#: ${tokenEnv} is set or \`mcp --http --pair\` has written one under the data directory. With
+#: neither, nothing changes and the endpoint stays open on loopback.
+TOKEN_FILE = "relay-token"
+
+
+def token_path() -> Path:
+    return data_dir() / TOKEN_FILE
+
+
+def paired_token() -> str | None:
+    configured = os.environ.get(${JSON.stringify(tokenEnv)})
+    if configured:
+        return configured
+    try:
+        return token_path().read_text().strip() or None
+    except OSError:
+        return None
+
+
+def mint_token(url: str) -> str:
+    """\`--pair\`: mint a token, keep it 0600 under the data directory, print \`<url>#<token>\`."""
+    token = secrets.token_urlsafe(32)
+    path = token_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"{token}\\n")
+    path.chmod(0o600)
+    print(f"{url}#{token}", flush=True)
+    return token
+
+
+def guard(app: Any, token: str) -> Any:
+    """Wrap the ASGI app: no \`Authorization: Bearer <token>\`, no request. Constant-time compare."""
+    expected = hashlib.sha256(token.encode()).digest()
+
+    async def guarded(scope: Any, receive: Any, send: Any) -> None:
+        if scope["type"] == "http":
+            presented = dict(scope["headers"]).get(b"authorization", b"").removeprefix(b"Bearer ")
+            if not hmac.compare_digest(hashlib.sha256(presented).digest(), expected):
+                await send(
+                    {
+                        "type": "http.response.start",
+                        "status": 401,
+                        "headers": [(b"www-authenticate", b"Bearer")],
+                    }
+                )
+                await send({"type": "http.response.body", "body": b""})
+                return
+        await app(scope, receive, send)
+
+    return guarded
+
+
+def serve_http(host: str = "127.0.0.1", port: int = 3000, path: str = "/mcp", pair: bool = False) -> None:
     """Serve over MCP streamable HTTP instead of stdio. Opt-in; stdio stays the default transport."""
-    server.run("streamable-http", host=host, port=port, streamable_http_path=path, stateless_http=True)
+    token = mint_token(f"http://{host}:{port}{path}") if pair else paired_token()
+    if token is None:
+        server.run("streamable-http", host=host, port=port, streamable_http_path=path, stateless_http=True)
+        return
+    import uvicorn
+
+    app = server.streamable_http_app(streamable_http_path=path, stateless_http=True, host=host)
+    uvicorn.run(guard(app, token), host=host, port=port)
 
 
 def main() -> None:
@@ -240,8 +306,16 @@ def main() -> None:
         metavar="PORT",
         help="serve over MCP streamable HTTP instead of stdio (default port 3000, host 127.0.0.1, path /mcp)",
     )
+    parser.add_argument(
+        "--pair",
+        action="store_true",
+        help="serve over HTTP with a fresh pairing token: prints <url>#<token> and requires it as a bearer token",
+    )
     args = parser.parse_args()
-    serve_http(port=args.http) if args.http is not None else serve()
+    if args.http is None and not args.pair:
+        serve()
+    else:
+        serve_http(port=args.http or 3000, pair=args.pair)
 
 
 if __name__ == "__main__":
@@ -264,15 +338,20 @@ function cliTemplate(project: Project): string {
         metavar="PORT",
         help="serve over MCP streamable HTTP instead of stdio (default port 3000, host 127.0.0.1, path /mcp)",
     )
+    mcp.add_argument(
+        "--pair",
+        action="store_true",
+        help="serve over HTTP with a fresh pairing token: prints <url>#<token> and requires it as a bearer token",
+    )
     mcp.set_defaults(tf_operation=None, tf_schema={})
 `
     : "";
   const mcpDispatch = has(project, "mcp")
     ? `    if options.tf_operation is None:
-        if options.http is not None:
+        if options.http is not None or options.pair:
             from .mcp import serve_http
 
-            serve_http(port=options.http)
+            serve_http(port=options.http or 3000, pair=options.pair)
         else:
             from .mcp import serve
 

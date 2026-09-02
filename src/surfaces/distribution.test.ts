@@ -91,8 +91,8 @@ describe("readme", () => {
     expect(body).not.toContain("openclaw");
   });
 
-  it("adds the Codex, Gemini and MCPB install lines, and skips the badges without a registry", () => {
-    const body = region(project(["mcp", "codex", "gemini", "mcpb"]));
+  it("adds the Codex, Gemini, MCPB and browser-extension lines, and skips the badges without a registry", () => {
+    const body = region(project(["mcp", "codex", "gemini", "mcpb", "browser-extension"]));
     expect(body).not.toContain("vscode.dev/redirect/mcp/install");
     expect(body).not.toContain("cursor.com/en/install-mcp");
     expect(body).toContain("`codex plugin marketplace add GoatInAHat/Hello-Tool`");
@@ -101,6 +101,15 @@ describe("readme", () => {
     expect(body).toContain(
       "download `hello.mcpb` from the GitHub Release and double-click to install",
     );
+    // The extension's three channels — unpacked from a checkout, the release assets (only the
+    // signed xpi installs itself), the store listings — and the pairing step that ends each.
+    expect(body).toContain("Load unpacked → `hosts/browser/.output/chrome-mv3`");
+    expect(body).toContain("web-ext run");
+    expect(body).toContain(
+      "`hello-0.1.0-chrome.zip`, `hello-0.1.0-firefox.zip`, `hello-0.1.0-edge.zip`",
+    );
+    expect(body).toContain("Mozilla-signed `.xpi`");
+    expect(body).toContain("`npx -y hello mcp --http --pair`");
   });
 
   it("falls back to the local checkout when the identity carries no GitHub repository", () => {

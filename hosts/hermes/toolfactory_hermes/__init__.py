@@ -148,7 +148,8 @@ TOOLS = json.loads(
             "agents",
             "readme",
             "gemini",
-            "mcpb"
+            "mcpb",
+            "browser-extension"
           ]
         }
       },
@@ -219,7 +220,8 @@ TOOLS = json.loads(
               "agents",
               "readme",
               "gemini",
-              "mcpb"
+              "mcpb",
+              "browser-extension"
             ]
           },
           "description": "Surfaces to generate"
@@ -370,7 +372,8 @@ TOOLS = json.loads(
             "agents",
             "readme",
             "gemini",
-            "mcpb"
+            "mcpb",
+            "browser-extension"
           ]
         }
       }

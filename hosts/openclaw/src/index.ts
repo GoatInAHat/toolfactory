@@ -189,7 +189,8 @@ const entry = defineToolPlugin({
               "agents",
               "readme",
               "gemini",
-              "mcpb"
+              "mcpb",
+              "browser-extension"
             ]
           }
         },
@@ -270,7 +271,8 @@ const entry = defineToolPlugin({
                 "agents",
                 "readme",
                 "gemini",
-                "mcpb"
+                "mcpb",
+                "browser-extension"
               ]
             },
             "description": "Surfaces to generate"
@@ -441,7 +443,8 @@ const entry = defineToolPlugin({
               "agents",
               "readme",
               "gemini",
-              "mcpb"
+              "mcpb",
+              "browser-extension"
             ]
           }
         }

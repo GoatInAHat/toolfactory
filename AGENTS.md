@@ -163,6 +163,14 @@ the operations it is writing; register nothing by hand.
   `--patch hosts/dsh/cordis.local.patch.yml` and no bundle installed to drive this checkout
   instead. Every config variable is restated in the row's `env:` because DSH scrubs
   KEY/PASSWORD/SECRET/TOKEN names before spawning an MCP server.
+- **Browser extension**: `npm --prefix hosts/browser install && npm --prefix hosts/browser exec --no -- wxt build`,
+  then `chrome://extensions` → developer mode → Load unpacked → `hosts/browser/.output/chrome-mv3`;
+  `npm --prefix hosts/browser exec --no -- web-ext run` does the same for Firefox. Pair it with this
+  checkout's kernel: `node --import tsx src/toolfactory/cli.ts mcp --http --pair` mints a token under the data
+  directory and prints the `<url>#<token>` the extension's options page accepts (with no token minted
+  and no `TOOLFACTORY_MCP_TOKEN` in the environment the endpoint stays open on loopback). The content
+  script's selectors are yours to maintain: it is authored escape-hatch code against a page that
+  changes on its own schedule, and nothing here can version-proof it.
 
 Codex and Cursor read this file as is; Claude Code and Gemini read `CLAUDE.md` / `GEMINI.md`,
 each of which `.agents/sync.py` renders as the one line `@AGENTS.md`.
@@ -197,6 +205,10 @@ Registration is automated; reload is not, and only some harnesses have one.
 | Factory (`droid`) | None: it reloads when `.factory/mcp.json` changes. | Reads `AGENTS.md` natively. |
 | VS Code | The per-server Restart control, or `chat.mcp.autostart` (experimental). | Reads `AGENTS.md` and `.agents/skills/` natively. |
 | Cursor, Qwen, OpenCode, Kilo, Amp, CodeBuddy | No primary-source reload documentation: assume a restart. | Reads `AGENTS.md` and `.agents/skills/` natively. |
+
+The browser extension reloads on the browser's terms: `npm --prefix hosts/browser exec --no -- wxt dev`
+hot-reloads it as you edit, a `wxt build` output needs the Reload button on `chrome://extensions`,
+and Firefox's `web-ext run` reloads on change. Re-pair only after minting a new token.
 
 ## Worktrees
 

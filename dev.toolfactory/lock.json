@@ -87,7 +87,7 @@
       "state": "generated"
     },
     ".github/workflows/release.yml": {
-      "sha256": "8ad4d53683c7dcf91cc53cd6a36cfc7bfeb0bec1cbb0757062d568f0a01f77cd",
+      "sha256": "efdf69e5fb8ed7bfd389ad21070273aee278dbccbd80a8ae0eb6f4a8d5cf6a89",
       "state": "generated"
     },
     ".gitignore": {
@@ -95,7 +95,7 @@
       "state": "generated"
     },
     "AGENTS.md": {
-      "sha256": "53901073c0cdd6faebf20fbae9133593a9512dbee5b830e08d3d88bcf919bc80",
+      "sha256": "46e59d2923e2c39df4c108b5e397175551c2457527eb04787f26e8384b259251",
       "state": "generated"
     },
     "compose.toolfactory.yaml": {
@@ -103,11 +103,11 @@
       "state": "generated"
     },
     "COVERAGE.md": {
-      "sha256": "d0113f935adda75573eb087dc450d5183a2a1b6b8667953be0c9f4ddee1c257f",
+      "sha256": "5272455fb92acecdc784b78a7afb403df25dfc4f7af51155f669b014b16b51fc",
       "state": "generated"
     },
     "dev.toolfactory/coverage.json": {
-      "sha256": "1d69933c96ed05db2d02d02d999c2783a6dad287ff7bb26be055a0fb396a6c10",
+      "sha256": "de15777add9fcfa8e3c35a91cce773e44dafefd322994cb0d3e323178a0c67f1",
       "state": "generated"
     },
     "dev.toolfactory/inspector.json": {
@@ -115,7 +115,7 @@
       "state": "generated"
     },
     "dev.toolfactory/tool.schema.json": {
-      "sha256": "6237de615d78d27a8ea567c486df6ce7520fdb3fc12552512685b782336bbbc7",
+      "sha256": "7cc03b0e4f8e2b1e616e288fb896e541c4e15c6a419a331a1a4afeaae498ba72",
       "state": "generated"
     },
     "Dockerfile": {
@@ -124,6 +124,115 @@
     },
     "gemini-extension.json": {
       "sha256": "df86748e6c0188bf8b070ebaffadd287023bdf5cafae5334b439b4e5c49b2c64",
+      "state": "generated"
+    },
+    "hosts/browser/.gitignore": {
+      "sha256": "b727faab67a7bdc19094e7915a3b0b343b3d8af60bbb0db49401e088ae9b06a5",
+      "state": "generated"
+    },
+    "hosts/browser/entrypoints/background.ts": {
+      "sha256": "37abc1913f07391e70c683fd06b5c5ec75bf483a43b613d3374a0d66d2ee4448",
+      "state": "generated"
+    },
+    "hosts/browser/entrypoints/example.content.ts": {
+      "sha256": "af0ccf8dfdf49ee3740375b4eccd955a78decdfb227d31295b06b44be6bb8237",
+      "state": "generated"
+    },
+    "hosts/browser/entrypoints/options/index.html": {
+      "sha256": "1d91728547796836a107407c6fcc73b54cd1b64fd45f2558e5c28abb45ba73ff",
+      "state": "generated"
+    },
+    "hosts/browser/entrypoints/options/main.tsx": {
+      "sha256": "7fc652f7f8e629105da59378d664827d96f56fac41f229c45e66a24990d5b7d3",
+      "state": "generated"
+    },
+    "hosts/browser/entrypoints/popup/index.html": {
+      "sha256": "6e536385799dcb23bf15675d9f9cead9257713c961a04df2cb580a61cb3ce69e",
+      "state": "generated"
+    },
+    "hosts/browser/entrypoints/popup/main.tsx": {
+      "sha256": "7fc652f7f8e629105da59378d664827d96f56fac41f229c45e66a24990d5b7d3",
+      "state": "generated"
+    },
+    "hosts/browser/env.d.ts": {
+      "sha256": "6d0404c915bd7fe731348a2c9e7e570dcb24202c6d09c858a6f134a5ebfede6e",
+      "state": "generated"
+    },
+    "hosts/browser/package.json": {
+      "sha256": "f35f3055f882141160d5451c0e7dc1288ad5bbd0703e0bafc56f3e0447ebbadf",
+      "state": "generated",
+      "keys": [
+        "name",
+        "description",
+        "private",
+        "version",
+        "type",
+        "scripts.dev",
+        "scripts.dev:firefox",
+        "scripts.build",
+        "scripts.build:firefox",
+        "scripts.zip",
+        "scripts.zip:firefox",
+        "scripts.compile",
+        "scripts.postinstall",
+        "scripts.test",
+        "scripts.smoke",
+        "dependencies.react",
+        "dependencies.react-dom",
+        "devDependencies.@tailwindcss/vite",
+        "devDependencies.@types/react",
+        "devDependencies.@types/react-dom",
+        "devDependencies.@webext-core/fake-browser",
+        "devDependencies.@wxt-dev/module-react",
+        "devDependencies.playwright",
+        "devDependencies.typescript",
+        "devDependencies.vitest",
+        "devDependencies.web-ext",
+        "devDependencies.wxt"
+      ]
+    },
+    "hosts/browser/README.md": {
+      "sha256": "439dc282e49c9f14e2471681c5d1f7462eb2f9c2bd8962a8f46f02c96bedef75",
+      "state": "generated"
+    },
+    "hosts/browser/TARGETS.md": {
+      "sha256": "0d6acc210983a499d145ddf4036b75bbca6e373367842164ddcdbabe83897c1a",
+      "state": "generated"
+    },
+    "hosts/browser/tests/background.test.ts": {
+      "sha256": "54c6ddb6a780733e7a52d73d7d77dbee42292c99b17bbbaf4bc196b357a04759",
+      "state": "generated"
+    },
+    "hosts/browser/tests/smoke.mjs": {
+      "sha256": "7bcb472bed5b3082924edaa6d5dd8961f5ba147ea802027fd1022d580673d21e",
+      "state": "generated"
+    },
+    "hosts/browser/tsconfig.json": {
+      "sha256": "d0386e696869c0d4763d7073a9484a520c8cc51cac942cde4ff5472e2341718c",
+      "state": "generated"
+    },
+    "hosts/browser/utils/mcp.ts": {
+      "sha256": "5db29610f0797aa2f9b7aca30502664ba95581d449a7edc125a24e9d5cfb51de",
+      "state": "generated"
+    },
+    "hosts/browser/utils/page.css": {
+      "sha256": "ee4577b6dc02c07ecd89b7c10a0f79a11acf7289670b21c4af5d13a5479051a8",
+      "state": "generated"
+    },
+    "hosts/browser/utils/page.tsx": {
+      "sha256": "402009a49775b62a38e9c71730c3344d4fc353f58ed8ef2ed80a8c5f70fcc902",
+      "state": "generated"
+    },
+    "hosts/browser/vitest.config.ts": {
+      "sha256": "74b25baf668fb4cb3dc84e2bf0a273b9ca7b7937bb2982b595abaec298a4791c",
+      "state": "generated"
+    },
+    "hosts/browser/web-ext-config.mjs": {
+      "sha256": "161c171d08801e9f9efdfc2955888b2e2e115ff30e87c742a0ac23d00d292373",
+      "state": "generated"
+    },
+    "hosts/browser/wxt.config.ts": {
+      "sha256": "0432b14ec149a0c7f79883e68055f85250d6c25aebf946de61274a5b29822c19",
       "state": "generated"
     },
     "hosts/dsh/cordis.local.patch.yml": {
@@ -151,7 +260,7 @@
       "state": "generated"
     },
     "hosts/hermes/toolfactory_hermes/__init__.py": {
-      "sha256": "0690d8877544cf57ee0ddb3737a149bc1925082eef37edb6a4b7e833d7209ad4",
+      "sha256": "625cdd9b1683e49695f08c7204393eb6622f67fa447b5f2cdf51ed6c36d1e45b",
       "state": "generated"
     },
     "hosts/hermes/toolfactory_hermes/plugin.yaml": {
@@ -191,7 +300,7 @@
       "state": "generated"
     },
     "hosts/openclaw/src/index.ts": {
-      "sha256": "3354a4766a445a8a406640bce0bf6d29bc682379e1e4cf8066f37dfdf3d4299f",
+      "sha256": "829d14b17f0542c592495c672510842ab73b72289b6388ca72dafb2ba9a8ad60",
       "state": "generated"
     },
     "hosts/openclaw/tsconfig.json": {
@@ -229,7 +338,7 @@
       ]
     },
     "README.md": {
-      "sha256": "401443e979d134e4ac5f8309c8c123a4cc634e3c5e6836a5480f4300835f85a1",
+      "sha256": "b762c3b1ff1d366d3f82f96b02d8ce3024c9585d8a174adae4135122928173c5",
       "state": "generated"
     },
     "renovate.json": {
@@ -251,7 +360,7 @@
       "state": "generated"
     },
     "src/toolfactory/cli.ts": {
-      "sha256": "b2fe1f258919804d0d07c69a29a682d3d885d3164d4bdc27197bf694caabea0f",
+      "sha256": "d354a3307a54f620ac3d92486dd1bf96210f2ce8bcd61ac56f902557f72df84b",
       "state": "generated"
     },
     "src/toolfactory/config.ts": {
@@ -259,7 +368,7 @@
       "state": "generated"
     },
     "src/toolfactory/mcp.ts": {
-      "sha256": "744207bd76e0c42e5a53122ac17b98bf6287c401efba8a864b2d21657aac27ff",
+      "sha256": "88c2133f48a565077fd3b5c49daf188d4bbf88d8c315b4fe9eb7721138410cd5",
       "state": "generated"
     },
     "src/toolfactory/types.ts": {
@@ -334,7 +443,7 @@
       "state": "generated"
     },
     "web/src/ops.json": {
-      "sha256": "5474891823a13aed23c2aa5d4b9a3e39fb7c1ca12dc5dd94d9d31c657314d97b",
+      "sha256": "13786ab24d78b865570787322ad6cc556c7b21816c619972e5bfea869e6e6784",
       "state": "generated"
     },
     "web/src/schema-form.tsx": {

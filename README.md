@@ -23,6 +23,14 @@ generated and every surface still installs, builds and publishes.
 - **OpenClaw plugin** — `openclaw plugins install --link hosts/openclaw` from a checkout
 - **Hermes plugin** — `hermes plugins install https://github.com/GoatInAHat/toolfactory#hosts/hermes/toolfactory_hermes`
 - **DSH plugin** (experimental) — `dsh plugin --profile <profile> add ./hosts/dsh` from a checkout, or the release tarball `toolfactory-dsh-0.1.0.tgz`
+- **Browser extension** — from a checkout: `npm --prefix hosts/browser install && npm --prefix hosts/browser exec --no -- wxt build`,
+  then `chrome://extensions` → developer mode → Load unpacked → `hosts/browser/.output/chrome-mv3`
+  (Firefox: `npm --prefix hosts/browser exec --no -- web-ext run`). Each GitHub Release attaches the
+  store uploads `toolfactory-0.1.0-chrome.zip`, `toolfactory-0.1.0-firefox.zip`, `toolfactory-0.1.0-edge.zip`, and the Mozilla-signed `.xpi`,
+  which is the only download-and-install channel now that Chrome no longer keeps side-loaded unpacked
+  extensions; the Chrome Web Store, Firefox Add-ons and Edge Add-ons listings appear once the release's
+  submit step has each store's credentials. Then pair it: `npx -y toolfactory mcp --http --pair`
+  prints the `<url>#<token>` the extension's options page accepts.
 - **npm package** — `npm install toolfactory`
 
 <!-- /tf:install -->
@@ -107,6 +115,7 @@ toolfactory is built with toolfactory.
 | `openclaw-native` | `hosts/openclaw/`, mirroring `openclaw plugins init --type tool` | `openclaw plugins build --check`, `validate`, plugin-inspector |
 | `hermes-native` | `hosts/hermes/`, a manifest v2 plugin | `hermes plugins doctor --ci` |
 | `web` | `web/`, a shadcn/ui (Vite, React, Tailwind) app with a form per operation; your own pages sit beside it in `App.tsx` | `vite build`, Playwright |
+| `browser-extension` | `hosts/browser/`, one WXT extension built for Chromium, Firefox and Safari: the worker calls your kernel over loopback MCP, the popup is the `web` app, and the operations that need a page are yours to write in `entrypoints/` | `wxt build`, `web-ext lint`, Playwright against a real Chromium |
 | `dsh` (experimental) | `hosts/dsh/`, a zero-code DSH (DeepSeek Harness) bundle: one Cordis patch row attaching your MCP server through `@deepseek-ai/dsh-mcp-client` | a keyless `dsh --profile headless` boot |
 | workflows (always) | `ci.yml`, `release.yml` (gate → package → publish legs → GitHub Release, plus Pages), `compose.toolfactory.yaml`, `.env.example`, `renovate.json`; every step is one `toolfactory gate` / `toolfactory package` runs without GitHub | the workflow itself |
 | readme (always) | the Install section of `README.md` (a marked region): one install line per selected surface, plus the skills.sh badge | — |

@@ -47,6 +47,7 @@ export const SURFACE_IDS = [
   "readme",
   "gemini",
   "mcpb",
+  "browser-extension",
 ] as const;
 export type SurfaceId = (typeof SURFACE_IDS)[number];
 
@@ -112,6 +113,46 @@ export const ToolConfigSchema = z
       .describe("Example arguments per operation, used by the generated surface-smoke tests."),
     npm: z.object({ scope: z.string().optional() }).optional(),
     codex: z.object({ interface: jsonObject.optional() }).optional(),
+    browserExtension: z
+      .object({
+        endpoint: z
+          .string()
+          .optional()
+          .describe(
+            "The kernel's mcp --http URL the extension pairs with; defaults to the kernel's own default port.",
+          ),
+        authDomains: z
+          .array(z.string())
+          .optional()
+          .describe(
+            "Match patterns the extension may act in with the user's own session (host_permissions).",
+          ),
+        cookieExport: z
+          .boolean()
+          .optional()
+          .describe(
+            "Opt in to exporting the session cookies of authDomains to the kernel (needs the cookies permission; Chromium and Firefox only).",
+          ),
+        geckoId: z
+          .string()
+          .optional()
+          .describe("Firefox add-on id; defaults to <name>@<github owner>.github.io."),
+        icon: z
+          .string()
+          .optional()
+          .describe(
+            "Repo-relative source PNG or SVG the icon set is resized from; the placeholder set otherwise.",
+          ),
+        sidePanel: z
+          .boolean()
+          .optional()
+          .describe("Also register a Chromium side panel (Chromium only)."),
+        safari: z
+          .boolean()
+          .optional()
+          .describe("Add the macOS Safari packaging leg to the release workflow."),
+      })
+      .optional(),
     mcpb: z
       .object({ privacyPolicies: z.array(z.string()).optional() })
       .optional()

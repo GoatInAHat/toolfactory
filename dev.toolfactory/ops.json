@@ -370,7 +370,8 @@
               "agents",
               "readme",
               "gemini",
-              "mcpb"
+              "mcpb",
+              "browser-extension"
             ]
           }
         },
@@ -506,7 +507,8 @@
                 "agents",
                 "readme",
                 "gemini",
-                "mcpb"
+                "mcpb",
+                "browser-extension"
               ]
             },
             "description": "Surfaces to generate"
@@ -846,7 +848,8 @@
               "agents",
               "readme",
               "gemini",
-              "mcpb"
+              "mcpb",
+              "browser-extension"
             ]
           }
         },

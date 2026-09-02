@@ -7,6 +7,7 @@ import { parse as yamlParse } from "yaml";
 import { bootstrapRepo } from "../hosts/github.js";
 import type { Operation, Project, SurfaceId } from "../model.js";
 import { gateSteps, packageSteps } from "../project/gate.js";
+import { sourcesZipName, zipName } from "./browser-extension.js";
 import { surface } from "./workflows.js";
 
 const echo: Operation = { name: "echo", inputSchema: { type: "object" }, requires: [] };
@@ -414,15 +415,88 @@ describe("gate", () => {
   });
 
   it("packages one asset per selected distribution surface into dist/release", () => {
-    const target = project(["npm", "pypi", "openclaw-native", "skill", "claude", "web", "mcp"]);
+    const target = project([
+      "npm",
+      "pypi",
+      "openclaw-native",
+      "skill",
+      "claude",
+      "web",
+      "browser-extension",
+      "mcp",
+    ]);
     const runs = packageSteps(target).map((step) => step.run);
     expect(runs).toContain("npm pack --pack-destination dist/release");
     expect(runs).toContain("uv build --out-dir dist/release");
     expect(runs.some((run) => run.includes("npm pack ./hosts/openclaw"))).toBe(true);
     expect(runs).toContain("zip -qr dist/release/hello-plugin.zip skills .claude-plugin");
     expect(runs.some((run) => run.includes("hello-web.tar.gz"))).toBe(true);
+    // wxt zip -b <browser> per store, copied into dist/release under zipName()'s own names, plus
+    // the Firefox sources zip `wxt zip -b firefox` writes alongside it.
+    const zipStep = runs.find((run) => run.includes("wxt zip hosts/browser -b chrome"));
+    expect(zipStep).toContain("wxt zip hosts/browser -b firefox");
+    expect(zipStep).toContain("wxt zip hosts/browser -b edge");
+    for (const asset of [
+      zipName(target, "chrome"),
+      zipName(target, "firefox"),
+      zipName(target, "edge"),
+      sourcesZipName(target),
+    ]) {
+      expect(zipStep).toContain(asset);
+    }
+    // The signed Firefox xpi is opt-in on the JWT pair, never a hard failure when absent.
+    expect(
+      runs.some((run) => run.includes("web-ext sign") && run.includes("FIREFOX_JWT_ISSUER")),
+    ).toBe(true);
     expect(runs.at(-1)).toBe(
       "cp COVERAGE.md dist/release/ && npx toolfactory coverage > dist/release/coverage.json",
     );
+  });
+});
+
+/**
+ * The publish-browser-ext leg (store submission) and its opt-in Safari sibling: the leg appears
+ * only with the surface, Safari only with the surface *and* `tool.json` `browserExtension.safari`.
+ */
+describe("browser-extension release legs", () => {
+  it("release.yml carries publish-browser-ext only with the surface, Safari only with the flag", () => {
+    const withIdentity = {
+      identity: {
+        name: "hello",
+        repository: "https://github.com/acme/hello.git",
+        version: "0.1.0",
+      },
+    };
+    const noExtension = project(["npm"], withIdentity);
+    expect(
+      yamlParse(emitted(noExtension)[".github/workflows/release.yml"]).jobs["publish-browser-ext"],
+    ).toBeUndefined();
+
+    const withExtension = project(["browser-extension", "mcp"], withIdentity);
+    const release = yamlParse(emitted(withExtension)[".github/workflows/release.yml"]);
+    // browser-extension alone (no npm/pypi/mcp-registry/clawhub) still gets a release.yml.
+    expect(release.jobs["publish-browser-ext"]).toBeDefined();
+    expect(release.jobs["publish-browser-ext"].needs).toEqual(["gate", "package"]);
+    expect(release.jobs["publish-browser-ext"].permissions).toEqual({ contents: "read" });
+    const steps = release.jobs["publish-browser-ext"].steps as { run?: string; if?: string }[];
+    expect(steps.some((s) => s.run?.includes("wxt submit --dry-run"))).toBe(true);
+    const realSubmit = steps.find(
+      (s) => s.run?.includes("wxt submit") && !s.run.includes("--dry-run"),
+    );
+    expect(realSubmit?.if).toBe("github.event_name == 'push'");
+    expect(release.jobs.release.needs).toContain("publish-browser-ext");
+    expect(release.jobs["publish-browser-ext-safari"]).toBeUndefined();
+
+    const withSafari = project(["browser-extension", "mcp"], {
+      ...withIdentity,
+      tool: { ...project(["browser-extension"]).tool, browserExtension: { safari: true } },
+    });
+    const safariRelease = yamlParse(emitted(withSafari)[".github/workflows/release.yml"]);
+    expect(safariRelease.jobs["publish-browser-ext-safari"]).toMatchObject({
+      needs: "gate",
+      "runs-on": "macos-latest",
+    });
+    // The Safari leg submits to App Store Connect, not dist/release/: it never gates the release.
+    expect(safariRelease.jobs.release.needs).not.toContain("publish-browser-ext-safari");
   });
 });

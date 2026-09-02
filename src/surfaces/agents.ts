@@ -17,6 +17,7 @@ import { DRIFT_ENTRY } from "../hosts/template.js";
 import { projectName } from "../identity/name.js";
 import type { PlannedFile, Project, Surface } from "../model.js";
 import { TEMPLATE_FILES } from "./agents.template.js";
+import { HOST_DIR as BROWSER_HOST_DIR } from "./browser-extension.js";
 import {
   HOST_DIR as DSH_HOST_DIR,
   PROFILE as DSH_PROFILE,
@@ -28,7 +29,7 @@ import {
 import { pluginDir as hermesPluginDir } from "./hermes-native.js";
 import { INSPECTOR_CONFIG_PATH } from "./kernel.js";
 import { HOST_DIR as OPENCLAW_HOST_DIR } from "./openclaw-native.js";
-import { has, liveCredentials, TOOLFACTORY_DIR } from "./shared.js";
+import { envName, has, liveCredentials, TOOLFACTORY_DIR } from "./shared.js";
 import { WEB_DIR } from "./web.js";
 
 export const AGENTS_PATH = "AGENTS.md";
@@ -167,7 +168,12 @@ function layoutSection(project: Project): string[] {
     "  never hand-edit (`toolfactory adopt <path>` first if you must).",
     "- `.agents/` — the agent-config canon: `skills/`, `mcp/servers.json`, `setup`, `sync.py`.",
   ];
-  if (has(project, "openclaw-native") || has(project, "hermes-native") || has(project, "dsh")) {
+  if (
+    has(project, "openclaw-native") ||
+    has(project, "hermes-native") ||
+    has(project, "dsh") ||
+    has(project, "browser-extension")
+  ) {
     lines.push(
       "- `hosts/<id>/` — the host-native escape hatch for a selected host; nothing else creates it.",
     );
@@ -249,10 +255,29 @@ function installSection(project: Project): string[] {
       "  KEY/PASSWORD/SECRET/TOKEN names before spawning an MCP server.",
     );
   }
-  if (!gemini && !openclaw && !hermes && !has(project, "dsh")) {
+  if (has(project, "browser-extension")) {
+    const { command, args } = getBinding(project.tool.binding).cliCommand(project);
     lines.push(
-      "_No host-native surface (`openclaw-native`, `hermes-native`, `dsh`) or `gemini` extension is",
-      "selected; nothing installs into a running host._",
+      `- **Browser extension**: \`npm --prefix ${BROWSER_HOST_DIR} install && npm --prefix ${BROWSER_HOST_DIR} exec --no -- wxt build\`,`,
+      `  then \`chrome://extensions\` → developer mode → Load unpacked → \`${BROWSER_HOST_DIR}/.output/chrome-mv3\`;`,
+      `  \`npm --prefix ${BROWSER_HOST_DIR} exec --no -- web-ext run\` does the same for Firefox. Pair it with this`,
+      `  checkout's kernel: \`${[command, ...args].join(" ")} mcp --http --pair\` mints a token under the data`,
+      `  directory and prints the \`<url>#<token>\` the extension's options page accepts (with no token minted`,
+      `  and no \`${envName(project.identity.name)}_MCP_TOKEN\` in the environment the endpoint stays open on loopback). The content`,
+      "  script's selectors are yours to maintain: it is authored escape-hatch code against a page that",
+      "  changes on its own schedule, and nothing here can version-proof it.",
+    );
+  }
+  if (
+    !gemini &&
+    !openclaw &&
+    !hermes &&
+    !has(project, "dsh") &&
+    !has(project, "browser-extension")
+  ) {
+    lines.push(
+      "_No host-native surface (`openclaw-native`, `hermes-native`, `dsh`, `browser-extension`) or",
+      "`gemini` extension is selected; nothing installs into a running host._",
     );
   }
   lines.push(
@@ -308,7 +333,7 @@ function listingSection(project: Project): string[] {
   ];
 }
 
-function reloadSection(): string[] {
+function reloadSection(project: Project): string[] {
   return [
     "## Reload",
     "",
@@ -318,6 +343,16 @@ function reloadSection(): string[] {
     "|---|---|---|",
     ...RELOAD.map((entry) => `| ${entry.harness} | ${entry.mcp} | ${entry.instructions} |`),
     "",
+    // The extension is not a harness, so it gets a line rather than a row in a table whose two
+    // columns are MCP config and skills; its reload is the browser's, one per engine.
+    ...(has(project, "browser-extension")
+      ? [
+          `The browser extension reloads on the browser's terms: \`npm --prefix ${BROWSER_HOST_DIR} exec --no -- wxt dev\``,
+          "hot-reloads it as you edit, a `wxt build` output needs the Reload button on `chrome://extensions`,",
+          "and Firefox's `web-ext run` reloads on change. Re-pair only after minting a new token.",
+          "",
+        ]
+      : []),
   ];
 }
 
@@ -349,7 +384,7 @@ export function agentsContent(project: Project): string {
     ...agentConfigSection(project),
     ...installSection(project),
     ...listingSection(project),
-    ...reloadSection(),
+    ...reloadSection(project),
     ...worktreesSection(),
   ];
   return `${lines.join("\n")}\n`;

@@ -46,6 +46,19 @@
     },
     {
       "customType": "regex",
+      "description": "WXT_PIN, the wxt release the browser-extension surface scaffolds and validates with",
+      "managerFilePatterns": [
+        "/^src/surfaces/browser-extension\\.ts$/"
+      ],
+      "matchStrings": [
+        "WXT_PIN = \"(?<currentValue>[^\"]+)\""
+      ],
+      "depNameTemplate": "wxt",
+      "datasourceTemplate": "npm",
+      "versioningTemplate": "npm"
+    },
+    {
+      "customType": "regex",
       "description": "HERMES_PIN.commit, the hermes-agent commit the hermes surface installs in CI",
       "managerFilePatterns": [
         "/^src/surfaces/hermes-native\\.ts$/"

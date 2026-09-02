@@ -50,10 +50,17 @@ program
     "--http [port]",
     "serve over MCP streamable HTTP instead of stdio (default port 3000, host 127.0.0.1, path /mcp)",
   )
-  .action(async (options: { http?: string | boolean }) => {
+  .option(
+    "--pair",
+    "serve over HTTP with a fresh pairing token: prints <url>#<token> and requires it as a bearer token",
+  )
+  .action(async (options: { http?: string | boolean; pair?: boolean }) => {
     const { serve, serveHttp } = await import("./mcp.js");
-    if (options.http === undefined) await serve();
-    else await serveHttp({ port: options.http === true ? 3000 : Number(options.http) });
+    if (options.http === undefined && !options.pair) await serve();
+    else {
+      const port = options.http === undefined || options.http === true ? 3000 : Number(options.http);
+      await serveHttp({ port, pair: options.pair });
+    }
   });
 
 program.parseAsync(process.argv).catch((error) => {

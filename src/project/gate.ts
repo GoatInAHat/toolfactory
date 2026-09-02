@@ -11,6 +11,11 @@
  */
 import { projectName } from "../identity/name.js";
 import type { PackageManager, Project } from "../model.js";
+import {
+  HOST_DIR as BROWSER_HOST_DIR,
+  sourcesZipName,
+  zipName,
+} from "../surfaces/browser-extension.js";
 import { HOST_DIR as DSH_HOST_DIR } from "../surfaces/dsh.js";
 import { MANIFEST_PATH as MCPB_MANIFEST_PATH, MCPB_PIN } from "../surfaces/mcpb.js";
 import { HOST_DIR as OPENCLAW_HOST_DIR } from "../surfaces/openclaw-native.js";
@@ -110,9 +115,9 @@ export function gateSteps(project: Project): GateStep[] {
       when: "ci",
     });
   }
-  if (has(project, "web")) {
-    // The web smoke drives Chromium; web/'s own npm install fetches the browser, the runner
-    // needs its system libraries.
+  if (has(project, "web") || has(project, "browser-extension")) {
+    // The web smoke and the browser extension's own Playwright smoke both drive Chromium;
+    // their own npm installs fetch the browser, the runner needs its system libraries.
     steps.push({
       name: "Install Chromium dependencies",
       run: "npx --yes playwright install-deps chromium",
@@ -243,6 +248,34 @@ export function packageSteps(project: Project): GateStep[] {
       // runs the same build with its own PAGES_BASE.
       env: { PAGES_BASE: "/" },
       run: `${WEB_BUILD} && tar -czf ${RELEASE_DIR}/${name}-web.tar.gz -C web/dist .`,
+    });
+  }
+  if (has(project, "browser-extension")) {
+    // `wxt zip` writes into hosts/browser/.output/ under exactly the names `zipName`/
+    // `sourcesZipName` predict (verified live), so no rename is needed, only a copy.
+    const zipTargets: Array<"chrome" | "firefox" | "edge"> = ["chrome", "firefox", "edge"];
+    const outDir = `${BROWSER_HOST_DIR}/.output`;
+    steps.push({
+      name: "browser extension zips",
+      run: [
+        `npm --prefix ${BROWSER_HOST_DIR} install`,
+        // `npm exec` never changes the working directory (unlike `npm run`), so `wxt` needs its
+        // root passed explicitly — verified live: without it, `wxt zip` looks for `./entrypoints`
+        // relative to the repo root instead of hosts/browser.
+        ...zipTargets.map(
+          (browser) =>
+            `npm --prefix ${BROWSER_HOST_DIR} exec --no -- wxt zip ${BROWSER_HOST_DIR} -b ${browser}`,
+        ),
+        ...zipTargets.map((browser) => `cp ${outDir}/${zipName(project, browser)} ${RELEASE_DIR}/`),
+        `cp ${outDir}/${sourcesZipName(project)} ${RELEASE_DIR}/`,
+      ].join(" && "),
+    });
+    steps.push({
+      // Self-hosted Firefox distribution (§7): a Mozilla-signed, install-anywhere xpi. Opt-in on
+      // the JWT pair alone — no store listing is created (`--channel=unlisted`) — so a project
+      // with the surface selected but no Firefox credentials configured yet still packages clean.
+      name: "Firefox signed xpi (only when FIREFOX_JWT_ISSUER/FIREFOX_JWT_SECRET are set)",
+      run: `if [ -n "$FIREFOX_JWT_ISSUER" ] && [ -n "$FIREFOX_JWT_SECRET" ]; then npm --prefix ${BROWSER_HOST_DIR} exec --no -- web-ext sign --channel=unlisted --api-key="$FIREFOX_JWT_ISSUER" --api-secret="$FIREFOX_JWT_SECRET" --source-dir ${outDir}/firefox-mv2 --artifacts-dir ${RELEASE_DIR}; fi`,
     });
   }
   // COVERAGE.md is tracked; coverage.json is a build output that need not be, so recompute it.

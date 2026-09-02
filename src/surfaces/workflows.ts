@@ -33,6 +33,7 @@ import {
   toolfactoryCli,
   WEB_BUILD,
 } from "../project/gate.js";
+import { HOST_DIR as BROWSER_HOST_DIR, sourcesZipName, zipName } from "./browser-extension.js";
 import { HERMES_PIN, hermesInstall, pluginDir as hermesPluginDir } from "./hermes-native.js";
 import { ociImage, registryName } from "./mcp-registry.js";
 import { HOST_DIR as OPENCLAW_HOST_DIR } from "./openclaw-native.js";
@@ -218,7 +219,130 @@ function ciDocument(project: Project): Record<string, unknown> {
 }
 
 // ---------------------------------------------------------------------------------------------
-// release.yml — when npm, pypi, mcp-registry or clawhub is selected.
+// The browser extension's publish-* legs: store submission (stored secrets, no OIDC — none of
+// the three stores support it) and the opt-in Safari host-native leg. `wxt submit` reads every
+// store credential from the environment itself once the flag naming the CLI's UPPER_SNAKE_CASE
+// convention (verified live, `publish-browser-extension@6.1.1`'s resolveConfig): the shell only
+// has to decide which store's `--<store>-zip` flag to pass, so an unconfigured store is a no-op,
+// never a validation error, and a project with the surface selected but no store secrets at all
+// still gets a green `publish-browser-ext` leg that does nothing.
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * Chrome Web Store API v2 (mandatory: v1/v1.1 shuts off 15 Oct 2026) authenticates with a
+ * service account, not the client-id/secret/refresh-token triple v1.1 used — verified against
+ * `publish-browser-extension`'s own config schema, which switches shape entirely on `apiVersion`.
+ * Firefox and Edge have no v2 equivalent, so their names are the ones already in the CLI's
+ * `--help`.
+ */
+const CHROME_STORE_SECRETS = [
+  "CHROME_EXTENSION_ID",
+  "CHROME_PUBLISHER_ID",
+  "CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL",
+  "CHROME_SERVICE_ACCOUNT_PRIVATE_KEY",
+];
+const FIREFOX_STORE_SECRETS = ["FIREFOX_EXTENSION_ID", "FIREFOX_JWT_ISSUER", "FIREFOX_JWT_SECRET"];
+const EDGE_STORE_SECRETS = ["EDGE_PRODUCT_ID", "EDGE_CLIENT_ID", "EDGE_API_KEY"];
+
+/** `wxt submit --dry-run` (always) or a real `wxt submit` (tag push only), gated per store. */
+function browserExtSubmitScript(project: Project, dryRun: boolean): string {
+  const zip = (browser: "chrome" | "firefox" | "edge") =>
+    `${RELEASE_ARTIFACT}/${zipName(project, browser)}`;
+  const present = (names: string[]) => names.map((name) => `[ -n "$${name}" ]`).join(" && ");
+  return [
+    'flags=""',
+    `if ${present(CHROME_STORE_SECRETS)}; then flags="$flags --chrome-zip ${zip("chrome")}"; fi`,
+    `if ${present(FIREFOX_STORE_SECRETS)}; then flags="$flags --firefox-zip ${zip("firefox")} --firefox-sources-zip ${RELEASE_ARTIFACT}/${sourcesZipName(project)}"; fi`,
+    `if ${present(EDGE_STORE_SECRETS)}; then flags="$flags --edge-zip ${zip("edge")}"; fi`,
+    'if [ -z "$flags" ]; then echo "No browser store credentials configured; skipping wxt submit."; exit 0; fi',
+    `npm --prefix ${BROWSER_HOST_DIR} exec --no -- wxt submit ${dryRun ? "--dry-run " : ""}$flags`,
+  ].join("\n");
+}
+
+function browserExtPublishJob(project: Project): Record<string, unknown> {
+  return {
+    needs: needsOf(["gate", "package"]),
+    "runs-on": "ubuntu-latest",
+    permissions: { contents: "read" },
+    env: {
+      // Constant, not a secret: selects the v2 schema above whenever the Chrome secrets are set.
+      CHROME_API_VERSION: "v2",
+      ...Object.fromEntries(
+        [...CHROME_STORE_SECRETS, ...FIREFOX_STORE_SECRETS, ...EDGE_STORE_SECRETS].map((name) => [
+          name,
+          `\${{ secrets.${name} }}`,
+        ]),
+      ),
+    },
+    steps: [
+      ...toolchainSteps(project, "24"),
+      // Only the `wxt`/`publish-browser-extension` binary is needed — the zips it submits are the
+      // `package` job's own, downloaded below, not rebuilt.
+      { run: `npm --prefix ${BROWSER_HOST_DIR} install` },
+      {
+        uses: "actions/download-artifact@v8",
+        with: { name: RELEASE_ARTIFACT, path: RELEASE_ARTIFACT },
+      },
+      {
+        name: "wxt submit --dry-run (auth + zip check on every push and PR, no listing mutation)",
+        run: browserExtSubmitScript(project, true),
+      },
+      {
+        name: "wxt submit",
+        if: "github.event_name == 'push'",
+        run: browserExtSubmitScript(project, false),
+      },
+    ],
+  };
+}
+
+/**
+ * Safari has no headless publish path (§6): `xcrun safari-web-extension-converter` is macOS-only
+ * and Apple's own Xcode archive/export is the only route to App Store Connect. Opt-in
+ * (`tool.json` `browserExtension.safari`) and never in the default matrix — a `macos-latest`
+ * runner and a paid Apple Developer account are real costs the surface must not impose by
+ * default. Documented as the host-native leg: toolfactory scaffolds the payload
+ * (`wxt build -b safari`, any OS) and converts + signs it here; the archive/export invocation is
+ * Apple's own and unverifiable without macOS, so an author adjusting scheme/entitlements for
+ * their own app id is expected.
+ */
+function browserExtSafariJob(project: Project): Record<string, unknown> {
+  return {
+    needs: "gate",
+    "runs-on": "macos-latest",
+    permissions: { contents: "read" },
+    env: {
+      ASC_KEY_ID: "${{ secrets.ASC_KEY_ID }}",
+      ASC_ISSUER_ID: "${{ secrets.ASC_ISSUER_ID }}",
+      ASC_PRIVATE_KEY: "${{ secrets.ASC_PRIVATE_KEY }}",
+    },
+    steps: [
+      ...toolchainSteps(project, "24"),
+      { run: `npm --prefix ${BROWSER_HOST_DIR} install` },
+      // `npm exec` never changes the working directory, so `wxt` needs its root passed
+      // explicitly (verified live against `wxt zip`, the same CLI).
+      {
+        run: `npm --prefix ${BROWSER_HOST_DIR} exec --no -- wxt build ${BROWSER_HOST_DIR} -b safari`,
+      },
+      {
+        name: "Convert to an Xcode project",
+        run: `xcrun safari-web-extension-converter ${BROWSER_HOST_DIR}/.output/safari-mv2 --project-location dist/safari --no-open --no-prompt`,
+      },
+      {
+        name: "Archive and export (App Store Connect API key)",
+        run: [
+          `key="dist/safari/AuthKey_$ASC_KEY_ID.p8" && printf '%s' "$ASC_PRIVATE_KEY" > "$key"`,
+          `project="$(ls dist/safari/*.xcodeproj)" && scheme="$(basename "$project" .xcodeproj)"`,
+          `xcodebuild archive -project "$project" -scheme "$scheme" -archivePath dist/safari/build.xcarchive`,
+          `xcodebuild -exportArchive -archivePath dist/safari/build.xcarchive -exportPath dist/safari/export -authenticationKeyPath "$key" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID"`,
+        ].join(" && "),
+      },
+    ],
+  };
+}
+
+// ---------------------------------------------------------------------------------------------
+// release.yml — when npm, pypi, mcp-registry, clawhub or browser-extension is selected.
 // ---------------------------------------------------------------------------------------------
 
 function releaseDocument(
@@ -232,12 +356,14 @@ function releaseDocument(
   // ClawHub's skill catalog is a separate track from its plugin catalog above: it publishes
   // straight from the checkout (no openclaw-native package needed), so `skill` is all it takes.
   const clawhubSkillSelected = has(project, "clawhub") && has(project, "skill");
+  const browserExtSelected = has(project, "browser-extension");
   if (
     !npmSelected &&
     !pypiSelected &&
     !mcpRegistrySelected &&
     !clawhubSelected &&
-    !clawhubSkillSelected
+    !clawhubSkillSelected &&
+    !browserExtSelected
   )
     return undefined;
 
@@ -255,10 +381,18 @@ function releaseDocument(
         ...gateSteps(project).map((step) => actionStep(step, false)),
       ],
     },
-    package: {
+    package: compact({
       needs: "gate",
       "runs-on": "ubuntu-latest",
       permissions: { contents: "read" },
+      // The Firefox self-hosted xpi packageSteps emits (gate.ts) is opt-in on this pair: present,
+      // it signs; absent, that one step no-ops and the job still packages the unsigned zips.
+      env: has(project, "browser-extension")
+        ? {
+            FIREFOX_JWT_ISSUER: "${{ secrets.FIREFOX_JWT_ISSUER }}",
+            FIREFOX_JWT_SECRET: "${{ secrets.FIREFOX_JWT_SECRET }}",
+          }
+        : undefined,
       steps: [
         ...toolchainSteps(project, "24"),
         ...packageSteps(project).map((step) => actionStep(step, false)),
@@ -267,7 +401,7 @@ function releaseDocument(
           with: { name: RELEASE_ARTIFACT, path: `${RELEASE_DIR}/` },
         },
       ],
-    },
+    }),
   };
   const priorLegs: string[] = [];
 
@@ -424,6 +558,29 @@ function releaseDocument(
       "ClawHub skill publishing has no OIDC trusted-publishing path yet (V1 is token-only,",
       "per its own docs) — this leg reuses the same stored CLAWHUB_TOKEN as publish-clawhub.",
     );
+  }
+  if (browserExtSelected) {
+    jobs["publish-browser-ext"] = browserExtPublishJob(project);
+    priorLegs.push("publish-browser-ext");
+    comments.push(
+      "",
+      "None of Chrome Web Store, Firefox Add-ons or Edge Add-ons supports GitHub OIDC — like",
+      "CLAWHUB_TOKEN above, publish-browser-ext is a stored-secrets leg, gated per store on that",
+      "store's own secrets (nine names across the three stores); a store left unconfigured is",
+      "skipped, never a failure, and the leg's own dry run runs on every push and pull request.",
+    );
+    if (project.tool.browserExtension?.safari) {
+      // Opt-in and outside the release graph on purpose: it submits to App Store Connect, not
+      // dist/release/, so nothing downstream needs to wait on it.
+      jobs["publish-browser-ext-safari"] = browserExtSafariJob(project);
+      comments.push(
+        "",
+        "publish-browser-ext-safari (opt-in, tool.json browserExtension.safari) is the macOS",
+        "host-native leg: xcrun safari-web-extension-converter, then an Xcode archive/export",
+        "signed with an App Store Connect API key. Runs on macos-latest, needs only `gate`, and",
+        "does not gate the release — it submits to App Store Connect, not dist/release/.",
+      );
+    }
   }
 
   jobs.release = {

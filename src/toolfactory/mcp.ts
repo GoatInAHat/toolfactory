@@ -7,7 +7,10 @@
 import { localhostHostValidation, toNodeHandler } from "@modelcontextprotocol/node";
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer as createHttpServer } from "node:http";
+import { dirname, join } from "node:path";
 import { z } from "zod";
 import { operations } from "../ops.js";
 import { context } from "./config.js";
@@ -49,25 +52,69 @@ export async function serve(): Promise<void> {
   await server.connect(new StdioServerTransport());
 }
 
+/**
+ * The pairing token, so a browser extension (or anything else on loopback) can prove it is the
+ * client the user paired: the endpoint requires `Authorization: Bearer <token>` when
+ * `TOOLFACTORY_MCP_TOKEN` is set or `mcp --http --pair` has written one under the data directory. With
+ * neither, nothing changes and the endpoint stays open on loopback.
+ */
+const TOKEN_FILE = "relay-token";
+
+function tokenPath(): string {
+  return join(context().dataDir, TOKEN_FILE);
+}
+
+function pairedToken(): string | undefined {
+  const configured = process.env["TOOLFACTORY_MCP_TOKEN"];
+  if (configured) return configured;
+  try {
+    return readFileSync(tokenPath(), "utf8").trim() || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** `--pair`: mint a token, keep it 0600 under the data directory, print `<url>#<token>`. */
+function mintToken(url: string): string {
+  const token = randomBytes(32).toString("base64url");
+  mkdirSync(dirname(tokenPath()), { recursive: true });
+  writeFileSync(tokenPath(), `${token}\n`, { mode: 0o600 });
+  process.stdout.write(`${url}#${token}\n`);
+  return token;
+}
+
+/** Constant-time comparison over digests, so neither the token nor its length leaks. */
+function authorized(header: string | undefined, token: string): boolean {
+  const digest = (value: string) => createHash("sha256").update(value).digest();
+  return timingSafeEqual(digest(header?.replace(/^Bearer /, "") ?? ""), digest(token));
+}
+
 export interface HttpOptions {
   port?: number;
   host?: string;
   path?: string;
+  /** Mint a fresh pairing token, print `<url>#<token>`, and require it from every client. */
+  pair?: boolean;
 }
 
 /** Serve over MCP streamable HTTP instead of stdio. Opt-in; stdio stays the default transport. */
 export async function serveHttp(options: HttpOptions = {}): Promise<void> {
-  const { port = 3000, host = "127.0.0.1", path = "/mcp" } = options;
+  const { port = 3000, host = "127.0.0.1", path = "/mcp", pair = false } = options;
   const handle = toNodeHandler(createMcpHandler(createServer));
   const loopback = host === "127.0.0.1" || host === "localhost" || host === "::1";
   const hostGuard = loopback ? localhostHostValidation() : undefined;
   const base = `http://${host}:${port}`;
+  const token = pair ? mintToken(`${base}${path}`) : pairedToken();
   const httpServer = createHttpServer((req, res) => {
     if (new URL(req.url ?? "/", base).pathname !== path) {
       res.writeHead(404).end();
       return;
     }
     if (hostGuard && !hostGuard(req, res)) return;
+    if (token && !authorized(req.headers.authorization, token)) {
+      res.writeHead(401, { "WWW-Authenticate": "Bearer" }).end();
+      return;
+    }
     handle(req, res).catch((error: unknown) => {
       console.error(error);
       if (!res.headersSent) res.writeHead(500);
@@ -78,7 +125,9 @@ export async function serveHttp(options: HttpOptions = {}): Promise<void> {
     httpServer.once("error", reject);
     httpServer.listen(port, host, resolve);
   });
-  console.error(`Serving MCP streamable HTTP on ${base}${path}`);
+  console.error(
+    `Serving MCP streamable HTTP on ${base}${path}${token ? " (bearer token required)" : ""}`,
+  );
 }
 
 /** Parses a manually-run `node mcp.ts [--http [port]]` invocation; the CLI's `mcp` subcommand parses its own. */
@@ -91,7 +140,8 @@ function httpPortArg(argv: string[]): number | undefined {
 
 if (process.argv[1] && /toolfactory[\\/]mcp\.[cm]?[jt]s$/.test(process.argv[1])) {
   const port = httpPortArg(process.argv.slice(2));
-  (port === undefined ? serve() : serveHttp({ port })).catch((error) => {
+  const pair = process.argv.includes("--pair");
+  (port === undefined && !pair ? serve() : serveHttp({ port: port ?? 3000, pair })).catch((error) => {
     console.error(error);
     process.exit(1);
   });

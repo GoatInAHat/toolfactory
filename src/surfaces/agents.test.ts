@@ -82,7 +82,9 @@ describe("agents", () => {
     expect(bare).toContain("No host-native surface");
 
     const hosts = region(
-      project(["openclaw-native", "hermes-native", "web", "mcp"], { binding: "python" }),
+      project(["openclaw-native", "hermes-native", "web", "mcp", "browser-extension"], {
+        binding: "python",
+      }),
       "AGENTS.md",
     );
     expect(hosts).toContain("openclaw plugins install --link hosts/openclaw --force");
@@ -91,6 +93,12 @@ describe("agents", () => {
     expect(hosts).toContain("only for the\n  messaging gateway daemon");
     expect(hosts).toContain("uv run --with pytest pytest -q tests/test_live.py");
     expect(hosts).toContain("src/hello/ops.py");
+    // The extension: how it loads, how it pairs with this checkout's own kernel, how it reloads,
+    // and whose job the content script's selectors are.
+    expect(hosts).toContain("Load unpacked → `hosts/browser/.output/chrome-mv3`");
+    expect(hosts).toContain("`uv run --quiet python -m hello.toolfactory.cli mcp --http --pair`");
+    expect(hosts).toContain("selectors are yours to maintain");
+    expect(hosts).toContain("wxt dev");
   });
 
   it("vendors the template's carriers and keeps its head inside the setup region", () => {

@@ -17,6 +17,7 @@
 import { githubSlug } from "../hosts/github.js";
 import { projectName } from "../identity/name.js";
 import type { Project, Surface } from "../model.js";
+import { HOST_DIR as BROWSER_HOST_DIR, zipName } from "./browser-extension.js";
 import { HOST_DIR as DSH_HOST_DIR, dshTarball } from "./dsh.js";
 import { pluginDir as hermesPluginDir } from "./hermes-native.js";
 import { HOST_DIR as OPENCLAW_HOST_DIR } from "./openclaw-native.js";
@@ -131,6 +132,26 @@ function installLines(project: Project): string[] {
     // `dsh plugin` is a pnpm forwarder: it installs a path, a tarball or a registry spec.
     lines.push(
       `- **DSH plugin** (experimental) — \`dsh plugin --profile <profile> add ./${DSH_HOST_DIR}\` from a checkout, or the release tarball \`${dshTarball(project)}\``,
+    );
+  }
+  if (has(project, "browser-extension")) {
+    // Three channels, in the order a reader needs them: build-and-load from a checkout, the
+    // release assets (only Mozilla's signed xpi is a real self-hosted install — Chrome drops
+    // side-loaded unpacked extensions), the store listings. Pairing is the last step of each.
+    const zips = (["chrome", "firefox", "edge"] as const).map(
+      (browser) => `\`${zipName(project, browser)}\``,
+    );
+    lines.push(
+      [
+        `- **Browser extension** — from a checkout: \`npm --prefix ${BROWSER_HOST_DIR} install && npm --prefix ${BROWSER_HOST_DIR} exec --no -- wxt build\`,`,
+        `  then \`chrome://extensions\` → developer mode → Load unpacked → \`${BROWSER_HOST_DIR}/.output/chrome-mv3\``,
+        `  (Firefox: \`npm --prefix ${BROWSER_HOST_DIR} exec --no -- web-ext run\`). Each GitHub Release attaches the`,
+        `  store uploads ${zips.join(", ")}, and the Mozilla-signed \`.xpi\`,`,
+        "  which is the only download-and-install channel now that Chrome no longer keeps side-loaded unpacked",
+        "  extensions; the Chrome Web Store, Firefox Add-ons and Edge Add-ons listings appear once the release's",
+        `  submit step has each store's credentials. Then pair it: \`${mcpCommand(project)} --http --pair\``,
+        "  prints the `<url>#<token>` the extension's options page accepts.",
+      ].join("\n"),
     );
   }
   if (has(project, "npm")) lines.push(`- **npm package** — \`npm install ${npmName(project)}\``);

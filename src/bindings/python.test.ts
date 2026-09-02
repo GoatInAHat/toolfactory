@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer as createNetServer } from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -115,21 +115,28 @@ describe("python binding", () => {
     );
   });
 
-  it("emits an opt-in --http flag, defaulting to stdio, on both the mcp module and the cli subcommand", () => {
+  it("emits opt-in --http and --pair flags, defaulting to stdio, on the mcp module and the cli", () => {
     const files = [...kernel(project(["mcp", "cli"])), ...cliFiles(project(["mcp", "cli"]))];
     const mcp = text(files, "src/hello_py/toolfactory/mcp.py");
     expect(mcp).toContain(
-      'def serve_http(host: str = "127.0.0.1", port: int = 3000, path: str = "/mcp")',
+      'def serve_http(host: str = "127.0.0.1", port: int = 3000, path: str = "/mcp", pair: bool = False)',
     );
     expect(mcp).toContain('server.run("streamable-http"');
     expect(mcp).toContain("stateless_http=True");
     // Stdio is still the default: the standalone entrypoint only switches transport when --http is present.
-    expect(mcp).toContain("serve_http(port=args.http) if args.http is not None else serve()");
+    expect(mcp).toContain("if args.http is None and not args.pair:");
+
+    // The pairing token: `<N>_MCP_TOKEN` or a `relay-token` file under the data directory, and
+    // `--pair` to mint one. Neither present means no token and no behaviour change.
+    expect(mcp).toContain('os.environ.get("HELLO_PY_MCP_TOKEN")');
+    expect(mcp).toContain("data_dir() / TOKEN_FILE");
+    expect(mcp).toContain("hmac.compare_digest(hashlib.sha256(presented).digest(), expected)");
 
     const cli = text(files, "src/hello_py/toolfactory/cli.py");
     expect(cli).toContain('"--http"');
     expect(cli).toContain("from .mcp import serve_http");
-    expect(cli).toContain("if options.http is not None:");
+    expect(cli).toContain("if options.http is not None or options.pair:");
+    expect(cli).toContain('"--pair"');
   });
 
   it("projects identity into pyproject.toml only when it is not the identity file", () => {
@@ -187,7 +194,7 @@ describe.skipIf(!uv)("python kernel, really run", () => {
     expect(JSON.parse(ran.stdout)).toEqual({ text: "hi" });
   });
 
-  it("serves tools/list over MCP streamable HTTP when started with --http", {
+  it("serves tools/list over --http, and requires the token minted by --pair", {
     timeout: 300_000,
   }, async () => {
     const root = mkdtempSync(join(tmpdir(), "toolfactory-python-http-"));
@@ -200,10 +207,13 @@ describe.skipIf(!uv)("python kernel, really run", () => {
     const sync = spawnSync("uv", ["sync", "--quiet"], { cwd: root, encoding: "utf8" });
     expect(sync.status, sync.stderr).toBe(0);
 
+    const dataDir = join(root, "data");
+    const env = { ...process.env, PROBE_DATA_DIR: dataDir };
     const port = await freePort();
     const cli = cliCommand(real);
     const child = spawn(cli.command, [...cli.args, "mcp", "--http", String(port)], {
       cwd: root,
+      env,
       stdio: ["ignore", "pipe", "pipe"],
     });
     const stderr: string[] = [];
@@ -224,6 +234,32 @@ describe.skipIf(!uv)("python kernel, really run", () => {
       expect(tools.map((tool) => tool.name)).toEqual(["echo"]);
     } finally {
       child.kill();
+    }
+
+    // The same server started with `--pair`: it prints the pairing string the extension's options
+    // page takes, keeps the token under the data directory, and refuses a request without it.
+    const pairPort = await freePort();
+    const paired = spawn(cli.command, [...cli.args, "mcp", "--http", String(pairPort), "--pair"], {
+      cwd: root,
+      env,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const stdout: string[] = [];
+    paired.stdout?.on("data", (chunk: Buffer) => stdout.push(String(chunk)));
+
+    try {
+      const url = `http://127.0.0.1:${pairPort}/mcp`;
+      const anonymous = await waitForInitialize(url, 30_000);
+      expect(anonymous.status).toBe(401);
+
+      const [printed, token] = stdout.join("").trim().split("\n")[0]?.split("#") ?? [];
+      expect(printed).toBe(url);
+      expect(readFileSync(join(dataDir, "relay-token"), "utf8").trim()).toBe(token);
+
+      const init = await waitForInitialize(url, 30_000, token);
+      expect(init.status).toBe(200);
+    } finally {
+      paired.kill();
     }
   });
 });
@@ -246,12 +282,14 @@ async function postRpc(
   url: string,
   body: unknown,
   protocolVersion?: string,
+  token?: string,
 ): Promise<{ status: number; json: unknown }> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Accept: "application/json, text/event-stream",
   };
   if (protocolVersion) headers["MCP-Protocol-Version"] = protocolVersion;
+  if (token) headers.Authorization = `Bearer ${token}`;
   const response = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
   const raw = await response.text();
   const isEventStream =
@@ -271,20 +309,26 @@ async function postRpc(
 async function waitForInitialize(
   url: string,
   deadlineMs: number,
+  token?: string,
 ): Promise<{ status: number; json: unknown }> {
   const deadline = Date.now() + deadlineMs;
   for (;;) {
     try {
-      return await postRpc(url, {
-        jsonrpc: "2.0",
-        id: 1,
-        method: "initialize",
-        params: {
-          protocolVersion: "2026-07-28",
-          capabilities: {},
-          clientInfo: { name: "toolfactory-test", version: "0.0.0" },
+      return await postRpc(
+        url,
+        {
+          jsonrpc: "2.0",
+          id: 1,
+          method: "initialize",
+          params: {
+            protocolVersion: "2026-07-28",
+            capabilities: {},
+            clientInfo: { name: "toolfactory-test", version: "0.0.0" },
+          },
         },
-      });
+        undefined,
+        token,
+      );
     } catch (error) {
       if (Date.now() >= deadline) throw error;
       await new Promise((resolve) => setTimeout(resolve, 250));
