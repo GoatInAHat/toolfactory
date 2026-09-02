@@ -82,7 +82,7 @@ Arguments: `root`.
 
 ### doctor
 
-Report which upstream CLIs this machine can delegate to (claude, openclaw, clawhub, hermes, uvx, agentskills, MCP Inspector, docker).
+Report which upstream CLIs this machine can delegate to (git, gh, npm, uv, claude, openclaw, clawhub, hermes, uvx, agentskills, MCP Inspector, docker).
 
 `toolfactory doctor --json '<arguments>'` prints a JSON result. MCP tool `doctor` on server `toolfactory` returns the same result as `structuredContent`.
 

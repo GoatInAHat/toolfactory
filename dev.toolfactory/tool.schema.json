@@ -145,15 +145,6 @@
     "openclaw": {
       "type": "object",
       "properties": {
-        "type": {
-          "default": "tool",
-          "description": "Which `openclaw plugins init --type` scaffold hosts/openclaw mirrors.",
-          "type": "string",
-          "enum": [
-            "tool",
-            "provider"
-          ]
-        },
         "registers": {
           "description": "Host registrations the plugin makes beyond tools; one declaration drives the manifest contracts, the plugin inspector's expectations and the generated test.",
           "type": "array",

@@ -229,6 +229,10 @@ export interface DoctorReport {
 /** Report the upstream CLIs this machine can delegate to. */
 export function doctor(): DoctorReport {
   const probes: Record<string, [string, string[]]> = {
+    git: ["git", ["--version"]],
+    gh: ["gh", ["--version"]],
+    npm: ["npm", ["--version"]],
+    uv: ["uv", ["--version"]],
     claude: ["claude", ["--version"]],
     openclaw: ["openclaw", ["--version"]],
     clawhub: ["clawhub", ["--version"]],
