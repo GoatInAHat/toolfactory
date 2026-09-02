@@ -6,27 +6,66 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
+import { parseEnv } from "node:util";
 import { getBinding } from "./bindings/index.js";
+import { LIVE_TEST_COMMAND } from "./bindings/python.js";
 import {
   type BootstrapResult,
   type CreateRepoResult,
   createRepo,
+  githubSlug,
+  LIVE_ENVIRONMENT,
   bootstrapRepo as prepareRepository,
 } from "./hosts/github.js";
 import { assertValidName, projectName } from "./identity/name.js";
 import { introspect as runIntrospect, snapshot } from "./introspect/index.js";
-import type { Binding, Command, Identity, PlannedFile, Project, SurfaceId } from "./model.js";
-import { SURFACE_IDS, ToolConfigSchema } from "./model.js";
+import type {
+  Binding,
+  Command,
+  Identity,
+  PlannedFile,
+  Project,
+  SurfaceId,
+  ToolConfig,
+} from "./model.js";
+import { assertNoSensitiveArgument, SURFACE_IDS, ToolConfigSchema } from "./model.js";
 import { apply, check as checkPlan, type Drift, setState } from "./project/apply.js";
-import { type GateStep, gateSteps, packageSteps, toolfactoryCli } from "./project/gate.js";
-import { loadProject, OPS_PATH, TOOL_PATH, TOOLFACTORY_VERSION } from "./project/load.js";
+import {
+  type GateStep,
+  gateSteps,
+  manualSteps,
+  PACKAGE_MANAGER_COMMANDS,
+  packageSteps,
+  type Registry,
+  registries,
+  toolfactoryCli,
+  unpublishSteps,
+} from "./project/gate.js";
+import { droppedSurfaces, previousTag, toolAtRef } from "./project/history.js";
+import {
+  loadProject,
+  OPS_PATH,
+  TOOL_PATH,
+  TOOLFACTORY_VERSION,
+  toOperation,
+} from "./project/load.js";
 import { readLock } from "./project/lock.js";
 import { buildPlan, TOOL_SCHEMA_PATH } from "./project/plan.js";
 import { type Coverage, computeCoverage } from "./report/coverage.js";
 import { PLUGIN_SCHEMA_ID } from "./surfaces/agent-plugins.js";
 import { reloadLine, SETUP_PATH } from "./surfaces/agents.js";
+import { HOST_DIR as BROWSER_HOST_DIR } from "./surfaces/browser-extension.js";
 import { assertSurfaceRequirements, getSurface, selectedSurfaces } from "./surfaces/registry.js";
-import { compact, json, liveCredentials } from "./surfaces/shared.js";
+import {
+  compact,
+  configProperties,
+  envName,
+  has,
+  isSensitive,
+  json,
+  liveCredentials,
+  requiredConfig,
+} from "./surfaces/shared.js";
 import { validateAgentPlugin } from "./validate/agent-plugins.js";
 
 export interface InitOptions {
@@ -119,12 +158,16 @@ function nextSteps(project: Project, agentConfig: InitResult["agentConfig"]): st
     project.tool.binding === "typescript"
       ? "src/ops.ts"
       : `src/${projectName.pythonPackage(project.identity.name)}/ops.py`;
+  // The credential inventory, once, where the agent that ran `init` will read it: a project that
+  // declares none says nothing at all.
+  const summary = secretsSummary(secretsReport(project));
   return [
     agentConfig.setup
       ? `Agent config is wired: \`.agents/\` is the canon (\`skills/\`, \`mcp/servers.json\`). \`${SETUP_PATH}\` rendered ${agentConfig.harnesses.length} harness adapter(s) here (${agentConfig.harnesses.join(", ") || "none detected"}) and installed the pre-commit/post-checkout/post-merge hooks, so pulls, branch switches and commits re-sync on their own. Details: \`.agents/README.md\`.`
       : `Agent config is written but \`${SETUP_PATH}\` did not finish here: run \`bash ${SETUP_PATH}\` to render the harness adapters from \`.agents/\`, install the git hooks that keep them in sync, and install the dependencies. Details: \`.agents/README.md\`.`,
     reloadLine(process.env),
     `Next: write your operations in \`${ops}\`, then \`${cli} introspect && ${cli} build\`.`,
+    ...(summary ? [summary] : []),
   ];
 }
 
@@ -244,20 +287,19 @@ export function init(options: InitOptions): InitResult {
       public: options.public,
       dryRun: options.dryRun,
     });
-    // The live tier is GitHub-only and needs both halves: a credential declared in `tool.json`
-    // and a value for it here. Without them there is no environment to create.
-    const live =
-      liveCredentials(project).length > 0 && existsSync(join(root, ".env"))
-        ? prepareRepository(project, {
-            repository: options.repo,
-            reviewers: options.reviewers,
-            dryRun: options.dryRun,
-          })
-        : undefined;
+    // Everything GitHub-only in one call: it creates the live environment only when the project
+    // has a live tier, and otherwise still sets the release secrets .env already holds.
+    const prepared = prepareRepository(project, {
+      repository: options.repo,
+      reviewers: options.reviewers,
+      dryRun: options.dryRun,
+      releaseSecrets: registries(project).flatMap((row) => row.secrets),
+      manual: manualSteps(project),
+    });
     result.repository = {
       ...created,
-      commands: [...created.commands, ...(live?.commands ?? [])],
-      secrets: live?.secrets ?? [],
+      commands: [...created.commands, ...prepared.commands],
+      secrets: prepared.secrets,
     };
   }
   return result;
@@ -265,13 +307,20 @@ export function init(options: InitOptions): InitResult {
 
 export function build(root = ".") {
   const project = loadProject(root);
-  return { project, result: apply(project.root, buildPlan(project), TOOLFACTORY_VERSION) };
+  return {
+    project,
+    result: {
+      ...apply(project.root, buildPlan(project), TOOLFACTORY_VERSION),
+      nudge: unpublishNudge(project),
+    },
+  };
 }
 
 /** Throws when any generated file drifted, so CLI and MCP callers see a failure. */
 /** The drift gate: the operation snapshot and every generated file must match the code. */
 export async function check(root = "."): Promise<{ project: Project; drift: Drift[] }> {
   const project = loadProject(root);
+  assertNoSensitiveArgument(project.tool.config, project.operations);
   const drift = checkPlan(project.root, buildPlan(project), TOOLFACTORY_VERSION);
   const ops = await snapshot(project);
   if (ops.changed) drift.unshift({ kind: "changed", path: OPS_PATH });
@@ -287,6 +336,9 @@ export async function check(root = "."): Promise<{ project: Project; drift: Drif
 export async function introspect(root = ".") {
   const { project } = build(root);
   const snapshot = await runIntrospect(project);
+  // Against the operations the kernel just reported, not the ones on disk: this is the moment an
+  // author who routed a secret through an argument finds out, before it reaches any surface.
+  assertNoSensitiveArgument(project.tool.config, snapshot.ops.tools.map(toOperation));
   if (snapshot.changed) build(root);
   return snapshot;
 }
@@ -415,6 +467,317 @@ export function packageRelease(root = "."): { steps: StepResult[] } {
   return green("package", runSteps(root, packageSteps(loadProject(root))));
 }
 
+// ---------------------------------------------------------------------------------------------
+// secrets — the credential inventory (§6). Never a value: no `set`, no `value` property, on any
+// surface. A secret reaches the kernel through the environment a host injects, and it gets there
+// through that host's own masked field, `.env`, or `bootstrap-repo`.
+// ---------------------------------------------------------------------------------------------
+
+export interface SecretRow {
+  /** The environment variable name, on every surface and in every environment. */
+  name: string;
+  kind: "config" | "release";
+  required: boolean;
+  /** Selected surfaces (a config key) or registry ids (a release token) that consume it. */
+  needs: string[];
+  /** Present in `<root>/.env` or this process's environment. Presence only, never the value. */
+  local: boolean;
+  /** Named by `gh secret list`; absent when `gh` is not on PATH or no repository is declared. */
+  github?: boolean;
+  url?: string;
+  /** The exact next action, per selected host and per registry. */
+  howTo: string[];
+  /** `check`: what the registry's own CLI said about the credential in the environment. */
+  check?: { ok: boolean; command: string };
+}
+
+export interface SecretsReport {
+  secrets: SecretRow[];
+  /** The one-time human steps with no API; the same list `bootstrap-repo` prints. */
+  manual: string[];
+}
+
+/**
+ * Where the end user of the built tool types a config value, per selected surface: the same text
+ * the README's Configuration lines and the skill's operations block carry, so an agent inside a
+ * harness can read it without calling anything. No runtime host detection — the selection is the
+ * only input, because that is what decides which hosts exist at all.
+ */
+const CONFIG_HOSTS: Partial<Record<SurfaceId, (project: Project, name: string) => string>> = {
+  claude: () =>
+    "Claude Code: `/plugin` -> this plugin -> configure. Masked input, stored in the OS keychain.",
+  mcpb: () => "Claude Desktop: the masked field in the `.mcpb` install dialog.",
+  gemini: (project, name) =>
+    `Gemini CLI: \`gemini extensions config ${projectName.gemini(project.identity.name)} ${name}\`.`,
+  "openclaw-native": (project) =>
+    `OpenClaw: the Control UI at http://localhost:18789 -> Plugins -> ${project.identity.name}; \`uiHints.sensitive\` masks the field.`,
+  "hermes-native": () => "Hermes: the env file `hermes config env-path` prints.",
+  cursor: (_project, name) =>
+    `Cursor: \`\${env:${name}}\` in the MCP entry, with the value exported in the environment.`,
+  codex: (_project, name) =>
+    `Codex: the environment only — upstream has no plugin secret path (openai/codex#24401), so export ${name} before running \`codex\`.`,
+};
+
+/** `<root>/.env`, parsed for presence only. Missing or unreadable is simply "nothing set here". */
+function envValues(root: string): Record<string, string | undefined> {
+  const path = join(root, ".env");
+  if (!existsSync(path)) return {};
+  try {
+    return parseEnv(readFileSync(path, "utf8")) as Record<string, string | undefined>;
+  } catch {
+    return {};
+  }
+}
+
+/** Secret *names* GitHub already holds, from `gh secret list`; undefined when `gh` cannot answer. */
+function githubSecretNames(project: Project): Set<string> | undefined {
+  const slug = githubSlug(project.identity.repository);
+  if (!slug) return undefined;
+  const names = new Set<string>();
+  let answered = false;
+  for (const scope of [[], ["--env", LIVE_ENVIRONMENT]]) {
+    const result = spawnSync("gh", ["secret", "list", "--repo", slug, ...scope], {
+      encoding: "utf8",
+      timeout: 30_000,
+    });
+    if (result.status !== 0) continue;
+    answered = true;
+    for (const line of result.stdout.split("\n")) {
+      const name = line.trim().split(/\s+/)[0];
+      if (name) names.add(name);
+    }
+  }
+  return answered ? names : undefined;
+}
+
+/** The `wxt submit --dry-run` probes read the zips `toolfactory package` writes; without them, say so. */
+function storeZipsPresent(project: Project): boolean {
+  return existsSync(join(project.root, BROWSER_HOST_DIR, ".output"));
+}
+
+function releaseHowTo(project: Project, row: Registry, name: string): string[] {
+  const lines = [
+    `Mint it at ${row.url}.`,
+    `Add \`${name}=\` to .env, then \`${toolfactoryCli(project)} bootstrap-repo\` pushes it as a repository secret.`,
+    `Used by the release's \`${releaseJob(row)}\` leg.`,
+  ];
+  if (!row.probe) {
+    lines.push(
+      `No read-only endpoint exists for ${row.id}, so \`secrets check\` cannot verify this one; the release's own submit is the check.`,
+    );
+  }
+  return lines;
+}
+
+function configHowTo(project: Project, name: string): string[] {
+  const lines = [
+    `Add \`${name}=\` to .env — gitignored, and what the live tests and \`${toolfactoryCli(project)} bootstrap-repo\` read.`,
+  ];
+  if (has(project, "web")) {
+    lines.push(
+      `Or open the Secrets panel in a browser: \`${project.identity.name} mcp --http --open\`.`,
+    );
+  }
+  for (const [surface, line] of Object.entries(CONFIG_HOSTS)) {
+    if (has(project, surface)) lines.push(line(project, name));
+  }
+  return lines;
+}
+
+/** The live test is the check for config keys: it is already gated on exactly these credentials. */
+function liveTestCommand(project: Project): string {
+  return project.tool.binding === "python"
+    ? LIVE_TEST_COMMAND
+    : PACKAGE_MANAGER_COMMANDS[project.packageManager ?? "npm"].run("test:live");
+}
+
+/** The release.yml job a registry row's leg lives in. */
+function releaseJob(row: Registry): string {
+  if (["chrome", "firefox", "edge"].includes(row.id)) return "publish-browser-ext";
+  if (row.id === "safari") return "publish-browser-ext-safari";
+  if (row.id === "pages") return "pages-deploy";
+  return `publish-${row.id === "clawhub-package" ? "clawhub" : row.id}`;
+}
+
+export function secretsReport(
+  project: Project,
+  action: "status" | "check" = "status",
+  key?: string,
+): SecretsReport {
+  const values = { ...envValues(project.root) };
+  const properties = configProperties(project);
+  const required = new Set(requiredConfig(project));
+  const github = githubSecretNames(project);
+  const rows: SecretRow[] = [];
+
+  for (const [configKey, property] of Object.entries(properties)) {
+    if (!isSensitive(property)) continue;
+    const name = envName(configKey);
+    const meta = (property["x-toolfactory"] ?? {}) as { url?: string };
+    rows.push({
+      name,
+      kind: "config",
+      required: required.has(configKey),
+      needs: Object.keys(CONFIG_HOSTS).filter((surface) => has(project, surface)),
+      local: Boolean(values[name] ?? process.env[name]),
+      ...(github ? { github: github.has(name) } : {}),
+      ...(meta.url ? { url: meta.url } : {}),
+      howTo: configHowTo(project, name),
+    });
+  }
+
+  const byName = new Map<string, Registry[]>();
+  for (const row of registries(project)) {
+    for (const name of row.secrets) byName.set(name, [...(byName.get(name) ?? []), row]);
+  }
+  for (const [name, owners] of byName) {
+    const first = owners[0] as Registry;
+    rows.push({
+      name,
+      kind: "release",
+      required: false,
+      needs: owners.map((row) => row.id),
+      local: Boolean(values[name] ?? process.env[name]),
+      ...(github ? { github: github.has(name) } : {}),
+      url: first.url,
+      howTo: releaseHowTo(project, first, name),
+    });
+  }
+
+  const selected = key ? rows.filter((row) => row.name === key) : rows;
+  if (action === "check") checkSecrets(project, selected, values);
+  return { secrets: selected, manual: manualSteps(project) };
+}
+
+/**
+ * Delegation, never re-implemented auth: each release row runs the one upstream command its
+ * registry answers with, and config keys are checked by the T4 live test, which is already gated
+ * on exactly them and is already the author's own proof that the credential works.
+ */
+function checkSecrets(
+  project: Project,
+  rows: SecretRow[],
+  values: Record<string, string | undefined>,
+): void {
+  const present = (name: string) => Boolean(values[name] ?? process.env[name]);
+  const table = registries(project);
+  for (const row of rows) {
+    if (row.kind !== "release" || !row.local) continue;
+    const registry = table.find((entry) => entry.id === row.needs[0]);
+    if (!registry?.probe || !registry.secrets.every(present)) continue;
+    if (registry.surfaces.includes("browser-extension") && !storeZipsPresent(project)) {
+      row.howTo.push(
+        `\`${toolfactoryCli(project)} package\` first: the store dry run submits the zips it writes.`,
+      );
+      continue;
+    }
+    const outcome = run({
+      label: registry.id,
+      command: "bash",
+      args: ["-c", registry.probe],
+      cwd: project.root,
+      env: values as Record<string, string>,
+    });
+    row.check = { ok: outcome.ok, command: registry.probe };
+  }
+  const live = liveCredentials(project);
+  if (!live.length || !live.map(envName).every(present)) return;
+  const command = liveTestCommand(project);
+  const outcome = run({
+    label: "live tests",
+    command: "bash",
+    args: ["-c", command],
+    cwd: project.root,
+    env: values as Record<string, string>,
+  });
+  for (const row of rows) {
+    if (row.kind === "config") row.check = { ok: outcome.ok, command };
+  }
+}
+
+/** The whole inventory: what each credential is for, where it is set, and (check) whether it works. */
+export function secrets(args: {
+  root?: string;
+  action?: "status" | "check";
+  key?: string;
+}): SecretsReport {
+  return secretsReport(loadProject(args.root ?? "."), args.action ?? "status", args.key);
+}
+
+/** One line for `init`'s next steps; nothing at all when the project declares no credential. */
+function secretsSummary(report: SecretsReport): string | undefined {
+  const { secrets: rows } = report;
+  if (!rows.length) return undefined;
+  const missing = rows.filter((row) => !row.local).map((row) => row.name);
+  return `Secrets: ${rows.length - missing.length} of ${rows.length} present in .env${
+    missing.length ? ` (missing ${missing.join(", ")})` : ""
+  }. \`toolfactory secrets\` prints where each one is set, per host and per registry.`;
+}
+
+// ---------------------------------------------------------------------------------------------
+// unpublish — deselect's other half. Git is the ledger: the previous tag's tool.json says what
+// this project used to publish, and every row that lost its surface gets retracted.
+// ---------------------------------------------------------------------------------------------
+
+export interface UnpublishResult {
+  /** The tag the previous selection came from; absent when there is no earlier tag to diff against. */
+  from?: string;
+  /** Surfaces selected at that tag, no longer selected, and published somewhere. */
+  dropped: SurfaceId[];
+  steps: { name: string; run: string }[];
+  /**
+   * What each step did (omitted by `dryRun`). Best-effort on purpose: a registry that refuses a
+   * retraction must never stop the release it is riding along with from being cut.
+   */
+  ran?: StepResult[];
+}
+
+/** The project as the previous tag left it, plus the surfaces it published that are now gone. */
+function retractable(
+  project: Project,
+  tag: string,
+  tool: ToolConfig,
+): { previous: Project; dropped: SurfaceId[] } {
+  const previous: Project = {
+    ...project,
+    tool,
+    // The gate asserts `v<version>` against the tag, so the tag *is* the version that tag published.
+    identity: { ...project.identity, version: tag.replace(/^v/, "") },
+  };
+  const published = new Set(registries(previous).flatMap((row) => row.surfaces));
+  return {
+    previous,
+    dropped: droppedSurfaces(tool.surfaces, project.tool.surfaces).filter((surface) =>
+      published.has(surface),
+    ),
+  };
+}
+
+export function unpublish(
+  root = ".",
+  options: { ref?: string; dryRun?: boolean; hard?: boolean } = {},
+): UnpublishResult {
+  const project = loadProject(root);
+  const from = previousTag(project.root, options.ref ?? "HEAD");
+  const tool = from ? toolAtRef(project.root, from) : undefined;
+  if (!from || !tool) return { from, dropped: [], steps: [] };
+  const { previous, dropped } = retractable(project, from, tool);
+  const steps = unpublishSteps(previous, dropped, options.hard);
+  const listed = steps.map(({ name, run }) => ({ name, run }));
+  if (options.dryRun) return { from, dropped, steps: listed };
+  return { from, dropped, steps: listed, ran: runSteps(project.root, steps).steps };
+}
+
+/** `build`'s one line: a surface that published somewhere is gone, and nothing has retracted it yet. */
+function unpublishNudge(project: Project): string | undefined {
+  const from = previousTag(project.root);
+  const tool = from ? toolAtRef(project.root, from) : undefined;
+  if (!from || !tool) return undefined;
+  const { dropped } = retractable(project, from, tool);
+  if (!dropped.length) return undefined;
+  return `${dropped.join(", ")} published at ${from} and is no longer selected: \`${toolfactoryCli(project)} unpublish --dry-run\` shows what the next release will retract.`;
+}
+
 export function adopt(root: string, path: string): void {
   setState(resolve(root), path, "manual", TOOLFACTORY_VERSION);
   build(root);
@@ -447,15 +810,22 @@ export interface DoctorReport {
 }
 
 /** Report the upstream CLIs this machine can delegate to. */
-/** Prepare the GitHub repository for the live tier: the `live-tests` environment and its secrets. */
+/**
+ * Prepare the GitHub repository: the `live-tests` environment and its secrets, the release
+ * registries' repository secrets, Pages, and npm's trusted publisher — everything GitHub only
+ * exposes over its API, from the one table and the one `.env`.
+ */
 export function bootstrapRepo(args: {
   root: string;
   reviewers?: string[];
   dryRun?: boolean;
 }): BootstrapResult {
-  return prepareRepository(loadProject(args.root), {
+  const project = loadProject(args.root);
+  return prepareRepository(project, {
     reviewers: args.reviewers,
     dryRun: args.dryRun,
+    releaseSecrets: registries(project).flatMap((row) => row.secrets),
+    manual: manualSteps(project),
   });
 }
 

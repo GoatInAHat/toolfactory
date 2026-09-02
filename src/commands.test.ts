@@ -5,13 +5,18 @@
  * leaves behind in a real directory.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import * as commands from "./commands.js";
 import { createRepo } from "./hosts/github.js";
-import type { Project, SurfaceId } from "./model.js";
+import {
+  assertNoSensitiveArgument,
+  type Operation,
+  type Project,
+  type SurfaceId,
+} from "./model.js";
 import { RELOAD } from "./surfaces/agents.js";
 
 function project(surfaces: SurfaceId[]): Project {
@@ -117,5 +122,91 @@ describe("init", () => {
     // `keywords` defaults to `[name]` — Kiro Powers and Agent Plugins key activation off it —
     // and lands in the scaffolded identity file (`package.json`, here) like the rest of identity.
     expect(JSON.parse(readFileSync(join(dir, "package.json"), "utf8")).keywords).toEqual(["probe"]);
+  });
+});
+
+describe("secrets", () => {
+  it("inventories the tool's sensitive keys and the registries' tokens — presence only, never a value", () => {
+    const dir = mkdtempSync(join(tmpdir(), "toolfactory-secrets-"));
+    writeFileSync(join(dir, ".env"), "API_KEY=canary-3f9a\n");
+    const target = project(["cli", "npm"]);
+    target.root = dir;
+    target.tool.config = {
+      type: "object",
+      properties: {
+        api_key: {
+          type: "string",
+          "x-toolfactory": { sensitive: true, url: "https://example.com/keys" },
+        },
+      },
+      required: ["api_key"],
+    };
+    const report = commands.secretsReport(target);
+    expect(report.secrets.map((secret) => secret.name)).toEqual(["API_KEY", "NPM_TOKEN"]);
+    expect(report.secrets[0]).toMatchObject({
+      kind: "config",
+      required: true,
+      local: true,
+      url: "https://example.com/keys",
+    });
+    expect(report.secrets[1]).toMatchObject({
+      kind: "release",
+      required: false,
+      local: false,
+      needs: ["npm"],
+    });
+    expect(JSON.stringify(report)).not.toContain("canary-3f9a");
+  });
+
+  it("refuses an operation input named like a sensitive config key", () => {
+    const login = {
+      name: "login",
+      inputSchema: { type: "object", properties: { password: { type: "string" } } },
+      requires: [],
+    } as unknown as Operation;
+    expect(() =>
+      assertNoSensitiveArgument(
+        { properties: { password: { type: "string", "x-toolfactory": { sensitive: true } } } },
+        [login],
+      ),
+    ).toThrow(/"login" declares an input named "password"/);
+  });
+});
+
+describe("unpublish", () => {
+  it("diffs tool.json against the previous tag and retracts what a dropped surface published", () => {
+    const dir = mkdtempSync(join(tmpdir(), "toolfactory-unpublish-"));
+    process.env.GIT_CONFIG_GLOBAL = "/dev/null";
+    process.env.GIT_CONFIG_SYSTEM = "/dev/null";
+    commands.init({
+      root: dir,
+      name: "probe",
+      binding: "typescript",
+      surfaces: ["cli", "npm"],
+      dryRun: true,
+      setup: false,
+    });
+    const git = (...args: string[]) =>
+      execFileSync("git", args, {
+        cwd: dir,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          GIT_AUTHOR_NAME: "t",
+          GIT_AUTHOR_EMAIL: "t@example.com",
+          GIT_COMMITTER_NAME: "t",
+          GIT_COMMITTER_EMAIL: "t@example.com",
+        },
+      });
+    git("tag", "v0.1.0");
+    const toolPath = join(dir, "dev.toolfactory", "tool.json");
+    const tool = JSON.parse(readFileSync(toolPath, "utf8"));
+    tool.surfaces = tool.surfaces.filter((surface: string) => surface !== "npm");
+    writeFileSync(toolPath, JSON.stringify(tool, null, 2));
+    git("commit", "-qam", "drop npm");
+    git("tag", "v0.2.0");
+    const result = commands.unpublish(dir, { dryRun: true });
+    expect(result.dropped).toEqual(["npm"]);
+    expect(result.steps.some((step) => step.run.includes("npm deprecate probe@'*'"))).toBe(true);
   });
 });

@@ -70,13 +70,18 @@ function expectAllYamlAndJsonParse(files: Record<string, string>): void {
 }
 
 describe("workflows", () => {
-  it("always emits ci.yml, .env.example and renovate.json, never release.yml or compose without a trigger", () => {
+  it("always emits ci.yml, release.yml, .env.example and renovate.json, never compose without a trigger", () => {
     const files = emitted(project(["cli", "mcp"]));
     expect(Object.keys(files).sort()).toEqual([
       ".env.example",
       ".github/workflows/ci.yml",
+      ".github/workflows/release.yml",
       "renovate.json",
     ]);
+    // No registry surface: the tag still gets its gate, its assets and its Release, no legs.
+    const bare = yamlParse(files[".github/workflows/release.yml"]);
+    expect(Object.keys(bare.jobs)).toEqual(["gate", "package", "release"]);
+    expect(bare.jobs.gate.outputs).toBeUndefined();
     expectAllYamlAndJsonParse(files);
 
     const ci = yamlParse(files[".github/workflows/ci.yml"]);
@@ -127,9 +132,7 @@ describe("workflows", () => {
     expect(steps.some((s) => s.run === "uv run --with pytest pytest -q")).toBe(true);
   });
 
-  it("release.yml appears only with a registry surface, in the forced order npm -> oci -> mcp-registry -> clawhub", () => {
-    expect(emitted(project(["cli"]))[".github/workflows/release.yml"]).toBeUndefined();
-
+  it("release.yml runs the legs in the forced order npm -> oci -> mcp-registry -> clawhub, each gated on what the gate decided", () => {
     const files = emitted(
       project(
         ["npm", "mcp-registry", "clawhub", "openclaw-native", "skill", "claude", "web", "mcp"],
@@ -144,7 +147,47 @@ describe("workflows", () => {
     );
     expectAllYamlAndJsonParse(files);
     const release = yamlParse(files[".github/workflows/release.yml"]);
-    expect(release.on).toEqual({ push: { tags: ["v*"] } });
+    expect(release.on.push).toEqual({ tags: ["v*"] });
+    // The re-run after adding a secret: a fresh run reads current secrets, `gh run rerun` does not.
+    expect(release.on.workflow_dispatch.inputs.tag).toMatchObject({
+      required: true,
+      type: "string",
+    });
+    // Presence is decided once, in the gate, and every leg obeys it at job level.
+    expect(Object.keys(release.jobs.gate.outputs)).toEqual([
+      "npm",
+      "oci",
+      "mcp_registry",
+      "clawhub_package",
+      "clawhub_skill",
+      "pages",
+    ]);
+    expect(release.jobs["publish-npm"].if).toBe("needs.gate.outputs.npm == 'true'");
+    expect(release.jobs["publish-mcp-registry"].if).toBe(
+      "needs.gate.outputs.mcp_registry == 'true'",
+    );
+    expect(release.jobs["publish-clawhub"].if).toBe("needs.gate.outputs.clawhub_package == 'true'");
+    expect(release.jobs["pages-build"].if).toBe("needs.gate.outputs.pages == 'true'");
+    const presence = (
+      release.jobs.gate.steps as { id?: string; run?: string; env?: Record<string, string> }[]
+    ).find((s) => s.id === "presence");
+    expect(presence?.env?.NPM_TOKEN).toBe("${{ secrets.NPM_TOKEN }}");
+    expect(presence?.run).toContain('echo "npm=$npm" >> "$GITHUB_OUTPUT"');
+    expect(presence?.run).toContain('[ "$npm" = true ] && [ "$oci" = true ]');
+    // Skipped legs never skip the Release; failed ones do. It retracts dropped registries first.
+    expect(release.jobs.release.if).toBe(
+      "${{ !cancelled() && needs.package.result == 'success' && !contains(needs.*.result, 'failure') }}",
+    );
+    const releaseSteps = release.jobs.release.steps as {
+      run?: string;
+      with?: Record<string, unknown>;
+    }[];
+    expect(releaseSteps[0].with).toEqual({
+      ref: "${{ inputs.tag || github.ref }}",
+      "fetch-depth": 0,
+    });
+    expect(releaseSteps.some((s) => s.run === "npx toolfactory unpublish")).toBe(true);
+    expect(releaseSteps.at(-1)?.with?.tag_name).toBe("${{ inputs.tag || github.ref_name }}");
     expect(Object.keys(release.jobs)).toEqual([
       "gate",
       "package",
@@ -198,7 +241,12 @@ describe("workflows", () => {
       attestations: "write",
       "id-token": "write",
     });
-    expect(release.jobs.release.permissions).toEqual({ contents: "write" });
+    expect(release.jobs.release.permissions).toEqual({
+      contents: "write",
+      packages: "write",
+      pages: "write",
+      "id-token": "write",
+    });
     expect(release.jobs["pages-deploy"].permissions).toEqual({
       pages: "write",
       "id-token": "write",
@@ -209,7 +257,7 @@ describe("workflows", () => {
       .map((s) => s.run)
       .filter(Boolean);
     expect(gateRuns[0]).toBe(
-      'test "v$(node -p "require(\'./package.json\').version")" = "$GITHUB_REF_NAME"',
+      'test "v$(node -p "require(\'./package.json\').version")" = "$RELEASE_TAG"',
     );
     // The gate is the same check sequence as ci.yml: build precedes `toolfactory validate`,
     // which runs every selected surface's own validator (no transcribed commands to drift).
@@ -220,7 +268,7 @@ describe("workflows", () => {
     // npm generates provenance itself under trusted publishing; --provenance is redundant.
     expect(
       (release.jobs["publish-npm"].steps as { run?: string }[]).some((s) =>
-        s.run?.endsWith("npm publish --access public"),
+        s.run?.includes('NODE_AUTH_TOKEN="$NPM_TOKEN" npm publish --access public'),
       ),
     ).toBe(true);
     // The oci leg pushes the very image server.json's oci entry names.
@@ -229,7 +277,7 @@ describe("workflows", () => {
     ).find((s) => s.id === "meta");
     expect(meta?.with?.images).toBe("ghcr.io/acme/hello");
     expect(meta?.with?.labels).toBe("io.modelcontextprotocol.server.name=io.github.acme/hello");
-    expect(files[".github/workflows/release.yml"]).toContain("no per-registry release-ledger");
+    expect(files[".github/workflows/release.yml"]).toContain("git is the ledger");
     expect(files[".github/workflows/release.yml"]).toContain("CLAWHUB_TOKEN");
   });
 
@@ -376,9 +424,14 @@ describe("bootstrap-repo", () => {
 
     const anonymous = project(["cli"], { identity: { name: "hello" } });
     expect(() => bootstrapRepo(anonymous, { dryRun: true })).toThrow(/GitHub repository URL/);
+    // No live credential is not "nothing to do": the release tokens still land, at repository scope.
     const noCredential = project(["cli"], { identity: target.identity });
     noCredential.tool.config = { ...noCredential.tool.config, required: [] };
-    expect(() => bootstrapRepo(noCredential, { dryRun: true })).toThrow(/nothing to do/);
+    const release = bootstrapRepo(noCredential, { dryRun: true, releaseSecrets: ["NPM_TOKEN"] });
+    expect(release.secrets).toEqual(["NPM_TOKEN"]);
+    expect(release.commands).toContain(
+      "gh secret set NPM_TOKEN --repo acme/hello  # value from /repo/.env, on stdin",
+    );
   });
 });
 
@@ -483,7 +536,9 @@ describe("browser-extension release legs", () => {
     const realSubmit = steps.find(
       (s) => s.run?.includes("wxt submit") && !s.run.includes("--dry-run"),
     );
-    expect(realSubmit?.if).toBe("github.event_name == 'push'");
+    expect(realSubmit).toBeDefined();
+    // release.yml runs only on a tag or a dispatched tag, so the job-level store gate is the whole condition.
+    expect(release.jobs["publish-browser-ext"].if).toContain("needs.gate.outputs.chrome == 'true'");
     expect(release.jobs.release.needs).toContain("publish-browser-ext");
     expect(release.jobs["publish-browser-ext-safari"]).toBeUndefined();
 

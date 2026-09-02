@@ -35,7 +35,7 @@ def test_register_adds_every_declared_tool() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         ctx = FakeCtx(Path(tmp))
         register(ctx)
-        assert [r["name"] for r in ctx.registrations] == ["adopt","bootstrap-repo","build","check","coverage","doctor","eject","gate","init","introspect","package","unadopt","validate"]
+        assert [r["name"] for r in ctx.registrations] == ["adopt","bootstrap-repo","build","check","coverage","doctor","eject","gate","init","introspect","package","secrets","unadopt","unpublish","validate"]
 
 
 def test_doctor_handler_returns_the_real_result() -> None:

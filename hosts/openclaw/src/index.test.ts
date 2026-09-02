@@ -5,6 +5,6 @@ import entry from "./index.js";
 
 describe("toolfactory", () => {
   it("declares tool metadata", () => {
-    expect(getToolPluginMetadata(entry)?.tools.map((tool) => tool.name)).toEqual(["adopt","bootstrap-repo","build","check","coverage","doctor","eject","gate","init","introspect","package","unadopt","validate"]);
+    expect(getToolPluginMetadata(entry)?.tools.map((tool) => tool.name)).toEqual(["adopt","bootstrap-repo","build","check","coverage","doctor","eject","gate","init","introspect","package","secrets","unadopt","unpublish","validate"]);
   });
 });

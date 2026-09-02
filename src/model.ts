@@ -316,3 +316,36 @@ export interface Surface {
 export function isPortable(operation: Operation): boolean {
   return operation.requires.every((capability) => PORTABLE_CAPABILITIES.has(capability));
 }
+
+/**
+ * The other half of the sensitive-config law above: a sensitive key must not declare a default
+ * (it would be committed into every manifest), and **no operation may take one as an argument**.
+ *
+ * An operation's `inputSchema` is projected onto MCP `tools/call`, the CLI flags, the skill's
+ * operations block, the web form and every host manifest at once, so a property named like a
+ * secret is a paste-into-chat path on every surface simultaneously. A secret reaches the kernel
+ * through config — the environment a host injects from its own masked store — and never through
+ * an argument. Enforced wherever a project is loaded, so `introspect`, `build` and `check` all
+ * refuse it.
+ */
+export function assertNoSensitiveArgument(
+  config: Record<string, unknown> | undefined,
+  operations: readonly Operation[],
+): void {
+  const properties = (config?.properties ?? {}) as Record<string, Record<string, unknown>>;
+  const sensitive = new Set(
+    Object.entries(properties)
+      .filter(([, property]) => (property["x-toolfactory"] as { sensitive?: boolean })?.sensitive)
+      .map(([key]) => key),
+  );
+  if (!sensitive.size) return;
+  for (const operation of operations) {
+    const inputs = (operation.inputSchema.properties ?? {}) as Record<string, unknown>;
+    for (const name of Object.keys(inputs)) {
+      if (!sensitive.has(name)) continue;
+      throw new Error(
+        `Operation "${operation.name}" declares an input named "${name}", which is a sensitive config key: a secret reaches the kernel through config (the environment the host injects), never through an argument every surface would prompt for. Read it from config in the handler and drop the property.`,
+      );
+    }
+  }
+}

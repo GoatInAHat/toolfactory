@@ -111,6 +111,12 @@ export const operations = [
         .describe(
           "Region files whose generated regions were emptied because their surface is no longer selected; the authored remainder stays.",
         ),
+      nudge: z
+        .string()
+        .optional()
+        .describe(
+          "One line when a surface that published somewhere was deselected since the last tag, pointing at `unpublish`.",
+        ),
     }),
     annotations: { idempotentHint: true },
     handler: async ({ root }) => commands.build(root).result,
@@ -193,7 +199,7 @@ export const operations = [
   operation({
     name: "bootstrap-repo",
     description:
-      "Prepare the GitHub repository for the live-test tier: create the `live-tests` environment with required reviewers, then set every required sensitive config key as an environment secret from the local .env.",
+      "Prepare the GitHub repository from the local .env: the `live-tests` environment with its required reviewers and the sensitive config keys inside it, the release registries' tokens at repository scope, GitHub Pages with source = Actions, and npm's trusted publisher. Values go to `gh` on stdin and are never returned.",
     input: z.object({
       root,
       reviewers: z
@@ -209,12 +215,73 @@ export const operations = [
       repository: z.string(),
       environment: z.string(),
       reviewers: z.array(z.string()),
-      secrets: z.array(z.string()),
+      secrets: z.array(z.string()).describe("Names written, never values"),
+      missing: z.array(z.string()).describe("Declared names the local .env has no value for"),
       commands: z.array(z.string()),
+      manual: z.array(z.string()).describe("The one-time human steps no API can do"),
       dryRun: z.boolean(),
     }),
     requires: ["shell", "net", "secret"],
     handler: async (args) => commands.bootstrapRepo(args),
+  }),
+  operation({
+    name: "secrets",
+    description:
+      "Every credential this project's surfaces need — the tool's own sensitive config keys and the release registries' tokens — with where each one is set, whether it is present locally and on GitHub, and (check) whether the registry accepts it. Never a value.",
+    input: z.object({
+      root,
+      action: z
+        .enum(["status", "check"])
+        .default("status")
+        .describe("status: the inventory. check: run each registry's own credential probe."),
+      key: z.string().optional().describe("Only this secret"),
+    }),
+    output: z.object({
+      secrets: z.array(
+        z.object({
+          name: z.string(),
+          kind: z.enum(["config", "release"]),
+          required: z.boolean(),
+          needs: z.array(z.string()),
+          local: z.boolean(),
+          github: z.boolean().optional(),
+          url: z.string().optional(),
+          howTo: z.array(z.string()),
+          check: z.object({ ok: z.boolean(), command: z.string() }).optional(),
+        }),
+      ),
+      manual: z.array(z.string()),
+    }),
+    annotations: { readOnlyHint: true },
+    requires: ["shell", "net", "secret"],
+    handler: async (args) => commands.secrets(args),
+  }),
+  operation({
+    name: "unpublish",
+    description:
+      "Retract what a deselected surface used to publish. Git is the ledger: the previous tag's dev.toolfactory/tool.json says what was selected then, and every registry row that lost its surface is checked for the version that tag published and then retracted with the registry's own CLI — or reported with the exact page, where there is no API.",
+    input: z.object({
+      root,
+      ref: z
+        .string()
+        .default("HEAD")
+        .describe("Diff against the tag before this ref (the release passes the tag being cut)"),
+      dryRun: z.boolean().default(false).describe("List the retractions instead of running them"),
+      hard: z
+        .boolean()
+        .default(false)
+        .describe("Use the destructive retraction where one exists (npm unpublish --force)"),
+    }),
+    output: z.object({
+      from: z.string().optional(),
+      dropped: z.array(surfaceId),
+      steps: z.array(z.object({ name: z.string(), run: z.string() })),
+      ran: z
+        .array(z.object({ name: z.string(), ok: z.boolean(), durationMs: z.number() }))
+        .optional(),
+    }),
+    requires: ["shell", "net", "secret"],
+    handler: async ({ root, ref, dryRun, hard }) => commands.unpublish(root, { ref, dryRun, hard }),
   }),
   operation({
     name: "gate",

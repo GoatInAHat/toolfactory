@@ -40,7 +40,7 @@ TOOLS = json.loads(
   },
   {
     "name": "bootstrap-repo",
-    "description": "Prepare the GitHub repository for the live-test tier: create the `live-tests` environment with required reviewers, then set every required sensitive config key as an environment secret from the local .env.",
+    "description": "Prepare the GitHub repository from the local .env: the `live-tests` environment with its required reviewers and the sensitive config keys inside it, the release registries' tokens at repository scope, GitHub Pages with source = Actions, and npm's trusted publisher. Values go to `gh` on stdin and are never returned.",
     "parameters": {
       "type": "object",
       "properties": {
@@ -318,6 +318,33 @@ TOOLS = json.loads(
     }
   },
   {
+    "name": "secrets",
+    "description": "Every credential this project's surfaces need — the tool's own sensitive config keys and the release registries' tokens — with where each one is set, whether it is present locally and on GitHub, and (check) whether the registry accepts it. Never a value.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "root": {
+          "default": ".",
+          "description": "Project root (directory containing dev.toolfactory/)",
+          "type": "string"
+        },
+        "action": {
+          "default": "status",
+          "description": "status: the inventory. check: run each registry's own credential probe.",
+          "type": "string",
+          "enum": [
+            "status",
+            "check"
+          ]
+        },
+        "key": {
+          "description": "Only this secret",
+          "type": "string"
+        }
+      }
+    }
+  },
+  {
     "name": "unadopt",
     "description": "Return an adopted file to toolfactory and regenerate it.",
     "parameters": {
@@ -336,6 +363,35 @@ TOOLS = json.loads(
       "required": [
         "path"
       ]
+    }
+  },
+  {
+    "name": "unpublish",
+    "description": "Retract what a deselected surface used to publish. Git is the ledger: the previous tag's dev.toolfactory/tool.json says what was selected then, and every registry row that lost its surface is checked for the version that tag published and then retracted with the registry's own CLI — or reported with the exact page, where there is no API.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "root": {
+          "default": ".",
+          "description": "Project root (directory containing dev.toolfactory/)",
+          "type": "string"
+        },
+        "ref": {
+          "default": "HEAD",
+          "description": "Diff against the tag before this ref (the release passes the tag being cut)",
+          "type": "string"
+        },
+        "dryRun": {
+          "default": false,
+          "description": "List the retractions instead of running them",
+          "type": "boolean"
+        },
+        "hard": {
+          "default": false,
+          "description": "Use the destructive retraction where one exists (npm unpublish --force)",
+          "type": "boolean"
+        }
+      }
     }
   },
   {

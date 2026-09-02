@@ -24,7 +24,9 @@
       "init",
       "introspect",
       "package",
+      "secrets",
       "unadopt",
+      "unpublish",
       "validate"
     ]
   }

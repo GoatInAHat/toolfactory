@@ -42,7 +42,7 @@
     },
     {
       "name": "bootstrap-repo",
-      "description": "Prepare the GitHub repository for the live-test tier: create the `live-tests` environment with required reviewers, then set every required sensitive config key as an environment secret from the local .env.",
+      "description": "Prepare the GitHub repository from the local .env: the `live-tests` environment with its required reviewers and the sensitive config keys inside it, the release registries' tokens at repository scope, GitHub Pages with source = Actions, and npm's trusted publisher. Values go to `gh` on stdin and are never returned.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -86,13 +86,28 @@
             "type": "array",
             "items": {
               "type": "string"
-            }
+            },
+            "description": "Names written, never values"
+          },
+          "missing": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Declared names the local .env has no value for"
           },
           "commands": {
             "type": "array",
             "items": {
               "type": "string"
             }
+          },
+          "manual": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The one-time human steps no API can do"
           },
           "dryRun": {
             "type": "boolean"
@@ -103,7 +118,9 @@
           "environment",
           "reviewers",
           "secrets",
+          "missing",
           "commands",
+          "manual",
           "dryRun"
         ],
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -166,6 +183,10 @@
               "type": "string"
             },
             "description": "Region files whose generated regions were emptied because their surface is no longer selected; the authored remainder stays."
+          },
+          "nudge": {
+            "description": "One line when a surface that published somewhere was deselected since the last tag, pointing at `unpublish`.",
+            "type": "string"
           }
         },
         "required": [
@@ -783,6 +804,130 @@
       }
     },
     {
+      "name": "secrets",
+      "description": "Every credential this project's surfaces need — the tool's own sensitive config keys and the release registries' tokens — with where each one is set, whether it is present locally and on GitHub, and (check) whether the registry accepts it. Never a value.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "root": {
+            "default": ".",
+            "description": "Project root (directory containing dev.toolfactory/)",
+            "type": "string"
+          },
+          "action": {
+            "default": "status",
+            "description": "status: the inventory. check: run each registry's own credential probe.",
+            "type": "string",
+            "enum": [
+              "status",
+              "check"
+            ]
+          },
+          "key": {
+            "description": "Only this secret",
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "secrets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "config",
+                    "release"
+                  ]
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "needs": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "local": {
+                  "type": "boolean"
+                },
+                "github": {
+                  "type": "boolean"
+                },
+                "url": {
+                  "type": "string"
+                },
+                "howTo": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "check": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "command": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "command"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "name",
+                "kind",
+                "required",
+                "needs",
+                "local",
+                "howTo"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "manual": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "secrets",
+          "manual"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "_meta": {
+        "dev.toolfactory": {
+          "requires": [
+            "shell",
+            "net",
+            "secret"
+          ]
+        }
+      }
+    },
+    {
       "name": "unadopt",
       "description": "Return an adopted file to toolfactory and regenerate it.",
       "inputSchema": {
@@ -819,6 +964,130 @@
       "_meta": {
         "dev.toolfactory": {
           "requires": []
+        }
+      }
+    },
+    {
+      "name": "unpublish",
+      "description": "Retract what a deselected surface used to publish. Git is the ledger: the previous tag's dev.toolfactory/tool.json says what was selected then, and every registry row that lost its surface is checked for the version that tag published and then retracted with the registry's own CLI — or reported with the exact page, where there is no API.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "root": {
+            "default": ".",
+            "description": "Project root (directory containing dev.toolfactory/)",
+            "type": "string"
+          },
+          "ref": {
+            "default": "HEAD",
+            "description": "Diff against the tag before this ref (the release passes the tag being cut)",
+            "type": "string"
+          },
+          "dryRun": {
+            "default": false,
+            "description": "List the retractions instead of running them",
+            "type": "boolean"
+          },
+          "hard": {
+            "default": false,
+            "description": "Use the destructive retraction where one exists (npm unpublish --force)",
+            "type": "boolean"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "dropped": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "skill",
+                "agent-plugins",
+                "claude",
+                "codex",
+                "cursor",
+                "mcp",
+                "mcp-registry",
+                "cli",
+                "npm",
+                "pypi",
+                "openclaw-native",
+                "hermes-native",
+                "clawhub",
+                "web",
+                "dsh",
+                "workflows",
+                "agents",
+                "readme",
+                "gemini",
+                "mcpb",
+                "browser-extension"
+              ]
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "run": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "run"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "ran": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "ok": {
+                  "type": "boolean"
+                },
+                "durationMs": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "name",
+                "ok",
+                "durationMs"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "dropped",
+          "steps"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false
+      },
+      "_meta": {
+        "dev.toolfactory": {
+          "requires": [
+            "shell",
+            "net",
+            "secret"
+          ]
         }
       }
     },

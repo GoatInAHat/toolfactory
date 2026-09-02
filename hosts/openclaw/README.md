@@ -45,7 +45,7 @@ result comes back carrying what its output schema promises.
 ## Tools
 
 - `adopt` — Stop regenerating one file; it becomes the author's (recorded as manual in the lock). (native)
-- `bootstrap-repo` — Prepare the GitHub repository for the live-test tier: create the `live-tests` environment with required reviewers, then set every required sensitive config key as an environment secret from the local .env. (native)
+- `bootstrap-repo` — Prepare the GitHub repository from the local .env: the `live-tests` environment with its required reviewers and the sensitive config keys inside it, the release registries' tokens at repository scope, GitHub Pages with source = Actions, and npm's trusted publisher. Values go to `gh` on stdin and are never returned. (native)
 - `build` — Generate every selected surface in-tree from the identity file and the operation snapshot, and refresh the lock. (native)
 - `check` — Fail if the operation snapshot or any generated file drifted from the code (the CI drift gate). (native)
 - `coverage` — The operation × surface verdict matrix: native, bridged, degraded, or excluded, with reasons. (native)
@@ -55,5 +55,7 @@ result comes back carrying what its output schema promises.
 - `init` — Create a new tool: dev.toolfactory/tool.json, the authored identity file, the kernel scaffold for the chosen language, and the first build of every selected surface. (native)
 - `introspect` — Spawn the kernel MCP server, list its tools, and snapshot them to dev.toolfactory/ops.json. (native)
 - `package` — Build every release asset into dist/release/ — npm tarball, Python distributions, OpenClaw plugin tarball, plugin bundle zip, web build, coverage — by the same steps the release workflow's package job runs. Publishing stays a CI concern. (native)
+- `secrets` — Every credential this project's surfaces need — the tool's own sensitive config keys and the release registries' tokens — with where each one is set, whether it is present locally and on GitHub, and (check) whether the registry accepts it. Never a value. (native)
 - `unadopt` — Return an adopted file to toolfactory and regenerate it. (native)
+- `unpublish` — Retract what a deselected surface used to publish. Git is the ledger: the previous tag's dev.toolfactory/tool.json says what was selected then, and every registry row that lost its surface is checked for the version that tag published and then retracted with the registry's own CLI — or reported with the exact page, where there is no API. (native)
 - `validate` — Run each selected surface's own upstream validator (agentskills, claude plugin validate, MCP Inspector, openclaw, hermes, npm pack, uv build). (native)

@@ -58,7 +58,7 @@ Arguments: `root`, `path`.
 
 ### bootstrap-repo
 
-Prepare the GitHub repository for the live-test tier: create the `live-tests` environment with required reviewers, then set every required sensitive config key as an environment secret from the local .env.
+Prepare the GitHub repository from the local .env: the `live-tests` environment with its required reviewers and the sensitive config keys inside it, the release registries' tokens at repository scope, GitHub Pages with source = Actions, and npm's trusted publisher. Values go to `gh` on stdin and are never returned.
 
 Arguments: `root`, `reviewers`, `dryRun`.
 
@@ -134,6 +134,14 @@ Arguments: `root`.
 
 `toolfactory package --json '<arguments>'` prints a JSON result. MCP tool `package` on server `toolfactory` returns the same result as `structuredContent`.
 
+### secrets
+
+Every credential this project's surfaces need — the tool's own sensitive config keys and the release registries' tokens — with where each one is set, whether it is present locally and on GitHub, and (check) whether the registry accepts it. Never a value.
+
+Arguments: `root`, `action`, `key`.
+
+`toolfactory secrets --json '<arguments>'` prints a JSON result. MCP tool `secrets` on server `toolfactory` returns the same result as `structuredContent`.
+
 ### unadopt
 
 Return an adopted file to toolfactory and regenerate it.
@@ -141,6 +149,14 @@ Return an adopted file to toolfactory and regenerate it.
 Arguments: `root`, `path`.
 
 `toolfactory unadopt --json '<arguments>'` prints a JSON result. MCP tool `unadopt` on server `toolfactory` returns the same result as `structuredContent`.
+
+### unpublish
+
+Retract what a deselected surface used to publish. Git is the ledger: the previous tag's dev.toolfactory/tool.json says what was selected then, and every registry row that lost its surface is checked for the version that tag published and then retracted with the registry's own CLI — or reported with the exact page, where there is no API.
+
+Arguments: `root`, `ref`, `dryRun`, `hard`.
+
+`toolfactory unpublish --json '<arguments>'` prints a JSON result. MCP tool `unpublish` on server `toolfactory` returns the same result as `structuredContent`.
 
 ### validate
 

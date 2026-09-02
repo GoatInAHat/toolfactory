@@ -295,13 +295,26 @@ ask, so it is not a toolfactory mechanism; OpenClaw's public plugin SDK has no a
 (`excluded:no-user-input-bridge`); on Hermes the author may import `tools.clarify_tool` in the
 host-native shim.
 
-### 4.6 Secrets a tool obtains at runtime
+### 4.6 Secrets: one declaration, never a value in an argument
 
-A setup flow that produces a secret returns it; where it is kept is the host's business, and
-toolfactory documents the per-surface policy rather than generating one: OpenClaw and Hermes can
-be written by the tool (`openclaw config set`; Hermes's env file through `hermes config`),
-Claude Code cannot (return the value and point the user at the plugin's configuration UI), and
-the data directory (§6.1) is the fallback for caches such as sessions. Only OpenClaw's
+A secret reaches a kernel through **config** (the environment its host injects), never through an
+operation argument: **no operation's input may declare a property named like an
+`x-toolfactory.sensitive` config key** (`src/model.ts`, enforced by `introspect` and `check`). That
+one rule is what keeps every projection of the operation schema — MCP `tools/call`, the CLI, the
+skill block, the web form, each host manifest — from ever being a paste-a-secret-into-chat path,
+and it is why MCP form-mode elicitation (which the spec forbids for secrets anyway) is not a
+toolfactory mechanism. Values enter where an agent cannot see them: the host's own masked store,
+projected from the same declaration (Claude Code `userConfig.sensitive` → Keychain, Gemini
+`settings[].sensitive`, Claude Desktop `user_config`, OpenClaw `uiHints.sensitive` in its
+Control UI, Hermes `.env` at `hermes config env-path`; Cursor, Codex, Kiro and Factory only read
+the environment); the developer's gitignored `.env`; the kernel-served web page's Secrets panel
+(§3 `web`) over its token-guarded loopback `/env` route; and, for CI, `toolfactory bootstrap-repo`,
+which pushes `.env` to GitHub through `gh` with values only ever on stdin. `toolfactory secrets`
+is the inventory of all of it — the tool's own sensitive keys and the selected registries' tokens
+from `registries(project)` (§7), each with where to mint it, whether it is present locally and on
+GitHub, the exact per-host action, and (`check`) whether the registry accepts it, delegated to
+that registry's own CLI; the T4 live test is the check for the tool's own keys. The data
+directory (§6.1) is the fallback for caches such as sessions. Only OpenClaw's
 `configSchema` carries schema composition keywords (`anyOf`, `oneOf`); every other host enforces
 the flat `required` list, so a cross-field rule such as "VUnetID or email" is validated in the
 kernel's own config code.
@@ -355,6 +368,13 @@ checkout, stopping at the first failure and skipping only the steps marked as ru
 provisioning. It is the same list `ci.yml` renders, so a project with no CI — no GitHub, plain
 git or none — has the identical definition of green.
 
+**Credentials, one declaration.** A config property marked `x-toolfactory.sensitive` is a
+secret everywhere: masked in every host that can mask, listed by `toolfactory secrets`, pushed by
+`bootstrap-repo`, never accepted as an operation argument (§4.6). The release registries' tokens
+are declared once too, as rows of `registries(project)` in `src/project/gate.ts` (§7), and read by
+exactly four consumers: `secrets status`, `secrets check`, the release gate's presence step and
+the unpublish step.
+
 ### 6.1 The data directory
 
 Every kernel exposes `context.dataDir`, resolved in the kernel from the variables hosts already
@@ -407,8 +427,35 @@ the same definition of green, and CI cannot drift from it. Steps the local runne
 
 **One version, in the identity file**, projected everywhere by `build`. A release therefore
 *asserts* the tag against it and never writes it: the gate's first step is
-`test "v$(<read the identity file's version>)" = "$GITHUB_REF_NAME"`. Setting a version from the
-tag would rewrite a SHA-locked file behind `build`'s back and fail the next `check`.
+`test "v$(<read the identity file's version>)" = "$RELEASE_TAG"`, where `RELEASE_TAG` is the pushed
+tag or, on `workflow_dispatch`, the `tag` input. Setting a version from the tag would rewrite a
+SHA-locked file behind `build`'s back and fail the next `check`.
+
+**`release.yml` is always emitted, and a tag with no secrets is green.** Its `gate` job decides
+once, in one step, which registries this tag can publish to — each row's `gate` from
+`registries(project)` runs with that row's secrets and confirm variable in its environment (npm:
+the package exists, so trusted publishing applies, or `NPM_TOKEN` for the first publish; PyPI: a
+published release or `vars.PYPI_TRUSTED_PUBLISHER`; the MCP registry: every `packages[]` entry
+can publish; ClawHub and the stores: their tokens; Pages: the site exists) — and writes the answer
+as job outputs, because `secrets` and `env` are unreadable in a job-level `if` and the
+reusable-workflow legs cannot be gated inside a `run:`. Every leg carries
+`if: needs.gate.outputs.<id> == 'true'`, and `release` runs unless something failed
+(`!cancelled() && needs.package.result == 'success' && !contains(needs.*.result, 'failure')`), so
+skipped legs never skip the Release: gate, package, the Release with its assets, and whatever
+else applies. `workflow_dispatch` with a `tag` input is the re-run after adding a secret — every
+checkout, the assert, the image tag and the Release read `inputs.tag || github.ref` — and never
+`gh run rerun`, which replays the original run's secret snapshot.
+
+**Git is the release ledger.** Before the Release, `release` runs `toolfactory unpublish`
+(checkout with the full history): it diffs `dev.toolfactory/tool.json` at
+`git describe --tags --abbrev=0 <tag>^` against the tag's, and for every registry a dropped
+surface published to runs `exists` → the secret guard → `retract` from the same table — `npm
+deprecate` (reversible; `npm unpublish --force` behind `--hard`), `mcp-publisher status --status
+deleted`, `clawhub … delete`, `gh api DELETE` for the ghcr package and Pages — and a `::notice::`
+with the exact page for the registries that have no API (PyPI yank, the three stores, a live
+Apple listing). Re-running the same tag is a no-op, and a missing token is a notice, never a red
+release. In-repo listings (the Claude, Codex, Cursor and Gemini manifests, `skills/<N>/`) are
+retracted by the deselect itself: the file is gone at the tag.
 
 The generated `release.yml` fires on `v*` tags with a top-level `permissions: {contents: read}`,
 and every job that runs steps narrows it explicitly:
@@ -429,10 +476,15 @@ and every job that runs steps narrows it explicitly:
 | `pages-build` | `web` | `gate` | `contents: read` | `configure-pages`, the web build with `PAGES_BASE=/<repo>/` (a project page is not served from the domain root), `tool.schema.json` + `COVERAGE.md` + `coverage.json` copied in, `upload-pages-artifact` |
 | `pages-deploy` | `web` | `pages-build` | `pages: write`, `id-token: write` | `deploy-pages`, environment `github-pages` |
 
-toolfactory runs no publish itself. Registering each trusted publisher in the registry's web UI,
-and setting Pages' source to GitHub Actions, are one-time human steps; the `ghcr.io` image needs
-none (`GITHUB_TOKEN` is enough) but inherits the repository's visibility, so the OCI leg only
-publishes from a public repo. Everything that is GitHub-only — OIDC publishing, Pages, ghcr, the
+toolfactory runs no publish itself. `bootstrap-repo` does what `gh` can — the secrets, the
+`live-tests` environment, enabling Pages with Source = GitHub Actions, and `npm trust` once the
+package exists (the very first npm publish can only use a token) — and `secrets status` prints
+the rest: the `ghcr.io` image is **private on its first push whatever the repository's visibility**
+(a package inherits the repository's access permissions, not its visibility) and GitHub has no API
+to change that, so it is made public once by hand; PyPI's pending trusted publisher is web-only,
+confirmed with the `PYPI_TRUSTED_PUBLISHER` repository variable; the stores' listings are
+dashboard-only. `wxt submit --dry-run` reaches the network only for Chrome (API v2 `fetchStatus`)
+and Firefox (`GET /api/v5/addons/addon/{id}`); for Edge it proves the zip, not the token. Everything that is GitHub-only — OIDC publishing, Pages, ghcr, the
 live-tests environment — is simply absent from a project built without it; `toolfactory gate` and
 `toolfactory package` are not.
 
@@ -478,7 +530,7 @@ substitute: agents use their CLIs.
 toolfactory is described by its own `dev.toolfactory/tool.json` and every generated artifact in
 its repo is produced by `toolfactory build`. `toolfactory check` and `toolfactory validate` run in
 its own CI. Its operations (`init`, `introspect`, `build`, `check`, `validate`, `coverage`,
-`adopt`, `unadopt`, `eject`, `gate`, `package`, `doctor`, `bootstrap-repo`) are declared once in `src/ops.ts`; the CLI and the MCP
+`adopt`, `unadopt`, `eject`, `gate`, `package`, `doctor`, `secrets`, `bootstrap-repo`, `unpublish`) are declared once in `src/ops.ts`; the CLI and the MCP
 server are generated from them exactly as for any other tool. Its selected surfaces include the
 OpenClaw-native and Hermes-native shims, because those generators track the fastest-moving hosts
 and must be exercised by toolfactory's own release, and the web surface, whose scaffold is
@@ -490,8 +542,7 @@ mirrored from upstream generators that move just as fast.
 in §9 plus `mcp`.
 
 **Not in v0** (each is a documented gap, not an implied feature): yarn and bun workflows (the
-loader rejects other `packageManager` values with a message); a release ledger and
-`release --dry-run`; nightly golden tests of generators against upstream `latest` and
+loader rejects other `packageManager` values with a message); nightly golden tests of generators against upstream `latest` and
 `@beta`; GUI (Tauri), MCPB and GitHub Releases binaries; Go and Rust bindings; a DSH plugin with
 Cordis code of its own — the `dsh` surface ships the zero-code bundle, and anything beyond it is gated
 on DSH's first non-alpha tag; A2A, WebMCP, UTCP.

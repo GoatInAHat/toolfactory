@@ -20,7 +20,9 @@ provides_tools:
   - init
   - introspect
   - package
+  - secrets
   - unadopt
+  - unpublish
   - validate
 optional_env:
   - name: TOOLFACTORY_ROOT

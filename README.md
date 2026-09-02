@@ -96,7 +96,9 @@ toolfactory is built with toolfactory.
 | `package` | build every release asset into `dist/release/` (npm tarball, distributions, plugin tarball and bundle zip, web build, coverage) |
 | `adopt` / `unadopt` / `eject` | take a file (or a whole surface) over from toolfactory, or give it back |
 | `doctor` | which upstream CLIs this machine can delegate to |
-| `bootstrap-repo` | create the `live-tests` GitHub environment (required reviewers) and push its secrets from `.env` via `gh` |
+| `secrets` | every credential the project needs — its own sensitive config keys and the release registries' tokens — with where to mint each, whether it is present locally and on GitHub, and (`--action check`) whether the registry accepts it; never a value |
+| `bootstrap-repo` | push `.env` to GitHub through `gh` (config keys to the `live-tests` environment, release tokens to the repository), enable Pages, configure npm trusted publishing once the package exists, and print the one-time steps that are left |
+| `unpublish` | retract every registry a surface dropped since the previous tag published to; the release runs it, `--dryRun` shows it |
 
 ## Surfaces
 

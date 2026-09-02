@@ -8,9 +8,10 @@
  * file's own.
  *
  * - `.github/workflows/ci.yml` — T0/T1 always: toolchain per binding, then `gateSteps`.
- * - `.github/workflows/release.yml` — only when a registry surface (npm/pypi/mcp-registry/
- *   clawhub) is selected: the gate, `packageSteps` uploaded as one artifact, one publish job per
- *   registry in the forced order §7 requires, the GitHub Release, and the Pages pair.
+ * - `.github/workflows/release.yml` — always: the gate (which also decides, once, which registries
+ *   this tag can actually publish to), `packageSteps` uploaded as one artifact, one publish job
+ *   per registry in the forced order §7 requires, the GitHub Release, and the Pages pair. A
+ *   project with no registry surface still gets the tag's Release carrying those assets.
  * - `compose.toolfactory.yaml` — only when a host-native surface (openclaw-native /
  *   hermes-native) is selected: the T3 container harness, one service per selected host.
  * - `.env.example` — always: every `tool.json.config` property, uppercased, secrets marked.
@@ -24,13 +25,20 @@ import {
   bootstrapSteps,
   type GateStep,
   gateSteps,
+  gateVariable,
+  MCP_PUBLISHER_FETCH,
+  npmPackageExists,
   openclawTarball,
   outputsStep,
   PACKAGE_MANAGER_COMMANDS,
   packageSteps,
   RELEASE_DIR,
+  RELEASE_SECRET_NAMES,
+  type Registry,
+  registries,
   tagVersionAssert,
   toolfactoryCli,
+  unpublishStep,
   WEB_BUILD,
 } from "../project/gate.js";
 import { HOST_DIR as BROWSER_HOST_DIR, sourcesZipName, zipName } from "./browser-extension.js";
@@ -63,6 +71,25 @@ function yml(document: unknown): string {
   return yamlStringify(document, { lineWidth: 0, aliasDuplicateObjects: false });
 }
 
+/**
+ * The tag `release.yml` is releasing. On `push: tags` it is the pushed tag; on `workflow_dispatch`
+ * it is the `tag` input — the operator's re-run after minting a missing secret, which `gh run
+ * rerun` cannot be because a re-run replays the original run's secret snapshot. Every checkout,
+ * every assert, the image tag and the Release all read the same expression, so a dispatched run
+ * releases the tag and never the branch it was dispatched from.
+ */
+const TAG_REF = "${{ inputs.tag || github.ref }}";
+const TAG_NAME = "${{ inputs.tag || github.ref_name }}";
+
+/** `actions/checkout`, pinned to the released tag inside `release.yml` and to the event elsewhere. */
+function checkoutStep(ref?: string, extra?: Record<string, unknown>): Step {
+  const options = compact({ ref, ...extra });
+  return compact({
+    uses: "actions/checkout@v7",
+    with: Object.keys(options).length ? options : undefined,
+  });
+}
+
 /** A single job dependency as GitHub Actions spells it: a bare string for one, an array for many. */
 function needsOf(jobs: string[]): string | string[] | undefined {
   if (jobs.length === 0) return undefined;
@@ -81,9 +108,9 @@ const SETUP_ACTIONS: Record<PackageManager, Step[]> = {
 };
 
 /** Checkout plus the language toolchain: everything a job needs before it can run a command. */
-function toolchainSteps(project: Project, node: string): Step[] {
+function toolchainSteps(project: Project, node: string, ref?: string): Step[] {
   const pmName = project.packageManager ?? "npm";
-  const steps: Step[] = [{ uses: "actions/checkout@v7" }];
+  const steps: Step[] = [checkoutStep(ref)];
   if (project.tool.binding === "typescript") {
     // uv runs the agentskills validator; the python toolchain has it anyway.
     steps.push(...SETUP_ACTIONS[pmName], {
@@ -220,62 +247,61 @@ function ciDocument(project: Project): Record<string, unknown> {
 
 // ---------------------------------------------------------------------------------------------
 // The browser extension's publish-* legs: store submission (stored secrets, no OIDC — none of
-// the three stores support it) and the opt-in Safari host-native leg. `wxt submit` reads every
-// store credential from the environment itself once the flag naming the CLI's UPPER_SNAKE_CASE
+// the three stores support it) and the opt-in Safari host-native leg. Every store's secret names
+// come from `registries(project)` (§1), the same table `secrets` and `unpublish` read. `wxt
+// submit` reads each credential from the environment itself under the CLI's UPPER_SNAKE_CASE
 // convention (verified live, `publish-browser-extension@6.1.1`'s resolveConfig): the shell only
 // has to decide which store's `--<store>-zip` flag to pass, so an unconfigured store is a no-op,
-// never a validation error, and a project with the surface selected but no store secrets at all
-// still gets a green `publish-browser-ext` leg that does nothing.
+// never a validation error.
 // ---------------------------------------------------------------------------------------------
 
-/**
- * Chrome Web Store API v2 (mandatory: v1/v1.1 shuts off 15 Oct 2026) authenticates with a
- * service account, not the client-id/secret/refresh-token triple v1.1 used — verified against
- * `publish-browser-extension`'s own config schema, which switches shape entirely on `apiVersion`.
- * Firefox and Edge have no v2 equivalent, so their names are the ones already in the CLI's
- * `--help`.
- */
-const CHROME_STORE_SECRETS = [
-  "CHROME_EXTENSION_ID",
-  "CHROME_PUBLISHER_ID",
-  "CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL",
-  "CHROME_SERVICE_ACCOUNT_PRIVATE_KEY",
-];
-const FIREFOX_STORE_SECRETS = ["FIREFOX_EXTENSION_ID", "FIREFOX_JWT_ISSUER", "FIREFOX_JWT_SECRET"];
-const EDGE_STORE_SECRETS = ["EDGE_PRODUCT_ID", "EDGE_CLIENT_ID", "EDGE_API_KEY"];
+/** The three store rows, in submit order; absent from `rows` when the store is not applicable. */
+const STORES = ["chrome", "firefox", "edge"] as const;
 
-/** `wxt submit --dry-run` (always) or a real `wxt submit` (tag push only), gated per store. */
-function browserExtSubmitScript(project: Project, dryRun: boolean): string {
+function storeRows(rows: Registry[]): Registry[] {
+  return STORES.map((id) => rows.find((row) => row.id === id)).filter(
+    (row): row is Registry => row !== undefined,
+  );
+}
+
+/** `wxt submit --dry-run` (zip + payload check) or the real submission, gated per store. */
+function browserExtSubmitScript(project: Project, rows: Registry[], dryRun: boolean): string {
   const zip = (browser: "chrome" | "firefox" | "edge") =>
     `${RELEASE_ARTIFACT}/${zipName(project, browser)}`;
   const present = (names: string[]) => names.map((name) => `[ -n "$${name}" ]`).join(" && ");
+  const flags: Record<string, string> = {
+    chrome: `--chrome-zip ${zip("chrome")}`,
+    firefox: `--firefox-zip ${zip("firefox")} --firefox-sources-zip ${RELEASE_ARTIFACT}/${sourcesZipName(project)}`,
+    edge: `--edge-zip ${zip("edge")}`,
+  };
   return [
     'flags=""',
-    `if ${present(CHROME_STORE_SECRETS)}; then flags="$flags --chrome-zip ${zip("chrome")}"; fi`,
-    `if ${present(FIREFOX_STORE_SECRETS)}; then flags="$flags --firefox-zip ${zip("firefox")} --firefox-sources-zip ${RELEASE_ARTIFACT}/${sourcesZipName(project)}"; fi`,
-    `if ${present(EDGE_STORE_SECRETS)}; then flags="$flags --edge-zip ${zip("edge")}"; fi`,
+    ...storeRows(rows).map(
+      (row) => `if ${present(row.secrets)}; then flags="$flags ${flags[row.id]}"; fi`,
+    ),
     'if [ -z "$flags" ]; then echo "No browser store credentials configured; skipping wxt submit."; exit 0; fi',
     `npm --prefix ${BROWSER_HOST_DIR} exec --no -- wxt submit ${dryRun ? "--dry-run " : ""}$flags`,
   ].join("\n");
 }
 
-function browserExtPublishJob(project: Project): Record<string, unknown> {
+function browserExtPublishJob(project: Project, rows: Registry[]): Record<string, unknown> {
+  const stores = storeRows(rows);
   return {
     needs: needsOf(["gate", "package"]),
+    if: stores.map((row) => `needs.gate.outputs.${gateVariable(row)} == 'true'`).join(" || "),
     "runs-on": "ubuntu-latest",
     permissions: { contents: "read" },
     env: {
-      // Constant, not a secret: selects the v2 schema above whenever the Chrome secrets are set.
+      // Constant, not a secret: Chrome Web Store API v2 (mandatory — v1.1 shuts off 15 Oct 2026)
+      // authenticates with a service account, not v1.1's client-id/secret/refresh-token triple,
+      // and `publish-browser-extension` switches its whole config shape on this value.
       CHROME_API_VERSION: "v2",
       ...Object.fromEntries(
-        [...CHROME_STORE_SECRETS, ...FIREFOX_STORE_SECRETS, ...EDGE_STORE_SECRETS].map((name) => [
-          name,
-          `\${{ secrets.${name} }}`,
-        ]),
+        stores.flatMap((row) => row.secrets).map((name) => [name, `\${{ secrets.${name} }}`]),
       ),
     },
     steps: [
-      ...toolchainSteps(project, "24"),
+      ...toolchainSteps(project, "24", TAG_REF),
       // Only the `wxt`/`publish-browser-extension` binary is needed — the zips it submits are the
       // `package` job's own, downloaded below, not rebuilt.
       { run: `npm --prefix ${BROWSER_HOST_DIR} install` },
@@ -284,14 +310,13 @@ function browserExtPublishJob(project: Project): Record<string, unknown> {
         with: { name: RELEASE_ARTIFACT, path: RELEASE_ARTIFACT },
       },
       {
-        name: "wxt submit --dry-run (auth + zip check on every push and PR, no listing mutation)",
-        run: browserExtSubmitScript(project, true),
+        // Not a credential check for every store: the dry run reaches the network only for
+        // Chrome (API v2's `fetchStatus`) and Firefox (`GET /api/v5/addons/addon/{id}`). Edge's
+        // dry run makes no request at all, so what this proves there is the zip, not the token.
+        name: "wxt submit --dry-run (zips, plus a live credential read for Chrome and Firefox)",
+        run: browserExtSubmitScript(project, rows, true),
       },
-      {
-        name: "wxt submit",
-        if: "github.event_name == 'push'",
-        run: browserExtSubmitScript(project, false),
-      },
+      { name: "wxt submit", run: browserExtSubmitScript(project, rows, false) },
     ],
   };
 }
@@ -306,18 +331,15 @@ function browserExtPublishJob(project: Project): Record<string, unknown> {
  * Apple's own and unverifiable without macOS, so an author adjusting scheme/entitlements for
  * their own app id is expected.
  */
-function browserExtSafariJob(project: Project): Record<string, unknown> {
+function browserExtSafariJob(project: Project, safari: Registry): Record<string, unknown> {
   return {
     needs: "gate",
+    if: `needs.gate.outputs.${gateVariable(safari)} == 'true'`,
     "runs-on": "macos-latest",
     permissions: { contents: "read" },
-    env: {
-      ASC_KEY_ID: "${{ secrets.ASC_KEY_ID }}",
-      ASC_ISSUER_ID: "${{ secrets.ASC_ISSUER_ID }}",
-      ASC_PRIVATE_KEY: "${{ secrets.ASC_PRIVATE_KEY }}",
-    },
+    env: Object.fromEntries(safari.secrets.map((name) => [name, `\${{ secrets.${name} }}`])),
     steps: [
-      ...toolchainSteps(project, "24"),
+      ...toolchainSteps(project, "24", TAG_REF),
       { run: `npm --prefix ${BROWSER_HOST_DIR} install` },
       // `npm exec` never changes the working directory, so `wxt` needs its root passed
       // explicitly (verified live against `wxt zip`, the same CLI).
@@ -342,8 +364,45 @@ function browserExtSafariJob(project: Project): Record<string, unknown> {
 }
 
 // ---------------------------------------------------------------------------------------------
-// release.yml — when npm, pypi, mcp-registry, clawhub or browser-extension is selected.
+// release.yml — always: the Release carries the assets; each registry leg runs iff `gate` says it can.
 // ---------------------------------------------------------------------------------------------
+
+/**
+ * Which registries this tag can publish to, decided once. Each gated row's `gate` runs with that
+ * row's secrets and confirm variable in its environment and the answer becomes a job output,
+ * because `secrets` and `env` are unreadable in a job-level `if` and the reusable-workflow legs
+ * cannot be gated inside a `run:`. A row that cannot publish prints one notice pointing at its page.
+ */
+function presenceStep(rows: Registry[]): Step {
+  const gated = rows.filter((row) => row.gate);
+  const env: Record<string, string> = { GH_TOKEN: "${{ github.token }}" };
+  for (const row of gated) {
+    for (const name of row.secrets) env[name] = `\${{ secrets.${name} }}`;
+    if (row.confirmVariable) env[row.confirmVariable] = `\${{ vars.${row.confirmVariable} }}`;
+  }
+  const script = gated.map((row) => {
+    const v = gateVariable(row);
+    return `${v}=false; if ${row.gate}; then ${v}=true; else echo "::notice::${row.id}: not published at this tag — ${row.url}"; fi; echo "${v}=$${v}" >> "$GITHUB_OUTPUT"`;
+  });
+  return {
+    id: "presence",
+    name: "which registries this tag can publish to",
+    env,
+    run: script.join("\n"),
+  };
+}
+
+function presenceOutputs(rows: Registry[]): Record<string, string> | undefined {
+  const gated = rows.filter((row) => row.gate);
+  return gated.length
+    ? Object.fromEntries(
+        gated.map((row) => [
+          gateVariable(row),
+          `\${{ steps.presence.outputs.${gateVariable(row)} }}`,
+        ]),
+      )
+    : undefined;
+}
 
 function releaseDocument(
   project: Project,
@@ -357,30 +416,29 @@ function releaseDocument(
   // straight from the checkout (no openclaw-native package needed), so `skill` is all it takes.
   const clawhubSkillSelected = has(project, "clawhub") && has(project, "skill");
   const browserExtSelected = has(project, "browser-extension");
-  if (
-    !npmSelected &&
-    !pypiSelected &&
-    !mcpRegistrySelected &&
-    !clawhubSelected &&
-    !clawhubSkillSelected &&
-    !browserExtSelected
-  )
-    return undefined;
+  const rows = registries(project);
+  const gated = (id: Registry["id"]): string | undefined => {
+    const row = rows.find((entry) => entry.id === id);
+    return row?.gate ? `needs.gate.outputs.${gateVariable(row)} == 'true'` : undefined;
+  };
 
   const pm = PACKAGE_MANAGER_COMMANDS[project.packageManager ?? "npm"];
   const cli = toolfactoryCli(project);
   const assert = tagVersionAssert(project);
   const jobs: Record<string, unknown> = {
-    gate: {
+    gate: compact({
       "runs-on": "ubuntu-latest",
-      permissions: { contents: "read" },
+      permissions: compact({ contents: "read", pages: has(project, "web") ? "read" : undefined }),
+      env: { RELEASE_TAG: TAG_NAME },
+      outputs: presenceOutputs(rows),
       steps: [
-        ...toolchainSteps(project, "24"),
+        ...toolchainSteps(project, "24", TAG_REF),
         ...(assert ? [actionStep(assert, false)] : []),
         ...hermesSteps(project),
         ...gateSteps(project).map((step) => actionStep(step, false)),
+        presenceStep(rows),
       ],
-    },
+    }),
     package: compact({
       needs: "gate",
       "runs-on": "ubuntu-latest",
@@ -394,7 +452,7 @@ function releaseDocument(
           }
         : undefined,
       steps: [
-        ...toolchainSteps(project, "24"),
+        ...toolchainSteps(project, "24", TAG_REF),
         ...packageSteps(project).map((step) => actionStep(step, false)),
         {
           uses: "actions/upload-artifact@v7",
@@ -406,31 +464,41 @@ function releaseDocument(
   const priorLegs: string[] = [];
 
   if (npmSelected) {
-    jobs["publish-npm"] = {
+    jobs["publish-npm"] = compact({
       needs: "gate",
+      if: gated("npm"),
       "runs-on": "ubuntu-latest",
       permissions: { "id-token": "write", contents: "read" },
+      env: { NPM_TOKEN: "${{ secrets.NPM_TOKEN }}" },
       steps: [
-        { uses: "actions/checkout@v7" },
+        checkoutStep(TAG_REF),
         ...SETUP_ACTIONS[project.packageManager ?? "npm"],
         {
           uses: "actions/setup-node@v7",
           with: { "node-version": "24", "registry-url": "https://registry.npmjs.org" },
         },
-        // No `--provenance`: npm generates a provenance attestation itself under trusted publishing.
-        { run: `${pm.install} && ${pm.run("build")} && npm publish --access public` },
+        { run: `${pm.install} && ${pm.run("build")}` },
+        // A name already on the registry publishes through trusted publishing (OIDC; npm generates
+        // the provenance itself, so no `--provenance`). A brand-new name cannot — `npm trust`
+        // refuses it — so only that branch exports the token, and setup-node's placeholder
+        // NODE_AUTH_TOKEN never masquerades as one.
+        {
+          name: "npm publish",
+          run: `if ${npmPackageExists(project)}; then npm publish --access public; else NODE_AUTH_TOKEN="$NPM_TOKEN" npm publish --access public; fi`,
+        },
       ],
-    };
+    });
     priorLegs.push("publish-npm");
   }
   if (pypiSelected) {
-    jobs["publish-pypi"] = {
+    jobs["publish-pypi"] = compact({
       needs: "gate",
+      if: gated("pypi"),
       "runs-on": "ubuntu-latest",
       environment: "pypi",
       permissions: { "id-token": "write" },
       steps: [
-        { uses: "actions/checkout@v7" },
+        checkoutStep(TAG_REF),
         { uses: "astral-sh/setup-uv@v6" },
         { run: "uv build" },
         {
@@ -438,7 +506,7 @@ function releaseDocument(
           uses: "pypa/gh-action-pypi-publish@release/v1",
         },
       ],
-    };
+    });
     priorLegs.push("publish-pypi");
   }
   const owner = githubOwner(project.identity.repository);
@@ -447,8 +515,9 @@ function releaseDocument(
     // root Dockerfile it emitted alongside it. `type=semver` turns the v-prefixed tag into the
     // bare version the entry carries — the gate has already asserted they agree.
     const image = ociImage(project, owner).replace(/:[^:]*$/, "");
-    jobs["publish-oci"] = {
+    jobs["publish-oci"] = compact({
       needs: "gate",
+      if: gated("oci"),
       "runs-on": "ubuntu-latest",
       permissions: {
         contents: "read",
@@ -457,7 +526,7 @@ function releaseDocument(
         "id-token": "write",
       },
       steps: [
-        { uses: "actions/checkout@v7" },
+        checkoutStep(TAG_REF),
         {
           uses: "docker/login-action@v4",
           with: {
@@ -471,7 +540,7 @@ function releaseDocument(
           uses: "docker/metadata-action@v6",
           with: {
             images: image,
-            tags: "type=semver,pattern={{version}}",
+            tags: `type=semver,pattern={{version}},value=${TAG_NAME}`,
             // The registry's OCI ownership check reads this label back out of the image config.
             labels: `io.modelcontextprotocol.server.name=${registryName(project)}`,
           },
@@ -486,39 +555,38 @@ function releaseDocument(
           },
         },
       ],
-    };
+    });
     priorLegs.push("publish-oci");
   }
   if (mcpRegistrySelected) {
-    jobs["publish-mcp-registry"] = {
+    jobs["publish-mcp-registry"] = compact({
       // After every package leg (§7): mcp-publisher validates that each `packages[]` entry
-      // already exists in its own registry, the oci image included.
+      // already exists in its own registry, the oci image included — so the gate lets it run only
+      // when every package leg does.
       needs: needsOf(priorLegs.length ? priorLegs : ["gate"]),
+      if: gated("mcp-registry"),
       "runs-on": "ubuntu-latest",
       permissions: { "id-token": "write", contents: "read" },
       steps: [
-        { uses: "actions/checkout@v7" },
-        {
-          run: 'curl -sL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher',
-        },
+        checkoutStep(TAG_REF),
+        { run: MCP_PUBLISHER_FETCH },
         { run: "./mcp-publisher login github-oidc && ./mcp-publisher publish" },
       ],
-    };
+    });
     priorLegs.push("publish-mcp-registry");
   }
   const comments = [
-    "v0: no per-registry release-ledger (spec §7 defers it) — a partial failure across legs",
-    "needs manual triage; a re-run is not yet skip-succeeded-legs safe.",
+    "`gate` decides once which registries this tag can publish to (a job-level `if` cannot read",
+    "secrets) and every leg obeys its output, so a tag with no secrets is still green: gate,",
+    "package, the Release, and whatever else applies. After adding a secret, re-run with",
+    "`gh workflow run release.yml -f tag=vX.Y.Z` — never `gh run rerun`, which replays the",
+    "original run's secret snapshot. `release` first retracts every registry a surface dropped",
+    "since the previous tag published to (git is the ledger; `toolfactory unpublish`), and",
+    "`toolfactory secrets status` / `bootstrap-repo` cover the one-time steps that are left.",
   ];
-  if (npmSelected || pypiSelected) {
-    comments.push(
-      "",
-      "One-time human setup (no API, so not automated here): register a GitHub trusted",
-      "publisher for this repo + this workflow filename on npmjs.com / pypi.org.",
-    );
-  }
   if (clawhubSelected) {
     jobs["publish-clawhub"] = compact({
+      if: gated("clawhub-package"),
       // Last (§7): content-fingerprint deduped by ClawHub, therefore safe to retry. The reusable
       // workflow has no build step, so it publishes the tarball the `package` job already built
       // rather than the repository subdirectory. It is a workflow call, so it has no `permissions`
@@ -547,6 +615,7 @@ function releaseDocument(
     // ClawHub's own reusable workflow derives slug/name/version from SKILL.md and dedupes by
     // content fingerprint, same as `clawhub package publish` above — safe to retry.
     jobs["publish-clawhub-skill"] = compact({
+      if: gated("clawhub-skill"),
       needs: "gate",
       uses: "openclaw/clawhub/.github/workflows/skill-publish.yml@main",
       with: { skill_path: skillPath(project).replace(/\/SKILL\.md$/, ""), dry_run: false },
@@ -560,7 +629,7 @@ function releaseDocument(
     );
   }
   if (browserExtSelected) {
-    jobs["publish-browser-ext"] = browserExtPublishJob(project);
+    jobs["publish-browser-ext"] = browserExtPublishJob(project, rows);
     priorLegs.push("publish-browser-ext");
     comments.push(
       "",
@@ -569,10 +638,11 @@ function releaseDocument(
       "store's own secrets (nine names across the three stores); a store left unconfigured is",
       "skipped, never a failure, and the leg's own dry run runs on every push and pull request.",
     );
-    if (project.tool.browserExtension?.safari) {
+    const safari = rows.find((row) => row.id === "safari");
+    if (safari) {
       // Opt-in and outside the release graph on purpose: it submits to App Store Connect, not
       // dist/release/, so nothing downstream needs to wait on it.
-      jobs["publish-browser-ext-safari"] = browserExtSafariJob(project);
+      jobs["publish-browser-ext-safari"] = browserExtSafariJob(project, safari);
       comments.push(
         "",
         "publish-browser-ext-safari (opt-in, tool.json browserExtension.safari) is the macOS",
@@ -585,10 +655,24 @@ function releaseDocument(
 
   jobs.release = {
     // The tag's own release, after every leg: the assets are the same ones the registries got.
+    // Skipped legs must not skip it, only failed ones; hence the explicit condition.
     needs: needsOf(["package", ...priorLegs]),
+    if: "${{ !cancelled() && needs.package.result == 'success' && !contains(needs.*.result, 'failure') }}",
     "runs-on": "ubuntu-latest",
-    permissions: { contents: "write" },
+    // Retraction needs what publishing needed: packages and pages to delete, OIDC for the MCP
+    // registry, and the stored tokens the dropped registries' rows name.
+    permissions: { contents: "write", packages: "write", pages: "write", "id-token": "write" },
+    env: {
+      RELEASE_TAG: TAG_NAME,
+      GH_TOKEN: "${{ github.token }}",
+      ...Object.fromEntries(RELEASE_SECRET_NAMES.map((name) => [name, `\${{ secrets.${name} }}`])),
+    },
     steps: [
+      // The whole history: `unpublish` reads tool.json at the previous tag.
+      checkoutStep(TAG_REF, { "fetch-depth": 0 }),
+      ...toolchainSteps(project, "24", TAG_REF).slice(1),
+      ...bootstrapSteps(project).map((step) => actionStep(step, false)),
+      actionStep(unpublishStep(project), false),
       {
         uses: "actions/download-artifact@v8",
         with: { name: RELEASE_ARTIFACT, path: RELEASE_ARTIFACT },
@@ -596,6 +680,7 @@ function releaseDocument(
       {
         uses: "softprops/action-gh-release@v3",
         with: {
+          tag_name: TAG_NAME,
           generate_release_notes: true,
           files: `${RELEASE_ARTIFACT}/*`,
           fail_on_unmatched_files: true,
@@ -605,12 +690,13 @@ function releaseDocument(
   };
 
   if (has(project, "web")) {
-    jobs["pages-build"] = {
+    jobs["pages-build"] = compact({
       needs: "gate",
+      if: gated("pages"),
       "runs-on": "ubuntu-latest",
       permissions: { contents: "read" },
       steps: [
-        ...toolchainSteps(project, "24"),
+        ...toolchainSteps(project, "24", TAG_REF),
         ...[...bootstrapSteps(project), outputsStep(project)].map((step) =>
           actionStep(step, false),
         ),
@@ -628,7 +714,7 @@ function releaseDocument(
         },
         { uses: "actions/upload-pages-artifact@v3", with: { path: "web/dist" } },
       ],
-    };
+    });
     jobs["pages-deploy"] = {
       needs: "pages-build",
       "runs-on": "ubuntu-latest",
@@ -638,13 +724,25 @@ function releaseDocument(
     };
     comments.push(
       "",
-      "One-time human setup for Pages: Settings -> Pages -> Source = GitHub Actions.",
+      "Pages must be enabled with Source = GitHub Actions once (`toolfactory bootstrap-repo` does",
+      "it through gh); until then the gate skips the Pages pair with a notice.",
     );
   }
 
   const doc = {
     name: "Release",
-    on: { push: { tags: ["v*"] } },
+    on: {
+      push: { tags: ["v*"] },
+      workflow_dispatch: {
+        inputs: {
+          tag: {
+            description: "The v* tag to publish again, e.g. after adding a secret",
+            required: true,
+            type: "string",
+          },
+        },
+      },
+    },
     permissions: { contents: "read" },
     jobs,
   };
@@ -720,6 +818,17 @@ function envExample(project: Project): string {
       `# ${description} (${tags})${meta.url ? ` — get one: ${meta.url}` : ""}`,
       `${envName(key)}=`,
     );
+  }
+  const release = registries(project).filter((row) => row.secrets.length);
+  if (release.length) {
+    lines.push(
+      "",
+      "# Release credentials (repository secrets; `toolfactory bootstrap-repo` pushes them from .env,",
+      "# `toolfactory secrets status` explains each). Leave one empty to skip that registry.",
+    );
+    for (const row of release) {
+      lines.push("", `# ${row.id}: ${row.url}`, ...row.secrets.map((name) => `${name}=`));
+    }
   }
   return `${lines.join("\n")}\n`;
 }
