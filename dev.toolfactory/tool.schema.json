@@ -42,7 +42,8 @@
           "clawhub",
           "web",
           "dsh",
-          "workflows"
+          "workflows",
+          "agents"
         ]
       },
       "description": "Selected surfaces. A file exists iff a selected surface owns it."

@@ -366,7 +366,8 @@
               "clawhub",
               "web",
               "dsh",
-              "workflows"
+              "workflows",
+              "agents"
             ]
           }
         },
@@ -441,7 +442,8 @@
                 "clawhub",
                 "web",
                 "dsh",
-                "workflows"
+                "workflows",
+                "agents"
               ]
             },
             "description": "Surfaces to generate"
@@ -609,7 +611,8 @@
               "clawhub",
               "web",
               "dsh",
-              "workflows"
+              "workflows",
+              "agents"
             ]
           }
         },

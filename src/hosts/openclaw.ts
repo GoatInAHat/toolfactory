@@ -23,10 +23,29 @@ export const DRIFT_ENTRY = fileURLToPath(import.meta.url);
 const PER_TOOL_KEYS = new Set(["name", "version", "description"]);
 
 /**
- * Every scaffold key must survive into the projection with the same value; extra keys are the
- * generator's own additions (the core dependency, the projected tools) and are allowed.
+ * Keys `tool.json` deliberately overrides (`openclaw.pluginApi` and the extra dependency maps):
+ * the scaffold's value is not law where the author has replaced it on purpose.
  */
-function missing(scaffold: unknown, ours: unknown, path: string): string[] {
+function overridden(project: Project): Set<string> {
+  const openclaw = project.tool.openclaw;
+  const paths = new Set<string>();
+  for (const section of ["dependencies", "peerDependencies", "devDependencies"] as const) {
+    for (const key of Object.keys(openclaw?.[section] ?? {})) paths.add(`.${section}.${key}`);
+  }
+  if (openclaw?.pluginApi) {
+    paths.add(".peerDependencies.openclaw");
+    paths.add(".openclaw.compat.pluginApi");
+  }
+  return paths;
+}
+
+/**
+ * Every scaffold key must survive into the projection with the same value; extra keys are the
+ * generator's own additions (the core dependency, the projected tools, the inspector fixture)
+ * and are allowed, as are the keys `tool.json` overrides on purpose.
+ */
+function missing(scaffold: unknown, ours: unknown, path: string, skip: Set<string>): string[] {
+  if (skip.has(path)) return [];
   if (scaffold === null || typeof scaffold !== "object" || Array.isArray(scaffold)) {
     return JSON.stringify(scaffold) === JSON.stringify(ours)
       ? []
@@ -37,7 +56,7 @@ function missing(scaffold: unknown, ours: unknown, path: string): string[] {
   }
   const right = ours as Record<string, unknown>;
   return Object.entries(scaffold as Record<string, unknown>).flatMap(([key, value]) =>
-    path === "" && PER_TOOL_KEYS.has(key) ? [] : missing(value, right[key], `${path}.${key}`),
+    path === "" && PER_TOOL_KEYS.has(key) ? [] : missing(value, right[key], `${path}.${key}`, skip),
   );
 }
 
@@ -60,9 +79,10 @@ export function scaffoldDrift(project: Project): string[] {
       { stdio: "pipe" },
     );
     const scaffold = (path: string) => readFileSync(join(directory, "probe", path), "utf8");
+    const skip = overridden(project);
     const drift = [
       ...["package.json", "tsconfig.json"].flatMap((path) =>
-        missing(JSON.parse(scaffold(path)), JSON.parse(planned(files, path)), "").map(
+        missing(JSON.parse(scaffold(path)), JSON.parse(planned(files, path)), "", skip).map(
           (line) => `${path}${line}`,
         ),
       ),

@@ -144,7 +144,8 @@ TOOLS = json.loads(
             "clawhub",
             "web",
             "dsh",
-            "workflows"
+            "workflows",
+            "agents"
           ]
         }
       },
@@ -197,7 +198,8 @@ TOOLS = json.loads(
               "clawhub",
               "web",
               "dsh",
-              "workflows"
+              "workflows",
+              "agents"
             ]
           },
           "description": "Surfaces to generate"
@@ -291,7 +293,8 @@ TOOLS = json.loads(
             "clawhub",
             "web",
             "dsh",
-            "workflows"
+            "workflows",
+            "agents"
           ]
         }
       }

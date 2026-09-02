@@ -97,6 +97,21 @@ export function init(options: InitOptions): { written: string[] } {
   written.push(...writeIfAbsent(root, getBinding(options.binding).scaffold(scaffoldProject)));
   // The kernel files exist from the first moment so `introspect` can spawn the server.
   written.push(...build(root).result.written);
+  // Best-effort: the first-party skills for the selected surfaces, so an agent developing the
+  // tool from inside a harness that reads them has them from the first `init`.
+  const skills = [
+    surfaces.includes("web") ? "shadcn/ui@shadcn" : undefined,
+    surfaces.some((s) => s === "mcp" || s === "openclaw-native" || s === "hermes-native")
+      ? "anthropics/skills@mcp-builder"
+      : undefined,
+  ].filter((spec): spec is string => spec !== undefined);
+  for (const spec of skills) {
+    spawnSync("npx", ["--yes", "skills", "add", spec, "-y"], {
+      cwd: root,
+      stdio: "ignore",
+      timeout: 120_000,
+    });
+  }
   return { written };
 }
 

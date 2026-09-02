@@ -25,6 +25,10 @@
       "sha256": "421ad048eb1f5d1b7a6e2233ac3f3478ed7adb13f4d86e7a282126c38f4dc653",
       "state": "generated"
     },
+    "AGENTS.md": {
+      "sha256": "09efe9bb201974bf258644c775f714a11f312b4b34a65b58545010215812c651",
+      "state": "generated"
+    },
     "compose.toolfactory.yaml": {
       "sha256": "987446f92733ea0afba45df5bcdb2584608388ab53eed429446d0fc14fea9ea7",
       "state": "generated"
@@ -42,7 +46,7 @@
       "state": "generated"
     },
     "dev.toolfactory/tool.schema.json": {
-      "sha256": "d4d4724399679255cab920447bb939c0bafc87ae4f16a979c418be52e8a5df97",
+      "sha256": "1b545cdd8fc194276f594f30367da361a73d12c01fe3a320924c1b67dd4aa651",
       "state": "generated"
     },
     "hosts/hermes/pyproject.toml": {
@@ -54,7 +58,7 @@
       "state": "generated"
     },
     "hosts/hermes/toolfactory_hermes/__init__.py": {
-      "sha256": "8ccff32b644f2e39cbed7322727671726fdeb76cb55d09cfaf94d4f3fcc5ab2c",
+      "sha256": "e85a8decc06cd0f5c552a630322cf67491107da7ca155f03b82bb0845da7e042",
       "state": "generated"
     },
     "hosts/hermes/toolfactory_hermes/plugin.yaml": {
@@ -70,7 +74,7 @@
       "state": "generated"
     },
     "hosts/openclaw/README.md": {
-      "sha256": "61ea302ff1532094a5accff37c3e4e96207fdab251e6bb5f216490ed10199aa6",
+      "sha256": "972d8c0e0fd9cf7a2fd37b2f351a49ef7cb8085e4d3e4803fcfd402f9c98be3e",
       "state": "generated"
     },
     "hosts/openclaw/src/index.test.ts": {
@@ -78,7 +82,7 @@
       "state": "generated"
     },
     "hosts/openclaw/src/index.ts": {
-      "sha256": "87fe983646258a42a21589411c62dca103904d0ce9c115e23929d0047076d29f",
+      "sha256": "f50f62bd3858ce21cf907f983a112cd1082888156dde68f4d77db65884d4860a",
       "state": "generated"
     },
     "hosts/openclaw/tsconfig.json": {
@@ -162,7 +166,7 @@
       "state": "generated"
     },
     "web/src/ops.json": {
-      "sha256": "7cb4ddbec0734cc6ab47a8fa7020289e981540ba110e42aa5bfdd02083d7addf",
+      "sha256": "da744638992fc6a2eec77ac125e33e50309139ede4e82b09f11d40552fd409d6",
       "state": "generated"
     },
     "web/src/schema-form.tsx": {
