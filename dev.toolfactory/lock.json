@@ -110,7 +110,7 @@
       "state": "generated"
     },
     "src/toolfactory/cli.ts": {
-      "sha256": "d50992b2017cff1b1e357f9a646955d0e78e668abdfd42f78cb6cfc4900482e0",
+      "sha256": "82cc4bffa210fcd667e57b3ac79bcd2defa123e3ed3095dd7c7dbc3779fd7211",
       "state": "generated"
     },
     "src/toolfactory/config.ts": {
@@ -118,7 +118,7 @@
       "state": "generated"
     },
     "src/toolfactory/mcp.ts": {
-      "sha256": "01c4b678bcd31425ec05d95beb61f2870b1ef88c55a88820f6c6bced3cab2e74",
+      "sha256": "b2faf74239020ac9f962086f5c4104f980b8d10d4a53e3490484ff59340ccc12",
       "state": "generated"
     },
     "src/toolfactory/types.ts": {

@@ -43,10 +43,15 @@ for (const op of operations) {
 
 program
   .command("mcp")
-  .description("Serve the operations as an MCP server over stdio")
-  .action(async () => {
-    const { serve } = await import("./mcp.js");
-    await serve();
+  .description("Serve the operations as an MCP server over stdio, or over streamable HTTP with --http")
+  .option(
+    "--http [port]",
+    "serve over MCP streamable HTTP instead of stdio (default port 3000, host 127.0.0.1, path /mcp)",
+  )
+  .action(async (options: { http?: string | boolean }) => {
+    const { serve, serveHttp } = await import("./mcp.js");
+    if (options.http === undefined) await serve();
+    else await serveHttp({ port: options.http === true ? 3000 : Number(options.http) });
   });
 
 program.parseAsync(process.argv).catch((error) => {

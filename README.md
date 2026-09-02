@@ -12,8 +12,9 @@ generated and every surface still installs, builds and publishes.
 ## Quickstart
 
 ```sh
-npx toolfactory init hello --binding typescript --surfaces skill,agent-plugins,claude,mcp,cli,npm
-cd hello && npm install
+mkdir hello && cd hello
+npx toolfactory init --name hello --binding typescript --surfaces skill,agent-plugins,claude,mcp,cli,npm
+npm install
 ```
 
 `init` writes `plugin.json` (identity), `dev.toolfactory/tool.json` (surfaces, binding, config),

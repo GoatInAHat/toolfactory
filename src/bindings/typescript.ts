@@ -81,41 +81,94 @@ ${entries.join("\n")}
 }
 
 function mcpTemplate(project: Project): string {
-  return `${HEADER}import { McpServer } from "@modelcontextprotocol/server";
+  return `${HEADER}/**
+ * The kernel MCP server: stdio by default; \`--http [port]\` (or \`serveHttp()\`) serves the
+ * same operations over MCP streamable HTTP instead, stateless per MCP 2026-07-28 (a fresh
+ * server instance per request, from \`createMcpHandler\`).
+ */
+import { localhostHostValidation, toNodeHandler } from "@modelcontextprotocol/node";
+import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
+import { createServer as createHttpServer } from "node:http";
 import { z } from "zod";
 import { operations } from "../ops.js";
 import { context } from "./config.js";
 
-export const server = new McpServer({ name: ${JSON.stringify(project.identity.name)}, version: ${JSON.stringify(project.identity.version ?? "0.0.0")} });
-
-for (const op of operations) {
-  server.registerTool(
-    op.name,
-    {
-      description: op.description,
-      inputSchema: op.input as z.ZodObject,
-      outputSchema: (op.output ?? z.unknown()) as z.ZodType,
-      annotations: op.annotations,
-      _meta: { "dev.toolfactory": { requires: op.requires ?? [] } },
-    },
-    async (args: Record<string, unknown>) => {
-      const result = await op.handler(args as never, context());
-      return {
-        resultType: "complete" as const,
-        content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
-        structuredContent: result as Record<string, unknown>,
-      };
-    },
-  );
+/** Builds one server instance with every operation registered; called once for stdio, once per HTTP request. */
+function createServer(): McpServer {
+  const server = new McpServer({ name: ${JSON.stringify(project.identity.name)}, version: ${JSON.stringify(project.identity.version ?? "0.0.0")} });
+  for (const op of operations) {
+    server.registerTool(
+      op.name,
+      {
+        description: op.description,
+        inputSchema: op.input as z.ZodObject,
+        outputSchema: (op.output ?? z.unknown()) as z.ZodType,
+        annotations: op.annotations,
+        _meta: { "dev.toolfactory": { requires: op.requires ?? [] } },
+      },
+      async (args: Record<string, unknown>) => {
+        const result = await op.handler(args as never, context());
+        return {
+          resultType: "complete" as const,
+          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          structuredContent: result as Record<string, unknown>,
+        };
+      },
+    );
+  }
+  return server;
 }
+
+export const server = createServer();
 
 export async function serve(): Promise<void> {
   await server.connect(new StdioServerTransport());
 }
 
+export interface HttpOptions {
+  port?: number;
+  host?: string;
+  path?: string;
+}
+
+/** Serve over MCP streamable HTTP instead of stdio. Opt-in; stdio stays the default transport. */
+export async function serveHttp(options: HttpOptions = {}): Promise<void> {
+  const { port = 3000, host = "127.0.0.1", path = "/mcp" } = options;
+  const handle = toNodeHandler(createMcpHandler(createServer));
+  const loopback = host === "127.0.0.1" || host === "localhost" || host === "::1";
+  const hostGuard = loopback ? localhostHostValidation() : undefined;
+  const base = \`http://\${host}:\${port}\`;
+  const httpServer = createHttpServer((req, res) => {
+    if (new URL(req.url ?? "/", base).pathname !== path) {
+      res.writeHead(404).end();
+      return;
+    }
+    if (hostGuard && !hostGuard(req, res)) return;
+    handle(req, res).catch((error: unknown) => {
+      console.error(error);
+      if (!res.headersSent) res.writeHead(500);
+      res.end();
+    });
+  });
+  await new Promise<void>((resolve, reject) => {
+    httpServer.once("error", reject);
+    httpServer.listen(port, host, resolve);
+  });
+  console.error(\`Serving MCP streamable HTTP on \${base}\${path}\`);
+}
+
+/** Parses a manually-run \`node mcp.ts [--http [port]]\` invocation; the CLI's \`mcp\` subcommand parses its own. */
+function httpPortArg(argv: string[]): number | undefined {
+  const index = argv.indexOf("--http");
+  if (index === -1) return undefined;
+  const value = argv[index + 1];
+  return value && !value.startsWith("-") ? Number(value) : 3000;
+}
+
 if (process.argv[1] && /toolfactory[\\\\/]mcp\\.[cm]?[jt]s$/.test(process.argv[1])) {
-  serve().catch((error) => {
+  const port = httpPortArg(process.argv.slice(2));
+  (port === undefined ? serve() : serveHttp({ port })).catch((error) => {
     console.error(error);
     process.exit(1);
   });
@@ -166,15 +219,24 @@ for (const op of operations) {
   });
 }
 
-program
+${
+  has(project, "mcp")
+    ? `program
   .command("mcp")
-  .description("Serve the operations as an MCP server over stdio")
-  .action(async () => {
-    const { serve } = await import("./mcp.js");
-    await serve();
+  .description("Serve the operations as an MCP server over stdio, or over streamable HTTP with --http")
+  .option(
+    "--http [port]",
+    "serve over MCP streamable HTTP instead of stdio (default port 3000, host 127.0.0.1, path /mcp)",
+  )
+  .action(async (options: { http?: string | boolean }) => {
+    const { serve, serveHttp } = await import("./mcp.js");
+    if (options.http === undefined) await serve();
+    else await serveHttp({ port: options.http === true ? 3000 : Number(options.http) });
   });
 
-program.parseAsync(process.argv).catch((error) => {
+`
+    : ""
+}program.parseAsync(process.argv).catch((error) => {
   console.error(error instanceof Error ? error.message : error);
   process.exit(1);
 });
@@ -229,6 +291,7 @@ export function scaffold(project: Project): PlannedFile[] {
     engines: { node: ">=22" },
     scripts: { build: "tsc -p tsconfig.json", test: "vitest run --passWithNoTests" },
     dependencies: {
+      "@modelcontextprotocol/node": "^2.0.0",
       "@modelcontextprotocol/server": "^2.0.0",
       commander: "^15.0.0",
       zod: "^4.0.0",
