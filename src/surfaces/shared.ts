@@ -81,3 +81,11 @@ export function requiredConfig(project: Project): string[] {
   const required = project.tool.config?.required;
   return Array.isArray(required) ? (required as string[]) : [];
 }
+
+/**
+ * Environment variable a host-native shim reads to find the tool's checkout when the host
+ * copied the plugin elsewhere (Hermes' doctor, OpenClaw's extensions directory).
+ */
+export function rootEnvName(project: Project): string {
+  return `${project.identity.name.toUpperCase().replace(/[^A-Z0-9]/g, "_")}_ROOT`;
+}

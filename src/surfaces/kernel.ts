@@ -55,15 +55,9 @@ export const cli: Surface = {
     return files.filter((file) => !file.path.endsWith("mcp.ts") && !file.path.endsWith("mcp.py"));
   },
   validate(project) {
-    const launch = getBinding(project.tool.binding).kernelCommand(project);
-    const cliEntry = launch.args.map((arg) => arg.replace(/mcp\.(ts|py)$/, "cli.$1"));
+    const launch = getBinding(project.tool.binding).cliCommand(project);
     return [
-      {
-        label: "cli --help",
-        command: launch.command,
-        args: [...cliEntry, "--help"],
-        cwd: project.root,
-      },
+      { label: "cli --help", ...launch, args: [...launch.args, "--help"], cwd: project.root },
     ];
   },
   verdict: mcpVerdict,

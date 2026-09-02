@@ -1,11 +1,45 @@
-# <Project>
+# toolfactory
 
-Created from a blank, stack-agnostic template. The first real task defines
-the project: pick the stack that fits, set up its tooling, and replace this
-paragraph with what the project is.
+Build an agent tool once and ship it as every surface: Agent Skill, Agent Plugins
+bundle, Claude/Codex/Cursor plugin, MCP server, CLI, npm/PyPI package, MCP
+Registry entry, OpenClaw and Hermes native plugins, web page. toolfactory is a
+scaffolder and keeper-in-sync, never a runtime: every artifact is a projection of
+one identity file plus `dev.toolfactory/tool.json` and the operation snapshot
+`ops.json`, committed in-tree and SHA-locked. Design: `docs/spec.md`.
 
-Record here what can't be inferred from the code: commands, layout,
-conventions, decisions; drop anything that stops being true.
+## Commands
+
+- `pnpm check` (Biome + tsc), `pnpm test` (Vitest, `src/**/*.test.ts`).
+- `pnpm toolfactory <cmd>` runs the CLI from source (`node --import tsx`).
+  `introspect` after editing `src/ops.ts`; `build` after any generator change;
+  `check` is the drift gate; `validate` runs upstream validators (needs the
+  CLIs `doctor` lists). `pnpm build` emits `dist/` for publishing.
+- Node 24 (needed by the `openclaw` CLI) is at
+  `/opt/nvm/versions/node/v24.20.0/bin`; Node 22 is the default.
+
+## Layout
+
+- `src/model.ts` the shared plane (types, capability vocabulary, `tool.json`
+  schema). `src/identity/` identity file read + name projection.
+  `src/project/` plan, apply/check, lock. `src/introspect/` kernel spawn +
+  snapshot. `src/report/` coverage. `src/surfaces/<id>.ts` one pure
+  `plan(project)` projector per surface, registered in `registry.ts`.
+  `src/bindings/<lang>.ts` kernel + scaffold templates per language.
+  `src/commands.ts` the operations' bodies; `src/ops.ts` toolfactory's own
+  operations, from which `src/toolfactory/{cli,mcp}.ts` are generated.
+- `schemas/agent-plugins/` the only vendored schemas (spec forbids fetching).
+- Generated (never hand-edit; `adopt` first if you must): everything listed in
+  `dev.toolfactory/lock.json`.
+
+## Conventions
+
+- Projectors are pure; side effects live in `validate()` command specs or
+  `commands.ts`. Delegate every validation to the upstream tool; vendor nothing
+  that has a CLI. Mirror upstream scaffolds by execution, not transcription.
+- No toolfactory runtime library in any language; generated tools depend only
+  on the upstream SDKs. Schema direction is native → JSON Schema only.
+- Adding a surface: projector + optional `validate`/`verdict`, a row in
+  `SURFACE_IDS`, `registry.ts`, `docs/spec.md` §3 and the README table.
 
 ## Defaults
 

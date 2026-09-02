@@ -66,7 +66,7 @@ Arguments: `root`.
 
 ### check
 
-Fail if any generated file drifted from what build would write (the CI drift gate).
+Fail if the operation snapshot or any generated file drifted from the code (the CI drift gate).
 
 Arguments: `root`.
 

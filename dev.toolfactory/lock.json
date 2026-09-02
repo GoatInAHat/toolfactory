@@ -13,12 +13,28 @@
       "sha256": "40def3ca731a1e29096d9c0aa5a8be4295746ab411a03beeead051247e1a9127",
       "state": "generated"
     },
+    ".env.example": {
+      "sha256": "6e42aaf6b872941b038b928239bb26cfe34a55a566c5cd2263a9ac6584c02142",
+      "state": "generated"
+    },
+    ".github/workflows/ci.yml": {
+      "sha256": "f6b49f2469abd16bbeeb076d919a64da59da7c411edfe8d948c55cf718b46e60",
+      "state": "generated"
+    },
+    ".github/workflows/release.yml": {
+      "sha256": "3b21f1fd74fa732ebd154eb484d32e02f8da8115c4364bad5aae85894eaee785",
+      "state": "generated"
+    },
+    "compose.toolfactory.yaml": {
+      "sha256": "987446f92733ea0afba45df5bcdb2584608388ab53eed429446d0fc14fea9ea7",
+      "state": "generated"
+    },
     "COVERAGE.md": {
-      "sha256": "4256ef7fdc0bd7dcd55384b3f433dcf6c63af3befee61b5f943f10b9a9014738",
+      "sha256": "48a52c205f879359f658364dfa1bace5561655f9776e48ade883d3716cd86ad9",
       "state": "generated"
     },
     "dev.toolfactory/coverage.json": {
-      "sha256": "0668313e09c7be21cd3215b6c0018ba8c0fd29d7b19463f94dd20cc9d90310bb",
+      "sha256": "d1460ef688677bdd042d39c7cbc6d2c63431949590e45b6b47ffcd540823ac65",
       "state": "generated"
     },
     "dev.toolfactory/inspector.json": {
@@ -29,6 +45,50 @@
       "sha256": "7ac7aa7a563ecdd63e33459d2e0c7afbef6790bc0eb35a064ab71ed5e7e437c4",
       "state": "generated"
     },
+    "hosts/hermes/pyproject.toml": {
+      "sha256": "621de1c1306bfc091ea192f0b3da157ac62740268cb836f21f90fde1910785ac",
+      "state": "generated"
+    },
+    "hosts/hermes/README.md": {
+      "sha256": "57fce64907f67f4a70117a0dfe673664b3bded188cd2e41e8a23a40a4c1db37b",
+      "state": "generated"
+    },
+    "hosts/hermes/toolfactory_hermes/__init__.py": {
+      "sha256": "9155c03356aa96da9961ca32e69c737415dad153e8ee2a4ee164dba9b675df59",
+      "state": "generated"
+    },
+    "hosts/hermes/toolfactory_hermes/plugin.yaml": {
+      "sha256": "9b313cdf8f16141203a70750942b0475f56be674beeaa302786fcac6a53b8b8c",
+      "state": "generated"
+    },
+    "hosts/openclaw/openclaw.plugin.json": {
+      "sha256": "76299a05beb5b737c7db3c9e7c67474d1b9fdfc70a9f553497c1f146dcfb968a",
+      "state": "generated"
+    },
+    "hosts/openclaw/package.json": {
+      "sha256": "0f76de886c65c4aad174aa52ba705892fc76d4225a80a9611f79b4930e35c261",
+      "state": "generated"
+    },
+    "hosts/openclaw/README.md": {
+      "sha256": "a28cb8797086677ba43b9c2da59fa9d4fc07201ccaa64582b426e40d469bfda6",
+      "state": "generated"
+    },
+    "hosts/openclaw/src/index.test.ts": {
+      "sha256": "2515855d1c5c24da54fc229d0c1ae67635303c3db5f6f6ebaab71b8c24e12043",
+      "state": "generated"
+    },
+    "hosts/openclaw/src/index.ts": {
+      "sha256": "07aeb77d36c068015fbf538383faa0dcb8c746353a9a9fbafc2df72ca46c05e0",
+      "state": "generated"
+    },
+    "hosts/openclaw/tsconfig.json": {
+      "sha256": "0743ab64f72dbe3c496094ebc796717ee71e61e082c93dd7f740931a18ba5c6a",
+      "state": "generated"
+    },
+    "hosts/openclaw/vitest.config.ts": {
+      "sha256": "4f49d01f0120eff8b5bac0c9abc9bf6263c8da9834d288ff884c1e397436209f",
+      "state": "generated"
+    },
     "mcp.json": {
       "sha256": "9606a3103a6c875fc946dd1103e680a478a953b3fcd01bb8085dcaa21b5f5ea1",
       "state": "generated"
@@ -37,12 +97,16 @@
       "sha256": "d598d1e731835294553f31c58f07f4da18f6e86962c12621d43bb04fe3d99718",
       "state": "generated"
     },
+    "renovate.json": {
+      "sha256": "7705a4ccf8017bda3bbe7737d146526b6bbb7757ee699243ccc8ac8f55d918fa",
+      "state": "generated"
+    },
     "server.json": {
       "sha256": "a7ada565178b1ef152daed81f73edcf652dab31ad51084ecf89a351cf2998c5f",
       "state": "generated"
     },
     "skills/toolfactory/SKILL.md": {
-      "sha256": "0c4b499eace3b46a47f44568d749d4dd8ba6d4c16b6b4f16c1c2aca6c4855e02",
+      "sha256": "d49a205c198c7d2455dfeec6047d2b8b04c9f43847e25929c6cde38bd371738b",
       "state": "generated"
     },
     "src/toolfactory/cli.ts": {

@@ -49,6 +49,10 @@ export type SurfaceId = (typeof SURFACE_IDS)[number];
 export const BINDINGS = ["typescript", "python"] as const;
 export type Binding = (typeof BINDINGS)[number];
 
+/** Package managers the generated workflows know how to drive; read from package.json `packageManager`. */
+export const PACKAGE_MANAGERS = ["npm", "pnpm"] as const;
+export type PackageManager = (typeof PACKAGE_MANAGERS)[number];
+
 /** Agent Plugins 1.0.0 name rule; the canonical name N every projection derives from. */
 export const NAME_PATTERN = /^(?!.*(?:--|\.\.))[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/;
 
@@ -190,6 +194,8 @@ export interface Project {
   identityExtra: Record<string, unknown>;
   operations: Operation[];
   toolfactoryVersion: string;
+  /** From the root package.json `packageManager` field; npm when absent. */
+  packageManager?: PackageManager;
 }
 
 export interface Surface {

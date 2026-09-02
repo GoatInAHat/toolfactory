@@ -67,12 +67,12 @@ export const operations = [
   operation({
     name: "check",
     description:
-      "Fail if any generated file drifted from what build would write (the CI drift gate).",
+      "Fail if the operation snapshot or any generated file drifted from the code (the CI drift gate).",
     input: z.object({ root }),
     output: z.object({ ok: z.literal(true) }),
     annotations: { readOnlyHint: true },
     handler: async ({ root }) => {
-      commands.check(root);
+      await commands.check(root);
       return { ok: true as const };
     },
   }),

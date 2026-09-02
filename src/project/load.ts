@@ -7,6 +7,8 @@ import {
   CAPABILITIES,
   type Capability,
   type Operation,
+  PACKAGE_MANAGERS,
+  type PackageManager,
   type Project,
   ToolConfigSchema,
 } from "../model.js";
@@ -65,6 +67,22 @@ export function readOps(root: string): Operation[] {
   return OpsSchema.parse(JSON.parse(readFileSync(path, "utf8"))).tools.map(toOperation);
 }
 
+/** The package manager the root package.json declares (`packageManager: "pnpm@10.0.0"`), if any. */
+function readPackageManager(root: string): PackageManager | undefined {
+  const path = join(root, "package.json");
+  if (!existsSync(path)) return undefined;
+  const declared = (JSON.parse(readFileSync(path, "utf8")) as { packageManager?: string })
+    .packageManager;
+  if (!declared) return undefined;
+  const name = declared.split("@")[0] ?? "";
+  if (!(PACKAGE_MANAGERS as readonly string[]).includes(name)) {
+    throw new Error(
+      `package.json packageManager "${declared}" is not supported; toolfactory generates workflows for ${PACKAGE_MANAGERS.join(", ")}.`,
+    );
+  }
+  return name as PackageManager;
+}
+
 export function loadProject(rootInput = "."): Project {
   const root = resolve(rootInput);
   const toolPath = join(root, TOOL_PATH);
@@ -80,5 +98,6 @@ export function loadProject(rootInput = "."): Project {
     identityExtra: identityFile.extra,
     operations: readOps(root),
     toolfactoryVersion: TOOLFACTORY_VERSION,
+    packageManager: readPackageManager(root),
   };
 }

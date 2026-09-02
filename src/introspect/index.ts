@@ -2,7 +2,7 @@
  * Operations come from the code: spawn the kernel MCP server, list its tools, and
  * snapshot the result verbatim to ops.json so every generator runs offline.
  */
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
@@ -40,21 +40,24 @@ export function serializeOps(ops: Ops): string {
   return `${JSON.stringify(ops, null, 2)}\n`;
 }
 
+/** Spawn the kernel and compare its `tools/list` with the committed snapshot; writes nothing. */
+export async function snapshot(
+  project: Project,
+): Promise<{ ops: Ops; next: string; changed: boolean }> {
+  const kernel = project.tool.kernel ?? getBinding(project.tool.binding).kernelCommand(project);
+  const ops = await listTools(project.root, kernel.command, kernel.args);
+  const next = serializeOps(ops);
+  const path = join(project.root, OPS_PATH);
+  const changed = !existsSync(path) || readFileSync(path, "utf8") !== next;
+  return { ops, next, changed };
+}
+
 export async function introspect(
   project: Project,
 ): Promise<{ path: string; changed: boolean; ops: Ops }> {
-  const kernel = project.tool.kernel ?? getBinding(project.tool.binding).kernelCommand(project);
-  const ops = await listTools(project.root, kernel.command, kernel.args);
-  const path = join(project.root, OPS_PATH);
-  const next = serializeOps(ops);
-  let changed = true;
-  try {
-    const { readFileSync } = await import("node:fs");
-    changed = readFileSync(path, "utf8") !== next;
-  } catch {
-    changed = true;
-  }
+  const { ops, next, changed } = await snapshot(project);
   if (changed) {
+    const path = join(project.root, OPS_PATH);
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, next);
   }
