@@ -41,6 +41,85 @@
       }
     },
     {
+      "name": "bootstrap-repo",
+      "description": "Prepare the GitHub repository for the live-test tier: create the `live-tests` environment with required reviewers, then set every required sensitive config key as an environment secret from the local .env.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "root": {
+            "default": ".",
+            "description": "Project root (directory containing dev.toolfactory/)",
+            "type": "string"
+          },
+          "reviewers": {
+            "default": [],
+            "description": "GitHub logins that must approve a live run",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dryRun": {
+            "default": false,
+            "description": "Print the gh invocations instead of running them",
+            "type": "boolean"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "repository": {
+            "type": "string"
+          },
+          "environment": {
+            "type": "string"
+          },
+          "reviewers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "secrets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "commands": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dryRun": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "repository",
+          "environment",
+          "reviewers",
+          "secrets",
+          "commands",
+          "dryRun"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false
+      },
+      "_meta": {
+        "dev.toolfactory": {
+          "requires": [
+            "shell",
+            "net",
+            "secret"
+          ]
+        }
+      }
+    },
+    {
       "name": "build",
       "description": "Generate every selected surface in-tree from the identity file and the operation snapshot, and refresh the lock.",
       "inputSchema": {

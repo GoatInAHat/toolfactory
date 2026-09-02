@@ -140,6 +140,32 @@ export const operations = [
     handler: async ({ root, surface }) => ({ adopted: commands.eject(root, surface) }),
   }),
   operation({
+    name: "bootstrap-repo",
+    description:
+      "Prepare the GitHub repository for the live-test tier: create the `live-tests` environment with required reviewers, then set every required sensitive config key as an environment secret from the local .env.",
+    input: z.object({
+      root,
+      reviewers: z
+        .array(z.string())
+        .default([])
+        .describe("GitHub logins that must approve a live run"),
+      dryRun: z
+        .boolean()
+        .default(false)
+        .describe("Print the gh invocations instead of running them"),
+    }),
+    output: z.object({
+      repository: z.string(),
+      environment: z.string(),
+      reviewers: z.array(z.string()),
+      secrets: z.array(z.string()),
+      commands: z.array(z.string()),
+      dryRun: z.boolean(),
+    }),
+    requires: ["shell", "net", "secret"],
+    handler: async (args) => commands.bootstrapRepo(args),
+  }),
+  operation({
     name: "doctor",
     description:
       "Report which upstream CLIs this machine can delegate to (git, gh, npm, uv, claude, openclaw, clawhub, hermes, uvx, agentskills, MCP Inspector, docker).",

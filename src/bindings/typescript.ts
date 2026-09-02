@@ -4,10 +4,30 @@
  * author's `src/ops.ts` is scaffolded once and then owned.
  */
 import type { PlannedFile, Project } from "../model.js";
-import { configProperties, envName, has, npmName } from "../surfaces/shared.js";
+import {
+  configProperties,
+  dataDirEnvName,
+  envName,
+  has,
+  liveCredentials,
+  liveExample,
+  npmName,
+} from "../surfaces/shared.js";
 
 export const KERNEL_DIR = "src/toolfactory";
 export const OPS_PATH = "src/ops.ts";
+export const LIVE_TEST_PATH = "tests/live.test.ts";
+/**
+ * The scaffold script the `live` CI job and the author both run (§6 T4). Node's own
+ * `--env-file`, so no dotenv dependency (vitest does not put `.env` into `process.env`);
+ * `-if-exists` so CI, which injects the same names from the `live-tests` environment rather
+ * than a file, runs the same script; vitest's own entry file rather than `node_modules/.bin`,
+ * which is a shell shim under pnpm and cannot be handed to `node`.
+ */
+export const LIVE_TEST_SCRIPT = `node --env-file-if-exists=.env node_modules/vitest/vitest.mjs run ${LIVE_TEST_PATH}`;
+
+const LIVE_GUARD_BEGIN = "// tf:live-guard";
+const LIVE_GUARD_END = "// /tf:live-guard";
 
 export function kernelCommand(): { command: string; args: string[] } {
   return { command: "node", args: ["--import", "tsx", `${KERNEL_DIR}/mcp.ts`] };
@@ -36,6 +56,8 @@ export type Capability =
 export interface Context {
   /** Configuration values read from the environment, keyed as declared in dev.toolfactory/tool.json. */
   config: Record<string, string | undefined>;
+  /** Directory this tool may keep its own state in. Created by the tool, not by the kernel. */
+  dataDir: string;
 }
 
 export interface Operation<Input extends z.ZodObject = z.ZodObject, Output extends z.ZodType = z.ZodType> {
@@ -77,7 +99,30 @@ function configTemplate(project: Project): string {
   const entries = keys.map(
     (key) => `  ${JSON.stringify(key)}: process.env[${JSON.stringify(envName(key))}],`,
   );
-  return `${HEADER}import type { Context } from "./types.js";
+  const name = project.identity.name;
+  const dataDirEnv = dataDirEnvName(project);
+  return `${HEADER}import { homedir } from "node:os";
+import { join } from "node:path";
+import type { Context } from "./types.js";
+
+/**
+ * Where this tool may keep its own state: ${dataDirEnv} when a host sets it, else the
+ * platform's own data location (XDG on POSIX, %LOCALAPPDATA% on Windows).
+ */
+function dataDir(): string {
+  // Hosts that launch the kernel export their own name for it: Agent Plugins clients and
+  // OpenClaw set PLUGIN_DATA, Claude Code sets CLAUDE_PLUGIN_DATA.
+  const configured =
+    process.env[${JSON.stringify(dataDirEnv)}] ??
+    process.env.PLUGIN_DATA ??
+    process.env.CLAUDE_PLUGIN_DATA;
+  if (configured) return configured;
+  const base =
+    process.platform === "win32"
+      ? (process.env.LOCALAPPDATA ?? join(homedir(), "AppData", "Local"))
+      : (process.env.XDG_DATA_HOME ?? join(homedir(), ".local", "share"));
+  return join(base, ${JSON.stringify(name)});
+}
 
 /** Configuration is read from the environment; hosts inject it from their own settings UI. */
 export function context(): Context {
@@ -85,9 +130,56 @@ export function context(): Context {
     config: {
 ${entries.join("\n")}
     },
+    dataDir: dataDir(),
   };
 }
 `;
+}
+
+/**
+ * The T4 live tier: real calls against the real service, kept out of the default `vitest run`
+ * by a generated guard over the credentials `tool.json` declares as required and sensitive.
+ * The markers hold only the guard; the example test around them is the author's.
+ */
+export function liveTest(project: Project): PlannedFile[] {
+  const credentials = liveCredentials(project).map(envName);
+  const example = liveExample(project);
+  if (credentials.length === 0 || !example) return [];
+  const guard = `
+const CREDENTIALS = ${JSON.stringify(credentials)};
+const live = CREDENTIALS.every((name) => process.env[name]);
+`;
+  const template = `/**
+ * Live tests: real calls against the real service, so they run only when the credentials
+ * (${credentials.join(", ")}) are in the environment — \`npm test\` skips them.
+ *
+ * Locally: copy .env.example to .env, fill it in, then \`npm run test:live\`.
+ * In CI:   the \`live\` job of .github/workflows/ci.yml, from the \`live-tests\` environment.
+ */
+import { describe, expect, it } from "vitest";
+import { operations } from "../src/ops.js";
+import { context } from "../src/toolfactory/config.js";
+
+${LIVE_GUARD_BEGIN}${LIVE_GUARD_END}
+
+describe.skipIf(!live)(${JSON.stringify(`${project.identity.name} against the real service`)}, () => {
+  it(${JSON.stringify(`${example.name} answers`)}, async () => {
+    const operation = operations.find((candidate) => candidate.name === ${JSON.stringify(example.name)});
+    if (!operation) throw new Error(${JSON.stringify(`no operation named ${example.name}; point this test at another one`)});
+    const result = await operation.handler(${JSON.stringify(example.args)} as never, context());
+    // Replace this with the assertion that proves the real service answered correctly.
+    expect(result).toBeDefined();
+  });
+});
+`;
+  return [
+    {
+      kind: "region",
+      path: LIVE_TEST_PATH,
+      regions: [{ begin: LIVE_GUARD_BEGIN, end: LIVE_GUARD_END, content: guard }],
+      template,
+    },
+  ];
 }
 
 function mcpTemplate(project: Project): string {
@@ -307,7 +399,11 @@ export function scaffold(project: Project): PlannedFile[] {
     license: project.identity.license,
     type: "module",
     engines: { node: ">=22" },
-    scripts: { build: "tsc -p tsconfig.json", test: "vitest run --passWithNoTests" },
+    scripts: {
+      build: "tsc -p tsconfig.json",
+      test: "vitest run --passWithNoTests",
+      "test:live": LIVE_TEST_SCRIPT,
+    },
     dependencies: {
       "@modelcontextprotocol/node": "^2.0.0",
       "@modelcontextprotocol/server": "^2.0.0",

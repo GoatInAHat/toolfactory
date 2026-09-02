@@ -31,7 +31,7 @@ export const surface: Surface = {
       files: ["dist", "src", "schemas", "README.md", "LICENSE"],
       mcpName: has(project, "mcp-registry") ? registryName(project) : undefined,
     });
-    return [{ kind: "merge", path: "package.json", format: "json", patch }];
+    return [{ kind: "merge", path: "package.json", format: "json", patch, owned: ["bin"] }];
   },
   validate(project) {
     return [

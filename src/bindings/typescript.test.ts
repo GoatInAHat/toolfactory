@@ -7,7 +7,14 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { FullFile, PlannedFile, Project, SurfaceId } from "../model.js";
 import { ToolConfigSchema } from "../model.js";
-import { cliCommand, cli as cliFiles, kernel, kernelCommand, scaffold } from "./typescript.js";
+import {
+  cliCommand,
+  cli as cliFiles,
+  kernel,
+  kernelCommand,
+  liveTest,
+  scaffold,
+} from "./typescript.js";
 
 function project(surfaces: SurfaceId[], overrides: Partial<Project> = {}): Project {
   return {
@@ -34,6 +41,19 @@ function project(surfaces: SurfaceId[], overrides: Partial<Project> = {}): Proje
   };
 }
 
+/** A project whose config declares one required, sensitive credential: what gates the T4 tier. */
+function withCredential(surfaces: SurfaceId[]): Project {
+  const base = project(surfaces);
+  base.tool.config = {
+    type: "object",
+    properties: { passkey: { type: "string", "x-toolfactory": { sensitive: true } } },
+    required: ["passkey"],
+  };
+  base.tool.tests = { examples: { echo: { text: "hi" } } };
+  base.operations = [{ name: "echo", inputSchema: { type: "object" }, requires: [] }];
+  return base;
+}
+
 const paths = (files: PlannedFile[]) => files.map((file) => file.path);
 const text = (files: PlannedFile[], path: string) =>
   (files.find((file) => file.path === path) as FullFile).content;
@@ -54,6 +74,41 @@ describe("typescript binding", () => {
     expect(paths(kernel(project(["mcp"])))).not.toContain("src/toolfactory/cli.ts");
     expect(text(kernel(both), "src/toolfactory/config.ts")).toContain(
       '"apiKey": process.env["APIKEY"]',
+    );
+  });
+
+  it("reads the data directory from <N>_DATA_DIR, else the platform default", () => {
+    const files = kernel(project(["mcp"]));
+    expect(text(files, "src/toolfactory/types.ts")).toContain("dataDir: string;");
+    const config = text(files, "src/toolfactory/config.ts");
+    expect(config).toContain('process.env["HELLO_TS_DATA_DIR"]');
+    expect(config).toContain('process.env.XDG_DATA_HOME ?? join(homedir(), ".local", "share")');
+    expect(config).toContain('process.env.LOCALAPPDATA ?? join(homedir(), "AppData", "Local")');
+    expect(config).toContain('return join(base, "hello.ts");');
+    expect(config).toContain("dataDir: dataDir(),");
+  });
+
+  it("emits the T4 live test, and its scaffold script, only for a required sensitive credential", () => {
+    // No config key is both required and sensitive: nothing gates a live run, so no live tier.
+    expect(liveTest(project(["cli"]))).toEqual([]);
+
+    const live = liveTest(withCredential(["cli"]))[0];
+    if (live?.kind !== "region") throw new Error("expected a region file");
+    expect(live.path).toBe("tests/live.test.ts");
+    // The generated region is the guard; the example test around it is the author's.
+    expect(live.regions[0]?.content).toContain('const CREDENTIALS = ["PASSKEY"];');
+    expect(live.regions[0]?.content).toContain("CREDENTIALS.every((name) => process.env[name])");
+    expect(live.template).toContain("describe.skipIf(!live)");
+    // The example arguments come from tool.json tests.examples, so the stub is a real call.
+    expect(live.template).toContain('operation.handler({"text":"hi"} as never, context())');
+
+    const scripts = (
+      JSON.parse(text(scaffold(project(["cli"])), "package.json")) as {
+        scripts: Record<string, string>;
+      }
+    ).scripts;
+    expect(scripts["test:live"]).toBe(
+      "node --env-file-if-exists=.env node_modules/vitest/vitest.mjs run tests/live.test.ts",
     );
   });
 

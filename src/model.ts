@@ -213,6 +213,8 @@ export interface MergeFile {
   path: string;
   format: "json" | "toml";
   patch: Record<string, unknown>;
+  /** Dotted paths inside `patch` whose object toolfactory owns whole: replaced, never merged. */
+  owned?: string[];
 }
 
 export type PlannedFile = FullFile | RegionFile | MergeFile;

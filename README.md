@@ -57,6 +57,7 @@ toolfactory is built with toolfactory.
 | `coverage` | the operation × surface verdict matrix |
 | `adopt` / `unadopt` / `eject` | take a file (or a whole surface) over from toolfactory, or give it back |
 | `doctor` | which upstream CLIs this machine can delegate to |
+| `bootstrap-repo` | create the `live-tests` GitHub environment (required reviewers) and push its secrets from `.env` via `gh` |
 
 ## Surfaces
 

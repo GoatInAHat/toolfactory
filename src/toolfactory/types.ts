@@ -15,6 +15,8 @@ export type Capability =
 export interface Context {
   /** Configuration values read from the environment, keyed as declared in dev.toolfactory/tool.json. */
   config: Record<string, string | undefined>;
+  /** Directory this tool may keep its own state in. Created by the tool, not by the kernel. */
+  dataDir: string;
 }
 
 export interface Operation<Input extends z.ZodObject = z.ZodObject, Output extends z.ZodType = z.ZodType> {

@@ -24,6 +24,7 @@ import { includedOperations } from "../report/coverage.js";
 import {
   compact,
   configProperties,
+  dataDirEnvName,
   envName,
   isSensitive,
   pypiName,
@@ -83,16 +84,15 @@ function verdict(operation: Operation, project: Project): Verdict {
 interface EnvEntry {
   name: string;
   description: string;
-  prompt: string;
   secret?: boolean;
   url?: string;
 }
 
 /**
  * `requires_env` / `optional_env`, from the one credential declaration in `tool.json`
- * (§6). Hermes accepts a bare name or the rich `{name, description, prompt, password, url}`
- * form its config UI prompts from (`hermes_cli/config.py`); the rich form is what carries the
- * `x-toolfactory` metadata across.
+ * (§6). Hermes accepts a bare name or the rich `{name, description, secret, url}` form its
+ * config UI prompts from (`hermes_cli/config.py`, labelled by the variable name); the rich
+ * form is what carries the `x-toolfactory` metadata across.
  */
 export function envDeclarations(project: Project): { required: EnvEntry[]; optional: EnvEntry[] } {
   const required = new Set(requiredConfig(project));
@@ -105,7 +105,6 @@ export function envDeclarations(project: Project): { required: EnvEntry[]; optio
       entry: compact({
         name: envName(key),
         description,
-        prompt: description,
         // `hermes plugins install` masks the prompt on `secret`; config.py accepts either key.
         secret: isSensitive(property) || undefined,
         url: meta.url,
@@ -148,7 +147,6 @@ function manifest(project: Project, operations: Operation[]): string {
     optional.push({
       name: rootEnvName(project),
       description: `Path to the ${identity.name} checkout the kernel CLI runs from (default: the plugin's own repository).`,
-      prompt: `${identity.name} checkout path`,
     });
   }
   const core = project.tool.binding === "python" ? pinnedCore(project) : undefined;
@@ -271,6 +269,7 @@ REPO_ROOT = Path(_ROOT) if _ROOT else Path(__file__).resolve().parents[3]
 KERNEL = ["node", "--import", "tsx", "${KERNEL_DIR}/cli.ts"]
 
 
+
 def _handler(name: str) -> Callable[..., str]:
     def call(args: dict, **_kwargs: Any) -> str:
         try:
@@ -322,6 +321,8 @@ ${core.body}
 
 
 def register(ctx: Any) -> None:
+    # Hermes' own per-plugin data directory, through the variable every host uses.
+    os.environ.setdefault(${JSON.stringify(dataDirEnvName(project))}, str(ctx.state.data_dir))
     for schema in TOOLS:
         ctx.register_tool(
             name=schema["name"],

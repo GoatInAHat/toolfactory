@@ -103,3 +103,38 @@ export function envName(key: string): string {
 export function rootEnvName(project: Project): string {
   return `${project.identity.name.toUpperCase().replace(/[^A-Z0-9]/g, "_")}_ROOT`;
 }
+
+/**
+ * The environment variable a host passes the tool's per-instance data directory
+ * (caches, session state) through, on every surface. The kernel falls back to an
+ * XDG-style default when it is unset.
+ */
+export function dataDirEnvName(project: Project): string {
+  return `${project.identity.name.toUpperCase().replace(/[^A-Z0-9]/g, "_")}_DATA_DIR`;
+}
+
+/**
+ * The credentials a live run needs: every config key that is both `required` and sensitive.
+ * A tool with none has nothing to gate a live tier on, so no live test and no `live` CI job.
+ */
+export function liveCredentials(project: Project): string[] {
+  const properties = configProperties(project);
+  const required = new Set(requiredConfig(project));
+  return Object.keys(properties).filter(
+    (key) => required.has(key) && isSensitive(properties[key] as Record<string, unknown>),
+  );
+}
+
+/**
+ * The operation the generated example test calls: the first one with arguments in
+ * `tool.json` `tests.examples`, else the first operation with no arguments.
+ */
+export function liveExample(
+  project: Project,
+): { name: string; args: Record<string, unknown> } | undefined {
+  const examples = project.tool.tests.examples;
+  const withExample = project.operations.find((operation) => examples[operation.name]);
+  const operation = withExample ?? project.operations[0];
+  if (!operation) return undefined;
+  return { name: operation.name, args: examples[operation.name] ?? {} };
+}

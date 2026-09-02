@@ -7,7 +7,16 @@
 import { stringify as toml } from "smol-toml";
 import { projectName } from "../identity/name.js";
 import type { PlannedFile, Project } from "../model.js";
-import { compact, configProperties, envName, has, pypiName } from "../surfaces/shared.js";
+import {
+  compact,
+  configProperties,
+  dataDirEnvName,
+  envName,
+  has,
+  liveCredentials,
+  liveExample,
+  pypiName,
+} from "../surfaces/shared.js";
 
 /** Import package: the canonical name with `.` and `-` folded to `_` (PEP 8 / PEP 503). */
 export function pythonPackage(project: Project): string {
@@ -21,6 +30,13 @@ export function kernelDir(project: Project): string {
 export function opsPath(project: Project): string {
   return `src/${pythonPackage(project)}/ops.py`;
 }
+
+export const LIVE_TEST_PATH = "tests/test_live.py";
+/** What the `live` CI job runs; the author adds `--env-file .env` locally (documented in the file header). */
+export const LIVE_TEST_COMMAND = `uv run --with pytest pytest -q ${LIVE_TEST_PATH}`;
+
+const LIVE_GUARD_BEGIN = "# tf:live-guard";
+const LIVE_GUARD_END = "# /tf:live-guard";
 
 export function cliEntryPoint(project: Project): string {
   return `${pythonPackage(project)}.toolfactory.cli:main`;
@@ -51,6 +67,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel
@@ -64,6 +81,8 @@ class Context:
     """Configuration read from the environment, keyed as declared in dev.toolfactory/tool.json."""
 
     config: dict[str, str | None]
+    #: Directory this tool may keep its own state in. Created by the tool, not by the kernel.
+    data_dir: Path
 
 
 @dataclass(frozen=True)
@@ -103,15 +122,37 @@ function configTemplate(project: Project): string {
       `            ${JSON.stringify(key)}: os.environ.get(${JSON.stringify(envName(key))}),\n`,
   );
   const body = entries.length ? `{\n${entries.join("")}        }` : "{}";
+  const name = project.identity.name;
+  const dataDirEnv = dataDirEnvName(project);
   return `${HEADER}"""Configuration is read from the environment; hosts inject it from their own settings UI."""
 
 import os
+from pathlib import Path
 
 from .types import Context
 
 
+def data_dir() -> Path:
+    """Where this tool may keep its own state: ${dataDirEnv} when a host sets it, else the
+    platform's own data location (XDG on POSIX, %LOCALAPPDATA% on Windows)."""
+    # Hosts that launch the kernel export their own name for it: Agent Plugins clients and
+    # OpenClaw set PLUGIN_DATA, Claude Code sets CLAUDE_PLUGIN_DATA.
+    configured = (
+        os.environ.get(${JSON.stringify(dataDirEnv)})
+        or os.environ.get("PLUGIN_DATA")
+        or os.environ.get("CLAUDE_PLUGIN_DATA")
+    )
+    if configured:
+        return Path(configured)
+    if os.name == "nt":
+        base = Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local")
+    else:
+        base = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share")
+    return base / ${JSON.stringify(name)}
+
+
 def context() -> Context:
-    return Context(config=${body})
+    return Context(config=${body}, data_dir=data_dir())
 `;
 }
 
@@ -356,6 +397,62 @@ OPERATIONS = [
     ),
 ]
 `;
+}
+
+/**
+ * The T4 live tier: real calls against the real service, kept out of the default `pytest` run
+ * by a generated guard over the credentials `tool.json` declares as required and sensitive.
+ * The markers hold only the guard; the example test around them is the author's.
+ */
+export function liveTest(project: Project): PlannedFile[] {
+  const credentials = liveCredentials(project).map(envName);
+  const example = liveExample(project);
+  if (credentials.length === 0 || !example) return [];
+  const tuple = `(${credentials.map((name) => JSON.stringify(name)).join(", ")}${credentials.length === 1 ? "," : ""})`;
+  const guard = `
+CREDENTIALS = ${tuple}
+LIVE = all(os.environ.get(name) for name in CREDENTIALS)
+`;
+  const pkg = pythonPackage(project);
+  const template = `"""Live tests: real calls against the real service, so they run only when the credentials
+(${credentials.join(", ")}) are in the environment — a plain \`pytest\` run skips them.
+
+Locally: copy .env.example to .env, fill it in, then
+    ${LIVE_TEST_COMMAND.replace("uv run ", "uv run --env-file .env ")}
+In CI:   the \`live\` job of .github/workflows/ci.yml, from the \`live-tests\` environment.
+"""
+
+import asyncio
+import inspect
+import os
+
+import pytest
+
+from ${pkg}.ops import OPERATIONS
+from ${pkg}.toolfactory.config import context
+
+${LIVE_GUARD_BEGIN}${LIVE_GUARD_END}
+
+
+@pytest.mark.skipif(not LIVE, reason=f"live credentials are not set: {', '.join(CREDENTIALS)}")
+def test_${example.name.replace(/[^A-Za-z0-9_]/g, "_")}() -> None:
+    operation = next(op for op in OPERATIONS if op.name == ${JSON.stringify(example.name)})
+    result = operation.handler(
+        operation.input.model_validate_json(${JSON.stringify(JSON.stringify(example.args))}), context()
+    )
+    if inspect.isawaitable(result):
+        result = asyncio.run(result)
+    # Replace this with the assertion that proves the real service answered correctly.
+    assert result is not None
+`;
+  return [
+    {
+      kind: "region",
+      path: LIVE_TEST_PATH,
+      regions: [{ begin: LIVE_GUARD_BEGIN, end: LIVE_GUARD_END, content: guard }],
+      template,
+    },
+  ];
 }
 
 /** Generated on every build. */

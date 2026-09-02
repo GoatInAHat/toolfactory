@@ -8,7 +8,14 @@ import { listTools } from "../introspect/index.js";
 import type { FullFile, MergeFile, PlannedFile, Project, SurfaceId } from "../model.js";
 import { ToolConfigSchema } from "../model.js";
 import { surface as pypi } from "../surfaces/pypi.js";
-import { cliCommand, cli as cliFiles, kernel, kernelCommand, scaffold } from "./python.js";
+import {
+  cliCommand,
+  cli as cliFiles,
+  kernel,
+  kernelCommand,
+  liveTest,
+  scaffold,
+} from "./python.js";
 
 function project(surfaces: SurfaceId[], overrides: Partial<Project> = {}): Project {
   return {
@@ -33,6 +40,19 @@ function project(surfaces: SurfaceId[], overrides: Partial<Project> = {}): Proje
     toolfactoryVersion: "0.1.0",
     ...overrides,
   };
+}
+
+/** A project whose config declares one required, sensitive credential: what gates the T4 tier. */
+function withCredential(surfaces: SurfaceId[]): Project {
+  const base = project(surfaces);
+  base.tool.config = {
+    type: "object",
+    properties: { passkey: { type: "string", "x-toolfactory": { sensitive: true } } },
+    required: ["passkey"],
+  };
+  base.tool.tests = { examples: { echo: { text: "hi" } } };
+  base.operations = [{ name: "echo", inputSchema: { type: "object" }, requires: [] }];
+  return base;
 }
 
 const paths = (files: PlannedFile[]) => files.map((file) => file.path);
@@ -64,6 +84,34 @@ describe("python binding", () => {
     );
     expect(text(scaffold(both), "pyproject.toml")).toContain(
       '"hello.py" = "hello_py.toolfactory.cli:main"',
+    );
+  });
+
+  it("reads the data directory from <N>_DATA_DIR, else the platform default", () => {
+    const files = kernel(project(["mcp"]));
+    expect(text(files, "src/hello_py/toolfactory/types.py")).toContain("data_dir: Path");
+    const config = text(files, "src/hello_py/toolfactory/config.py");
+    expect(config).toContain('os.environ.get("HELLO_PY_DATA_DIR")');
+    expect(config).toContain('os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share"');
+    expect(config).toContain('os.environ.get("LOCALAPPDATA")');
+    expect(config).toContain('return base / "hello.py"');
+    expect(config).toContain("data_dir=data_dir()");
+  });
+
+  it("emits the T4 live test only for a required sensitive credential", () => {
+    expect(liveTest(project(["cli"]))).toEqual([]);
+
+    const live = liveTest(withCredential(["cli"]))[0];
+    if (live?.kind !== "region") throw new Error("expected a region file");
+    expect(live.path).toBe("tests/test_live.py");
+    expect(live.regions[0]?.content).toContain('CREDENTIALS = ("PASSKEY",)');
+    expect(live.regions[0]?.content).toContain("LIVE = all(os.environ.get(name)");
+    expect(live.template).toContain("@pytest.mark.skipif(not LIVE");
+    // pydantic's own JSON entry point, so tool.json's example arguments need no translation.
+    expect(live.template).toContain('operation.input.model_validate_json("{\\"text\\":\\"hi\\"}")');
+    // The header documents the local command; CI runs the same one without --env-file.
+    expect(live.template).toContain(
+      "uv run --env-file .env --with pytest pytest -q tests/test_live.py",
     );
   });
 

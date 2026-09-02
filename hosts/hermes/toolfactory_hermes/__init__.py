@@ -39,6 +39,33 @@ TOOLS = json.loads(
     }
   },
   {
+    "name": "bootstrap-repo",
+    "description": "Prepare the GitHub repository for the live-test tier: create the `live-tests` environment with required reviewers, then set every required sensitive config key as an environment secret from the local .env.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "root": {
+          "default": ".",
+          "description": "Project root (directory containing dev.toolfactory/)",
+          "type": "string"
+        },
+        "reviewers": {
+          "default": [],
+          "description": "GitHub logins that must approve a live run",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dryRun": {
+          "default": false,
+          "description": "Print the gh invocations instead of running them",
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  {
     "name": "build",
     "description": "Generate every selected surface in-tree from the identity file and the operation snapshot, and refresh the lock.",
     "parameters": {
@@ -287,6 +314,7 @@ REPO_ROOT = Path(_ROOT) if _ROOT else Path(__file__).resolve().parents[3]
 KERNEL = ["node", "--import", "tsx", "src/toolfactory/cli.ts"]
 
 
+
 def _handler(name: str) -> Callable[..., str]:
     def call(args: dict, **_kwargs: Any) -> str:
         try:
@@ -309,6 +337,8 @@ def _handler(name: str) -> Callable[..., str]:
 
 
 def register(ctx: Any) -> None:
+    # Hermes' own per-plugin data directory, through the variable every host uses.
+    os.environ.setdefault("TOOLFACTORY_DATA_DIR", str(ctx.state.data_dir))
     for schema in TOOLS:
         ctx.register_tool(
             name=schema["name"],

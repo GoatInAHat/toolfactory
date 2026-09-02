@@ -60,6 +60,51 @@
       }
     },
     {
+      "operation": "bootstrap-repo",
+      "verdicts": {
+        "skill": {
+          "kind": "bridged",
+          "reason": "bridged:agent-mediated"
+        },
+        "agent-plugins": {
+          "kind": "native"
+        },
+        "claude": {
+          "kind": "native"
+        },
+        "codex": {
+          "kind": "degraded",
+          "reason": "degraded:loader-unverified"
+        },
+        "cursor": {
+          "kind": "degraded",
+          "reason": "degraded:loader-unverified"
+        },
+        "mcp": {
+          "kind": "native"
+        },
+        "cli": {
+          "kind": "native"
+        },
+        "npm": {
+          "kind": "native"
+        },
+        "mcp-registry": {
+          "kind": "native"
+        },
+        "openclaw-native": {
+          "kind": "native"
+        },
+        "hermes-native": {
+          "kind": "degraded",
+          "reason": "degraded:out-of-process"
+        },
+        "web": {
+          "kind": "native"
+        }
+      }
+    },
+    {
       "operation": "build",
       "verdicts": {
         "skill": {

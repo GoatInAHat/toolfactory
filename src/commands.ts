@@ -7,6 +7,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { getBinding } from "./bindings/index.js";
+import { type BootstrapResult, bootstrapRepo as prepareRepository } from "./hosts/github.js";
 import { assertValidName } from "./identity/name.js";
 import { introspect as runIntrospect, snapshot } from "./introspect/index.js";
 import type { Binding, Command, Identity, PlannedFile, Project, SurfaceId } from "./model.js";
@@ -227,6 +228,18 @@ export interface DoctorReport {
 }
 
 /** Report the upstream CLIs this machine can delegate to. */
+/** Prepare the GitHub repository for the live tier: the `live-tests` environment and its secrets. */
+export function bootstrapRepo(args: {
+  root: string;
+  reviewers?: string[];
+  dryRun?: boolean;
+}): BootstrapResult {
+  return prepareRepository(loadProject(args.root), {
+    reviewers: args.reviewers,
+    dryRun: args.dryRun,
+  });
+}
+
 export function doctor(): DoctorReport {
   const probes: Record<string, [string, string[]]> = {
     git: ["git", ["--version"]],

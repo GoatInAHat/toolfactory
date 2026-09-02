@@ -10,6 +10,7 @@ license: MIT
 homepage: https://github.com/GoatInAHat/toolfactory
 provides_tools:
   - adopt
+  - bootstrap-repo
   - build
   - check
   - coverage
@@ -23,4 +24,3 @@ optional_env:
   - name: TOOLFACTORY_ROOT
     description: "Path to the toolfactory checkout the kernel CLI runs from
       (default: the plugin's own repository)."
-    prompt: toolfactory checkout path

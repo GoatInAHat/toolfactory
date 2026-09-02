@@ -7,6 +7,8 @@ export interface BindingModule {
   kernel(project: Project): PlannedFile[];
   /** The `cli` surface's files. */
   cli(project: Project): PlannedFile[];
+  /** The T4 live test; empty when no config key is both required and sensitive. */
+  liveTest(project: Project): PlannedFile[];
   /** Files written once by `init` when absent, then owned by the author. */
   scaffold(project: Project): PlannedFile[];
   /** How to launch the kernel MCP server from the repo root without a build step. */
@@ -19,6 +21,7 @@ const bindings: Partial<Record<Binding, BindingModule>> = {
   typescript: {
     kernel: typescript.kernel,
     cli: typescript.cli,
+    liveTest: typescript.liveTest,
     scaffold: typescript.scaffold,
     kernelCommand: () => typescript.kernelCommand(),
     cliCommand: () => typescript.cliCommand(),
@@ -26,6 +29,7 @@ const bindings: Partial<Record<Binding, BindingModule>> = {
   python: {
     kernel: python.kernel,
     cli: python.cli,
+    liveTest: python.liveTest,
     scaffold: python.scaffold,
     kernelCommand: python.kernelCommand,
     cliCommand: python.cliCommand,

@@ -91,8 +91,10 @@ that S8 requires. It writes them and asks the upstream validator for an exit cod
 (`package.json`, `pyproject.toml`) own only the keys in their patch and leave every other key
 alone; a file that already carries the patch is not rewritten at all, so a rebuild keeps the
 author's formatting and TOML comments (a patch that does change a value reserializes the file,
-which drops TOML comments). A nested key toolfactory once wrote and no longer emits is not
-removed. The identity file's unrecognised top-level keys are preserved on rewrite.
+which drops TOML comments). Objects a projector owns whole (`bin`, `[project.scripts]`) are
+replaced, so a renamed key does not leave its old name behind; any other nested key toolfactory
+once wrote and no longer emits stays. The identity file's unrecognised top-level keys are
+preserved on rewrite.
 
 **S9: Schema direction is native → JSON only.** Zod or Pydantic produce JSON Schema 2020-12 for the
 wire and for generated manifests. toolfactory never converts JSON Schema back into a native schema;
@@ -160,7 +162,7 @@ toolfactory owns exactly the keys in its patch).
 | `npm` | merge into `package.json`: identity, `type`, `bin`, `files`, `mcpName` | `npm pack --dry-run` | library |
 | `pypi` | merge into `pyproject.toml`: identity, `[project.scripts]`, registry marker | `uv build` | library |
 | `openclaw-native` | `hosts/openclaw/` mirroring `openclaw plugins init --type tool`: `package.json` with `openclaw{}`, `openclaw.plugin.json` (`configSchema` from `config`, `uiHints.<key>.sensitive` for secrets), `src/index.ts` (`defineToolPlugin`, TypeBox `Type.Unsafe` over each operation's JSON Schema) | `npm install`, `npm run build`, `openclaw plugins build --check`, `openclaw plugins validate`, `@openclaw/plugin-inspector`, and a scaffold diff against a fresh `openclaw plugins init` | TypeScript + portable → `native`; Python + portable → `degraded:out-of-process`; else `excluded:implement-in-hosts` |
-| `hermes-native` | `hosts/hermes/{pyproject.toml, README.md, <pkg>/{plugin.yaml, __init__.py}}`: manifest v2 (`requires_env` = schema-required config, `optional_env` the rest, secrets flagged `secret`, each `{name, description, prompt, secret?, url?}`), `register(ctx)` → `ctx.register_tool(...)`, handlers always return JSON and `{"error": ...}` instead of raising, the `hermes_agent.plugins` entry point; the shim reads `<N>_ROOT` to find the kernel when installed outside its checkout | `hermes plugins doctor hosts/hermes/<pkg> --ci` | Python + portable → `native`; TypeScript + portable → `degraded:out-of-process`; else `excluded:implement-in-hosts` |
+| `hermes-native` | `hosts/hermes/{pyproject.toml, README.md, <pkg>/{plugin.yaml, __init__.py}}`: manifest v2 (`requires_env` = schema-required config, `optional_env` the rest, secrets flagged `secret`, each `{name, description, secret?, url?}`), `register(ctx)` → `ctx.register_tool(...)`, handlers always return JSON and `{"error": ...}` instead of raising, the `hermes_agent.plugins` entry point; the shim reads `<N>_ROOT` to find the kernel when installed outside its checkout | `hermes plugins doctor hosts/hermes/<pkg> --ci` | Python + portable → `native`; TypeScript + portable → `degraded:out-of-process`; else `excluded:implement-in-hosts` |
 | `web` | `web/`: a Vite + React + Tailwind v4 + shadcn/ui project mirrored from `npm create vite` and `shadcn init`; one form per operation over shadcn's Field composition, CLI and MCP `tools/call` previews, a live call to the kernel through the dev server's `/mcp` proxy; the shadcn component files are vendor code the shadcn CLI copies into the author's tree | `npm install`, `shadcn add`, scaffold drift against a fresh init, `vite build`, Playwright smoke | as `mcp` |
 | `workflows` (always on) | `.github/workflows/ci.yml`; `release.yml` when a registry surface is selected; `compose.toolfactory.yaml` when a host-native surface is selected; `.env.example`; `renovate.json`. One check sequence (install, build, `toolfactory check`, the validator CLIs the selected surfaces need, `toolfactory validate`, the author's `check` and `test` scripts) is shared by `ci.yml` and the release gate; the package manager is read from `package.json` `packageManager` (npm or pnpm) | YAML parse; the workflow runs in CI | — |
 | `clawhub` | nothing new; a `release.yml` leg publishing `hosts/openclaw/` | `clawhub package publish --wait` | — |
@@ -303,11 +305,13 @@ stay projection verdicts.
 
 ### 6.1 The data directory
 
-Every kernel exposes `context.dataDir`: `<N>_DATA_DIR` when the host sets it, otherwise an
-XDG-style default under the user's data directory. Surfaces pass the host's own location (Agent
-Plugins `${PLUGIN_DATA}`, OpenClaw's plugin state directory, Hermes's plugin data directory); the
-CLI uses the default. Session caches and similar durable state live there; operations touching it
-declare `fs`.
+Every kernel exposes `context.dataDir`, resolved in the kernel from the variables hosts already
+export: `<N>_DATA_DIR`, else `PLUGIN_DATA` (every Agent Plugins client, OpenClaw's bundled MCP
+servers), else `CLAUDE_PLUGIN_DATA` (Claude Code exports it to MCP subprocesses), else an
+XDG-style default under the user's data directory. No projected manifest maps it; only the two
+in-process hosts set `<N>_DATA_DIR` themselves, the OpenClaw plugin from its state directory and
+the Hermes plugin from `ctx.state.data_dir`. Session caches and similar durable state live there;
+operations touching it declare `fs`.
 
 ### 6.2 T3 without Docker
 
@@ -368,7 +372,7 @@ TypeScript, Biome, Vitest, Zod, Vite, Tailwind, uv) get no substitute: agents us
 toolfactory is described by its own `dev.toolfactory/tool.json` and every generated artifact in
 its repo is produced by `toolfactory build`. `toolfactory check` and `toolfactory validate` run in
 its own CI. Its operations (`init`, `introspect`, `build`, `check`, `validate`, `coverage`,
-`adopt`, `unadopt`, `eject`, `doctor`) are declared once in `src/ops.ts`; the CLI and the MCP
+`adopt`, `unadopt`, `eject`, `doctor`, `bootstrap-repo`) are declared once in `src/ops.ts`; the CLI and the MCP
 server are generated from them exactly as for any other tool. Its selected surfaces include the
 OpenClaw-native and Hermes-native shims, because those generators track the fastest-moving hosts
 and must be exercised by toolfactory's own release, and the web surface, whose scaffold is
