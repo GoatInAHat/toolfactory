@@ -1,1 +1,21 @@
-{}
+{
+  "shadcn": {
+    "command": "npx",
+    "args": ["shadcn@latest", "mcp"]
+  },
+  "playwright": {
+    "command": "npx",
+    "args": ["@playwright/mcp@latest"]
+  },
+  "github": {
+    "type": "http",
+    "url": "https://api.githubcopilot.com/mcp/",
+    "headers": {
+      "Authorization": "Bearer ${GITHUB_PERSONAL_ACCESS_TOKEN}"
+    }
+  },
+  "openai-docs": {
+    "type": "http",
+    "url": "https://developers.openai.com/mcp"
+  }
+}

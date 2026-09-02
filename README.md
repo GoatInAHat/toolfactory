@@ -65,12 +65,12 @@ toolfactory is built with toolfactory.
 | `agent-plugins` | root `plugin.json` + `mcp.json` (consumed by OpenClaw, Hermes, Copilot, Cursor, Codex) | Ajv against the 1.0.0 schemas |
 | `claude` | `.claude-plugin/plugin.json` | `claude plugin validate` |
 | `codex`, `cursor` | `.codex-plugin/`, `.cursor-plugin/` manifests | schema-shaped |
-| `mcp`, `cli` | the kernel: generated MCP server and CLI over your operations | MCP Inspector, `--help` |
+| `mcp`, `cli` | the kernel: generated MCP server (stdio, or `--http`) and CLI over your operations | MCP Inspector, `--help` |
 | `npm`, `pypi` | package metadata merged into `package.json` / `pyproject.toml` | `npm pack`, `uv build` |
 | `mcp-registry` | `server.json` | `mcp-publisher` |
 | `openclaw-native` | `hosts/openclaw/`, mirroring `openclaw plugins init --type tool` | `openclaw plugins build --check`, `validate`, plugin-inspector |
 | `hermes-native` | `hosts/hermes/`, a manifest v2 plugin | `hermes plugins doctor --ci` |
-| `web` | `web/index.html`, a form per operation | Playwright |
+| `web` | `web/`, a shadcn/ui (Vite, React, Tailwind) app with a form per operation | `vite build`, Playwright |
 | workflows (always) | `ci.yml`, `release.yml`, `compose.toolfactory.yaml`, `.env.example`, `renovate.json` | the workflow itself |
 
 ## The boundary
