@@ -1,3 +1,4 @@
+# tf:ignore
 # ─── Agent local state ────────────────────────────────────
 # .agents/local/ is the personal overlay: same shape as .agents/ (skills/,
 # mcp/servers.json, AGENTS.md), rendered into your harnesses on this machine
@@ -22,15 +23,29 @@ CLAUDE.local.md
 /.codex/config.toml
 /.vscode/mcp.json
 /.factory/mcp.json
-/.factory/skills/
 /.amp/settings.json
 /opencode.json
 /kilo.jsonc
+# The `skills` CLI symlinks straight into Factory's own skills directory, which
+# `sync.py` does not manage.
+/.factory/skills/
 
-# ─── Secrets & env ────────────────────────────────────────
+# ─── toolfactory ──────────────────────────────────────────
+node_modules/
+dist/
 .env
 .env.*
 !.env.example
+# npm writes this when the host plugin is validated; its only dependency on this repo is file:../..
+hosts/*/package-lock.json
+hosts/*/uv.lock
+# Build products: generated and locked like every other file, rebuilt rather than tracked.
+dev.toolfactory/coverage.json
+dev.toolfactory/inspector.json
+web/src/ops.json
+# /tf:ignore
+
+# ─── Secrets & env ────────────────────────────────────────
 *.pem
 *.key
 *.p12
@@ -40,14 +55,12 @@ service-account*.json
 .netrc
 
 # ─── Dependencies ─────────────────────────────────────────
-node_modules/
 .venv/
 venv/
 __pycache__/
 *.py[cod]
 
 # ─── Build output ─────────────────────────────────────────
-dist/
 build/
 out/
 target/
@@ -74,6 +87,3 @@ Thumbs.db
 *.sqlite
 *.sqlite3
 *.db
-
-# npm writes this when the OpenClaw plugin is validated; its only dependency on this repo is file:../..
-hosts/*/package-lock.json

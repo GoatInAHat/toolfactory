@@ -6,8 +6,12 @@ import { resolveStateDir } from "openclaw/plugin-sdk/state-paths";
 import { Type } from "typebox";
 import { operations } from "toolfactory/dist/ops.js";
 
-/** Where this tool may keep its own state: OpenClaw's state directory, one folder per plugin. */
-const dataDir = join(resolveStateDir(), "plugin-data", "toolfactory");
+/**
+ * Where this tool may keep its own state: OpenClaw's state directory, one folder per plugin.
+ * Lazy, so that importing this module resolves no path and touches no disk — every host loader
+ * and `plugin-inspector check --runtime` import the entry long before any tool runs.
+ */
+const dataDir = () => join(resolveStateDir(), "plugin-data", "toolfactory");
 
 /** Fail loudly if the core package and this plugin ever disagree about the operation list. */
 function operation(name: string) {
@@ -47,7 +51,7 @@ const entry = defineToolPlugin({
       execute: async (params, config) =>
         operation("adopt").handler(params as never, {
           config: config as Record<string, string | undefined>,
-          dataDir,
+          dataDir: dataDir(),
         }),
     }),
     tool({
@@ -79,7 +83,7 @@ const entry = defineToolPlugin({
       execute: async (params, config) =>
         operation("bootstrap-repo").handler(params as never, {
           config: config as Record<string, string | undefined>,
-          dataDir,
+          dataDir: dataDir(),
         }),
     }),
     tool({
@@ -98,7 +102,7 @@ const entry = defineToolPlugin({
       execute: async (params, config) =>
         operation("build").handler(params as never, {
           config: config as Record<string, string | undefined>,
-          dataDir,
+          dataDir: dataDir(),
         }),
     }),
     tool({
@@ -117,7 +121,7 @@ const entry = defineToolPlugin({
       execute: async (params, config) =>
         operation("check").handler(params as never, {
           config: config as Record<string, string | undefined>,
-          dataDir,
+          dataDir: dataDir(),
         }),
     }),
     tool({
@@ -136,7 +140,7 @@ const entry = defineToolPlugin({
       execute: async (params, config) =>
         operation("coverage").handler(params as never, {
           config: config as Record<string, string | undefined>,
-          dataDir,
+          dataDir: dataDir(),
         }),
     }),
     tool({
@@ -149,7 +153,7 @@ const entry = defineToolPlugin({
       execute: async (params, config) =>
         operation("doctor").handler(params as never, {
           config: config as Record<string, string | undefined>,
-          dataDir,
+          dataDir: dataDir(),
         }),
     }),
     tool({
@@ -182,7 +186,8 @@ const entry = defineToolPlugin({
               "web",
               "dsh",
               "workflows",
-              "agents"
+              "agents",
+              "readme"
             ]
           }
         },
@@ -193,7 +198,26 @@ const entry = defineToolPlugin({
       execute: async (params, config) =>
         operation("eject").handler(params as never, {
           config: config as Record<string, string | undefined>,
-          dataDir,
+          dataDir: dataDir(),
+        }),
+    }),
+    tool({
+      name: "gate",
+      description: "Run the gate here, in order: build, the drift check, every selected surface's upstream validator, the author's checks and tests, and the credential-free host end-to-end. The same step list the generated ci.yml renders, so a project with no CI has the identical gate.",
+      parameters: Type.Unsafe({
+        "type": "object",
+        "properties": {
+          "root": {
+            "default": ".",
+            "description": "Project root (directory containing dev.toolfactory/)",
+            "type": "string"
+          }
+        }
+      }),
+      execute: async (params, config) =>
+        operation("gate").handler(params as never, {
+          config: config as Record<string, string | undefined>,
+          dataDir: dataDir(),
         }),
     }),
     tool({
@@ -241,7 +265,8 @@ const entry = defineToolPlugin({
                 "web",
                 "dsh",
                 "workflows",
-                "agents"
+                "agents",
+                "readme"
               ]
             },
             "description": "Surfaces to generate"
@@ -261,6 +286,38 @@ const entry = defineToolPlugin({
           "author": {
             "description": "Author name",
             "type": "string"
+          },
+          "git": {
+            "default": true,
+            "description": "git init when the directory is not a repository yet, and make the first commit",
+            "type": "boolean"
+          },
+          "setup": {
+            "default": true,
+            "description": "Run .agents/setup: render the harness adapters, install the git hooks, install dependencies",
+            "type": "boolean"
+          },
+          "repo": {
+            "description": "owner/name of a GitHub repository to create with gh and push to",
+            "type": "string"
+          },
+          "public": {
+            "default": false,
+            "description": "Create that repository public, not private",
+            "type": "boolean"
+          },
+          "dryRun": {
+            "default": false,
+            "description": "Print the gh invocations instead of running them",
+            "type": "boolean"
+          },
+          "reviewers": {
+            "default": [],
+            "description": "GitHub logins that must approve a live run, when the repository gets a live tier",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -272,7 +329,7 @@ const entry = defineToolPlugin({
       execute: async (params, config) =>
         operation("init").handler(params as never, {
           config: config as Record<string, string | undefined>,
-          dataDir,
+          dataDir: dataDir(),
         }),
     }),
     tool({
@@ -291,7 +348,26 @@ const entry = defineToolPlugin({
       execute: async (params, config) =>
         operation("introspect").handler(params as never, {
           config: config as Record<string, string | undefined>,
-          dataDir,
+          dataDir: dataDir(),
+        }),
+    }),
+    tool({
+      name: "package",
+      description: "Build every release asset into dist/release/ — npm tarball, Python distributions, OpenClaw plugin tarball, plugin bundle zip, web build, coverage — by the same steps the release workflow's package job runs. Publishing stays a CI concern.",
+      parameters: Type.Unsafe({
+        "type": "object",
+        "properties": {
+          "root": {
+            "default": ".",
+            "description": "Project root (directory containing dev.toolfactory/)",
+            "type": "string"
+          }
+        }
+      }),
+      execute: async (params, config) =>
+        operation("package").handler(params as never, {
+          config: config as Record<string, string | undefined>,
+          dataDir: dataDir(),
         }),
     }),
     tool({
@@ -317,7 +393,7 @@ const entry = defineToolPlugin({
       execute: async (params, config) =>
         operation("unadopt").handler(params as never, {
           config: config as Record<string, string | undefined>,
-          dataDir,
+          dataDir: dataDir(),
         }),
     }),
     tool({
@@ -351,7 +427,8 @@ const entry = defineToolPlugin({
               "web",
               "dsh",
               "workflows",
-              "agents"
+              "agents",
+              "readme"
             ]
           }
         }
@@ -359,7 +436,7 @@ const entry = defineToolPlugin({
       execute: async (params, config) =>
         operation("validate").handler(params as never, {
           config: config as Record<string, string | undefined>,
-          dataDir,
+          dataDir: dataDir(),
         }),
     }),
   ],

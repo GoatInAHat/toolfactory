@@ -990,6 +990,9 @@ const mcp = new URL(process.env.VITE_MCP_URL ?? "http://localhost:3000/mcp")
 
 // https://vite.dev/config/
 export default defineConfig({
+  // A GitHub Pages project page is not served from the domain root; the release workflow sets
+  // PAGES_BASE=/<repo>/ for that build only, so \`npm run dev\` and every other build stay at "/".
+  base: process.env.PAGES_BASE ?? "/",
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
@@ -1086,8 +1089,13 @@ export const surface: Surface = {
   id: "web",
   plan(project) {
     const operations = includedOperations(project, surface);
-    const file = (path: string, content: string) =>
-      ({ kind: "file", path: `${WEB_DIR}/${path}`, content }) as const;
+    const file = (path: string, content: string, output?: true) =>
+      ({
+        kind: "file",
+        path: `${WEB_DIR}/${path}`,
+        content,
+        ...(output ? { output } : {}),
+      }) as const;
     return [
       file(".oxlintrc.json", WEB_SCAFFOLD.vite[".oxlintrc.json"]),
       file("components.json", json(WEB_SCAFFOLD.componentsJson)),
@@ -1108,7 +1116,8 @@ export const surface: Surface = {
       file("src/index.css", WEB_SCAFFOLD.indexCss),
       file("src/lib/utils.ts", WEB_SCAFFOLD.utils),
       file("src/main.tsx", MAIN_TSX),
-      file("src/ops.json", opsJson(project, operations)),
+      // A lossy duplicate of dev.toolfactory/ops.json rebuilt by `npm run build`; not tracked (D8).
+      file("src/ops.json", opsJson(project, operations), true),
       file("src/schema-form.tsx", SCHEMA_FORM_TSX),
       file("tsconfig.app.json", tsconfigAppWithAlias()),
       file("tsconfig.json", tsconfigWithAlias()),

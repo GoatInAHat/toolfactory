@@ -23,6 +23,7 @@ import {
   compact,
   configProperties,
   dataDirEnvName,
+  envName,
   isSensitive,
   json,
   npmName,
@@ -75,6 +76,31 @@ export default defineConfig({
   entryModule: "openclaw/plugin-sdk/plugin-entry",
   /** `pluginInspector` in package.json, as `--type provider` writes it. */
   inspector: { version: 1, priority: "high", seams: ["plugin-runtime"], sourceRoot: "." },
+} as const;
+
+/**
+ * toolfactory's additions over the upstream scaffold. Each is a key `openclaw plugins init` does
+ * not write, which is why the drift check (`src/hosts/openclaw.ts`) requires every scaffold key to
+ * survive into the projection but allows extra ones: upstream stays the source of truth for
+ * everything it does write.
+ */
+export const OPENCLAW_ADDITIONS = {
+  /** Without it `tsc` emits a `dist/` from source that failed type-checking. */
+  compilerOptions: { noEmitOnError: true },
+  /** The scripted-model end-to-end lane; OpenClaw's own QA lane drives OpenClaw through aimock. */
+  aimock: "^1.39.0",
+  e2eScript: "npm run build && vitest run --config ./vitest.e2e.config.ts",
+  /**
+   * OpenClaw's install-time safety scan rejects a `node_modules` symlink whose target is outside
+   * the install root (`src/plugins/install-security-scan.runtime.ts`), which is exactly what npm
+   * makes of the `file:../..` core dependency. `install-links` materialises it as a real directory.
+   */
+  npmrc: `# OpenClaw's install-time safety scan refuses a node_modules symlink pointing outside the
+# install root, which is what npm makes of a file: dependency. Materialise it instead.
+install-links=true
+`,
+  /** The scripted model the e2e fixtures answer as; any id works, nothing resolves it upstream. */
+  model: "openai/gpt-5.6-luna",
 } as const;
 
 export const HOST_DIR = "hosts/openclaw";
@@ -182,13 +208,14 @@ function pluginInspector(project: Project, operations: Operation[]): Record<stri
   };
 }
 
-function packageJson(project: Project, operations: Operation[]): string {
+function packageJson(project: Project, operations: Operation[], kase?: E2eCase): string {
   // The core is imported in-process only when an operation reaches this surface.
   const core =
     project.tool.binding === "typescript" && operations.length
       ? { [npmName(project)]: "file:../.." }
       : undefined;
   const extra = project.tool.openclaw;
+  const e2e = kase ? { "test:e2e": OPENCLAW_ADDITIONS.e2eScript } : undefined;
   return json(
     compact({
       name: projectName.openclawPackage(project.identity.name),
@@ -196,11 +223,15 @@ function packageJson(project: Project, operations: Operation[]): string {
       description: pluginDescription(project),
       type: "module",
       private: OPENCLAW_SCAFFOLD.private,
-      scripts: OPENCLAW_SCAFFOLD.scripts,
+      scripts: { ...OPENCLAW_SCAFFOLD.scripts, ...e2e },
       files: OPENCLAW_SCAFFOLD.files,
       peerDependencies: { openclaw: pluginApi(project), ...extra?.peerDependencies },
       dependencies: { ...OPENCLAW_SCAFFOLD.dependencies, ...core, ...extra?.dependencies },
-      devDependencies: { ...OPENCLAW_SCAFFOLD.devDependencies, ...extra?.devDependencies },
+      devDependencies: {
+        ...OPENCLAW_SCAFFOLD.devDependencies,
+        ...(kase ? { "@copilotkit/aimock": OPENCLAW_ADDITIONS.aimock } : {}),
+        ...extra?.devDependencies,
+      },
       openclaw: {
         extensions: [OPENCLAW_SCAFFOLD.entry],
         compat: { pluginApi: pluginApi(project) },
@@ -250,7 +281,7 @@ function executeBody(project: Project, operation: Operation): string {
     return `execute: async (params, config) =>
         operation(${JSON.stringify(operation.name)}).handler(params as never, {
           config: config as Record<string, string | undefined>,
-          dataDir,
+          dataDir: dataDir(),
         }),`;
   }
   return `execute: async (params, config) => kernel(${JSON.stringify(operation.name)}, params, config),`;
@@ -270,7 +301,7 @@ async function kernel(name: string, params: unknown, config: unknown): Promise<u
   for (const [key, value] of Object.entries((config ?? {}) as Record<string, unknown>)) {
     if (value !== undefined && value !== null) env[key.toUpperCase().replace(/[^A-Z0-9]/g, "_")] = String(value);
   }
-  env[${JSON.stringify(dataDirEnvName(project))}] = dataDir;
+  env[${JSON.stringify(dataDirEnvName(project))}] = dataDir();
   const { stdout } = await execFileAsync(
     "uv",
     ["run", "python", "-m", ${JSON.stringify(module)}, name, "--json", JSON.stringify(params)],
@@ -313,8 +344,12 @@ function indexRegion(project: Project, operations: Operation[]): string {
   const dataDir = !operations.length
     ? ""
     : `
-/** Where this tool may keep its own state: OpenClaw's state directory, one folder per plugin. */
-const dataDir = join(resolveStateDir(), "plugin-data", ${JSON.stringify(project.identity.name)});
+/**
+ * Where this tool may keep its own state: OpenClaw's state directory, one folder per plugin.
+ * Lazy, so that importing this module resolves no path and touches no disk — every host loader
+ * and \`plugin-inspector check --runtime\` import the entry long before any tool runs.
+ */
+const dataDir = () => join(resolveStateDir(), "plugin-data", ${JSON.stringify(project.identity.name)});
 `;
   const preamble = !operations.length
     ? ""
@@ -438,6 +473,212 @@ ${registrationTest}});
 `;
 }
 
+interface E2eCase {
+  operation: Operation;
+  args: Record<string, unknown>;
+  /** A name the operation's own output schema promises; undefined when it promises none. */
+  marker: string | undefined;
+  ok: string;
+  fail: string;
+}
+
+/**
+ * The single operation the end-to-end turn drives: the first one `tool.json` names in
+ * `tests.examples`. One turn, not one per operation — the model sees every tool in the same
+ * request, so a second `toolName` leg could not discriminate. The declaration is the whole opt-in:
+ * a real turn really runs the operation, so which one that is has to be the author's choice and
+ * never a guess at whichever needs no arguments.
+ */
+function e2eCase(project: Project, operations: Operation[]): E2eCase | undefined {
+  const examples = project.tool.tests.examples;
+  const operation = operations.find((candidate) => examples[candidate.name]);
+  if (!operation) return undefined;
+  const schema = operation.outputSchema ?? {};
+  const required = Array.isArray(schema.required) ? (schema.required as string[]) : [];
+  const properties = Object.keys((schema.properties ?? {}) as Record<string, unknown>);
+  const token = envName(project.identity.name);
+  return {
+    operation,
+    args: examples[operation.name] ?? {},
+    marker: required[0] ?? properties[0],
+    ok: `${token}_OK`,
+    fail: `${token}_FAIL`,
+  };
+}
+
+/**
+ * Three legs, and the middle one is what makes the assertion mean something: leg 1 emits the tool
+ * call with the authored arguments, leg 2 answers OK only when the tool's own result carries a
+ * name its output schema promises, leg 3 catches everything else. Drop leg 2's gate and the mock
+ * would answer OK even for a tool that threw, because the host reports that in a tool message too.
+ * An operation that promises no output names has nothing to gate on, so it gets no failure leg.
+ */
+function e2eFixtures(kase: E2eCase): string {
+  const name = kase.operation.name;
+  return json({
+    fixtures: [
+      {
+        match: { toolName: name, hasToolResult: false },
+        response: { toolCalls: [{ name, arguments: kase.args }] },
+      },
+      {
+        match: compact({ hasToolResult: true, toolResultContains: kase.marker }),
+        response: { content: kase.ok },
+      },
+      ...(kase.marker
+        ? [{ match: { hasToolResult: true }, response: { content: kase.fail } }]
+        : []),
+    ],
+  });
+}
+
+const E2E_CONFIG = `${HEADER}import { defineConfig } from "vitest/config";
+
+export default defineConfig({
+  test: {
+    environment: "node",
+    include: ["e2e/**/*.e2e.test.ts"],
+    testTimeout: 180_000,
+    hookTimeout: 300_000,
+  },
+});
+`;
+
+/**
+ * The credential-free end-to-end lane: a real OpenClaw agent turn, through the real plugin, with
+ * `@copilotkit/aimock` standing in for the model. Nothing here is discoverable from the docs, so
+ * the three constraints that each cost a failing run are generated as comments.
+ */
+function e2eTest(project: Project, operations: Operation[], kase: E2eCase): string {
+  const id = project.identity.name;
+  const config = {
+    plugins: { enabled: true },
+    models: {
+      mode: "merge",
+      providers: {
+        openai: {
+          baseUrl: "__BASE_URL__",
+          apiKey: "sk-aimock-dummy",
+          api: "openai-responses",
+          agentRuntime: { id: "openclaw" },
+          request: { allowPrivateNetwork: true },
+          models: [
+            {
+              id: "gpt-5.6-luna",
+              name: "gpt-5.6-luna",
+              api: "openai-responses",
+              agentRuntime: { id: "openclaw" },
+              reasoning: false,
+              input: ["text"],
+              cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+              contextWindow: 128000,
+              contextTokens: 96000,
+              maxTokens: 4096,
+            },
+          ],
+        },
+      },
+    },
+    agents: {
+      defaults: {
+        model: { primary: OPENCLAW_ADDITIONS.model },
+        models: {
+          [OPENCLAW_ADDITIONS.model]: {
+            agentRuntime: { id: "openclaw" },
+            params: { transport: "sse", openaiWsWarmup: false },
+          },
+        },
+      },
+    },
+  };
+  // The base URL is only known once aimock has bound a port, so splice the expression back in.
+  const configLiteral = literal(config, 2).replace(
+    JSON.stringify("__BASE_URL__"),
+    "`${aimock().url}/v1`",
+  );
+  return `${HEADER}// One real OpenClaw agent turn against a scripted OpenAI-compatible model — no LLM key. The
+// fixtures in e2e/fixtures.json are projected from dev.toolfactory/ops.json and tool.json's
+// tests.examples; OpenClaw's own QA lane drives OpenClaw through this same aimock package.
+//
+// Three constraints, none of them discoverable, each of which costs a failing run:
+//  1. Every openclaw call must be ASYNC. useAimock serves the model inside this Vitest worker, so
+//     execFileSync would block the event loop and the child's POST /v1/responses is never answered.
+//  2. VITEST and every VITEST_* variable must be stripped from the child environment: with them
+//     set the published openclaw CLI writes zero bytes and exits 0. OpenClaw does the same
+//     sanitisation before spawning its own CLI (src/auto-reply/reply/commands-openclaw-cli.ts).
+//  3. \`plugins install --link\`, never a copy: a plain install copies this package's whole tree,
+//     node_modules/openclaw included, into the state directory.
+import { execFile } from "node:child_process";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
+import { useAimock } from "@copilotkit/aimock/vitest";
+import { beforeAll, describe, expect, it } from "vitest";
+
+const execFileAsync = promisify(execFile);
+const here = dirname(fileURLToPath(import.meta.url));
+const pluginDir = join(here, "..");
+const openclaw = join(pluginDir, "node_modules", "openclaw", "openclaw.mjs");
+const MODEL = ${JSON.stringify(OPENCLAW_ADDITIONS.model)};
+
+const aimock = useAimock({ port: 0, fixtures: join(here, "fixtures.json") });
+
+let env: NodeJS.ProcessEnv;
+
+async function oc(args: string[]): Promise<string> {
+  const { stdout } = await execFileAsync(process.execPath, [openclaw, ...args], {
+    env,
+    encoding: "utf8",
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  return stdout;
+}
+
+beforeAll(async () => {
+  const home = mkdtempSync(join(tmpdir(), "openclaw-e2e-"));
+  const configPath = join(home, "openclaw.json");
+  const clean = Object.fromEntries(
+    Object.entries(process.env).filter(([key]) => key !== "VITEST" && !key.startsWith("VITEST_")),
+  );
+  env = {
+    ...clean,
+    HOME: home,
+    OPENCLAW_STATE_DIR: home,
+    OPENCLAW_CONFIG_PATH: configPath,
+    OPENAI_API_KEY: "sk-aimock-dummy",
+  };
+  // The shape OpenClaw's own e2e fixtures use: one loopback OpenAI-compatible provider, a dummy
+  // key, and allowPrivateNetwork, without which OpenClaw refuses a loopback provider URL.
+  const config = ${configLiteral};
+  writeFileSync(configPath, JSON.stringify(config, null, 2));
+  await oc(["plugins", "install", "--link", pluginDir, "--force", "--accept-capabilities"]);
+}, 300_000);
+
+describe(${JSON.stringify(`${id} in a real OpenClaw agent turn`)}, () => {
+  it("registers its tools at runtime", async () => {
+    const inspected = JSON.parse(await oc(["plugins", "inspect", ${JSON.stringify(id)}, "--runtime", "--json"]));
+    expect(inspected.plugin.status).toBe("loaded");
+    expect(inspected.plugin.toolNames).toEqual(${JSON.stringify(operations.map((operation) => operation.name))});
+  });
+
+  it(${JSON.stringify(`the model calls ${kase.operation.name} and the tool's result reaches the reply`)}, async () => {
+    const turn = JSON.parse(
+      await oc([
+        "agent", "--local", "--agent", "main", "--session-id", \`e2e-\${Date.now()}\`,
+        "--model", MODEL, "--thinking", "off", "--timeout", "120", "--json",
+        "--message",
+        ${JSON.stringify(`Call the tool named ${kase.operation.name}. Reply with only the exact text returned by that tool.`)},
+      ]),
+    );
+    expect(turn.meta.agentMeta.terminalReceipt.successfulToolNames).toContain(${JSON.stringify(kase.operation.name)});
+    expect(turn.payloads[0].text).toBe(${JSON.stringify(kase.ok)});
+  }, 180_000);
+});
+`;
+}
+
 /**
  * What a third-party plugin can reach at OpenClaw HEAD. Checked against the clone at
  * openclaw 2026.8.2 / git 0635e09a; every claim names the file it was read from, so the next
@@ -470,7 +711,7 @@ function boundary(): string[] {
   ];
 }
 
-function readme(project: Project, operations: Operation[]): string {
+function readme(project: Project, operations: Operation[], kase?: E2eCase): string {
   const excluded = project.operations.filter(
     (operation) => verdict(operation, project).kind === "excluded",
   );
@@ -490,9 +731,42 @@ function readme(project: Project, operations: Operation[]): string {
     "npm run plugin:build",
     "npm run plugin:validate",
     "npm test",
+    ...(kase ? ["npm run test:e2e"] : []),
     "```",
     "",
+    "`.npmrc` sets `install-links=true`. OpenClaw's install-time safety scan refuses a",
+    "`node_modules` symlink whose target lies outside the install root, which is what npm makes of a",
+    "`file:` dependency such as the core package in `package.json`; with `install-links` npm",
+    "materialises it as a real directory and `openclaw plugins install --link` succeeds.",
+    "",
+    "## Install into a live OpenClaw, and remove it again",
+    "",
+    "```bash",
+    `openclaw plugins install --link ${HOST_DIR} --force --accept-capabilities`,
+    `openclaw plugins inspect ${project.identity.name} --runtime --json`,
+    `openclaw plugins disable ${project.identity.name}`,
+    "```",
+    "",
+    "`--link` registers this checkout in place rather than copying it (a copy takes",
+    "`node_modules/openclaw` with it), so the plugin's origin is a config entry and",
+    "`plugins disable` is what removes it again, leaving the checkout untouched.",
+    `\`openclaw plugins uninstall ${project.identity.name} --keep-files\` is the equivalent for a`,
+    "plugin installed as a package; against a linked checkout it reports conflicting registry rows",
+    "and changes nothing (openclaw 2026.8.2).",
+    "",
   ];
+  if (kase) {
+    lines.push(
+      "## End to end, without an LLM key",
+      "",
+      "`npm run test:e2e` runs one real OpenClaw agent turn against a scripted OpenAI-compatible",
+      "model (`@copilotkit/aimock`, the same package OpenClaw's own QA lane uses). `e2e/fixtures.json`",
+      "is projected from `dev.toolfactory/ops.json` and `tool.json`'s `tests.examples`: the model asks",
+      `for \`${kase.operation.name}\` with those arguments, and answers \`${kase.ok}\` only when the tool's own`,
+      "result comes back carrying what its output schema promises.",
+      "",
+    );
+  }
   if (declared.length) {
     lines.push(
       "## Contributes",
@@ -558,17 +832,25 @@ export const surface: Surface = {
   id: "openclaw-native",
   plan(project) {
     const operations = includedOperations(project, surface);
+    const kase = e2eCase(project, operations);
     return [
       {
         kind: "file",
         path: `${HOST_DIR}/package.json`,
-        content: packageJson(project, operations),
+        content: packageJson(project, operations, kase),
       },
       {
         kind: "file",
         path: `${HOST_DIR}/tsconfig.json`,
-        content: json(OPENCLAW_SCAFFOLD.tsconfig),
+        content: json({
+          ...OPENCLAW_SCAFFOLD.tsconfig,
+          compilerOptions: {
+            ...OPENCLAW_SCAFFOLD.tsconfig.compilerOptions,
+            ...OPENCLAW_ADDITIONS.compilerOptions,
+          },
+        }),
       },
+      { kind: "file", path: `${HOST_DIR}/.npmrc`, content: OPENCLAW_ADDITIONS.npmrc },
       {
         kind: "file",
         path: `${HOST_DIR}/vitest.config.ts`,
@@ -592,7 +874,26 @@ export const surface: Surface = {
         path: `${HOST_DIR}/src/index.test.ts`,
         content: indexTestTs(project, operations),
       },
-      { kind: "file", path: `${HOST_DIR}/README.md`, content: readme(project, operations) },
+      ...(kase
+        ? [
+            {
+              kind: "file" as const,
+              path: `${HOST_DIR}/vitest.e2e.config.ts`,
+              content: E2E_CONFIG,
+            },
+            {
+              kind: "file" as const,
+              path: `${HOST_DIR}/e2e/fixtures.json`,
+              content: e2eFixtures(kase),
+            },
+            {
+              kind: "file" as const,
+              path: `${HOST_DIR}/e2e/openclaw.e2e.test.ts`,
+              content: e2eTest(project, operations, kase),
+            },
+          ]
+        : []),
+      { kind: "file", path: `${HOST_DIR}/README.md`, content: readme(project, operations, kase) },
     ];
   },
   validate(project) {
@@ -600,6 +901,18 @@ export const surface: Surface = {
     // Run the openclaw the plugin pins as a devDependency, not whatever happens to be on PATH.
     const openclaw = ["--prefix", HOST_DIR, "exec", "--no", "--", "openclaw", "plugins"];
     const entry = ["--root", HOST_DIR, "--entry", OPENCLAW_SCAFFOLD.entry];
+    // `plugin-inspector <subcommand> <flags>`; `--out` is resolved against `--plugin-root`, which
+    // keeps the reports out of the author's tree.
+    const inspector = (subcommand: string) => [
+      "--yes",
+      "@openclaw/plugin-inspector",
+      subcommand,
+      "--plugin-root",
+      HOST_DIR,
+      "--no-openclaw",
+      "--out",
+      "node_modules/.cache/plugin-inspector",
+    ];
     const operations = includedOperations(project, surface);
     return [
       // hosts/openclaw type-checks against the core's emitted declarations, so build it first —
@@ -641,18 +954,16 @@ export const surface: Surface = {
       {
         label: "@openclaw/plugin-inspector inspect",
         command: "npx",
-        args: [
-          "--yes",
-          "@openclaw/plugin-inspector",
-          "inspect",
-          "--plugin-root",
-          HOST_DIR,
-          "--no-openclaw",
-          "--check",
-          // Resolved against --plugin-root; keep the reports out of the author's tree.
-          "--out",
-          "node_modules/.cache/plugin-inspector",
-        ],
+        args: [...inspector("inspect"), "--check"],
+        ...at,
+      },
+      // The runtime lane imports `dist/index.js` against a stubbed SDK: the one check that fails
+      // when module load stops being side-effect-free (a top-level `resolveStateDir()` did).
+      {
+        label: "@openclaw/plugin-inspector check --runtime --mock-sdk",
+        command: "npx",
+        args: [...inspector("check"), "--runtime", "--mock-sdk"],
+        env: { PLUGIN_INSPECTOR_EXECUTE_ISOLATED: "1" },
         ...at,
       },
     ];

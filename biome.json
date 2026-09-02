@@ -32,7 +32,8 @@
       "!hosts",
       "!web",
       "!renovate.json",
-      "!.agents/skills"
+      "!.agents/skills",
+      "!.agents/mcp/servers.json"
     ]
   }
 }

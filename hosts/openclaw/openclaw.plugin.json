@@ -20,8 +20,10 @@
       "coverage",
       "doctor",
       "eject",
+      "gate",
       "init",
       "introspect",
+      "package",
       "unadopt",
       "validate"
     ]

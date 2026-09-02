@@ -11,7 +11,7 @@ services:
     command:
       - sh
       - -c
-      - openclaw plugins install /work/hosts/openclaw --force && openclaw plugins inspect toolfactory --runtime --json
+      - openclaw plugins install --link /work/hosts/openclaw --force --accept-capabilities && openclaw plugins inspect toolfactory --runtime --json
   hermes:
     image: buildpack-deps:bookworm
     volumes:

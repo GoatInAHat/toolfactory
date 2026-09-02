@@ -145,13 +145,28 @@ TOOLS = json.loads(
             "web",
             "dsh",
             "workflows",
-            "agents"
+            "agents",
+            "readme"
           ]
         }
       },
       "required": [
         "surface"
       ]
+    }
+  },
+  {
+    "name": "gate",
+    "description": "Run the gate here, in order: build, the drift check, every selected surface's upstream validator, the author's checks and tests, and the credential-free host end-to-end. The same step list the generated ci.yml renders, so a project with no CI has the identical gate.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "root": {
+          "default": ".",
+          "description": "Project root (directory containing dev.toolfactory/)",
+          "type": "string"
+        }
+      }
     }
   },
   {
@@ -199,7 +214,8 @@ TOOLS = json.loads(
               "web",
               "dsh",
               "workflows",
-              "agents"
+              "agents",
+              "readme"
             ]
           },
           "description": "Surfaces to generate"
@@ -219,6 +235,38 @@ TOOLS = json.loads(
         "author": {
           "description": "Author name",
           "type": "string"
+        },
+        "git": {
+          "default": true,
+          "description": "git init when the directory is not a repository yet, and make the first commit",
+          "type": "boolean"
+        },
+        "setup": {
+          "default": true,
+          "description": "Run .agents/setup: render the harness adapters, install the git hooks, install dependencies",
+          "type": "boolean"
+        },
+        "repo": {
+          "description": "owner/name of a GitHub repository to create with gh and push to",
+          "type": "string"
+        },
+        "public": {
+          "default": false,
+          "description": "Create that repository public, not private",
+          "type": "boolean"
+        },
+        "dryRun": {
+          "default": false,
+          "description": "Print the gh invocations instead of running them",
+          "type": "boolean"
+        },
+        "reviewers": {
+          "default": [],
+          "description": "GitHub logins that must approve a live run, when the repository gets a live tier",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "required": [
@@ -231,6 +279,20 @@ TOOLS = json.loads(
   {
     "name": "introspect",
     "description": "Spawn the kernel MCP server, list its tools, and snapshot them to dev.toolfactory/ops.json.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "root": {
+          "default": ".",
+          "description": "Project root (directory containing dev.toolfactory/)",
+          "type": "string"
+        }
+      }
+    }
+  },
+  {
+    "name": "package",
+    "description": "Build every release asset into dist/release/ — npm tarball, Python distributions, OpenClaw plugin tarball, plugin bundle zip, web build, coverage — by the same steps the release workflow's package job runs. Publishing stays a CI concern.",
     "parameters": {
       "type": "object",
       "properties": {
@@ -294,7 +356,8 @@ TOOLS = json.loads(
             "web",
             "dsh",
             "workflows",
-            "agents"
+            "agents",
+            "readme"
           ]
         }
       }

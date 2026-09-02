@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# tf:setup
 # The one setup entry point. Every environment calls this same script through
 # its native, committed hook — see the environments table in .agents/README.md
 # — so setup stays standardized instead of per-harness. Idempotent and
@@ -132,16 +133,36 @@ else
         "hooks). The devcontainer provides the fully wired, isolated setup."
 fi
 
-# Project setup: install the pinned Node toolchain's dependencies. pnpm is the
-# package manager (package.json#packageManager); corepack provides it where it
-# is not already on PATH.
+# The pre-commit hook installed above converges agent config; toolfactory's drift gate goes in
+# front of its final `exec` so a commit cannot leave a generated file stale. That hook is
+# rewritten on every setup run, so the gate is re-inserted here every time, and before the
+# dependency install below, which is the step most likely to fail on a fresh machine.
+python3 - <<'PY'
+import pathlib, subprocess
+
+hooks = subprocess.run(["git", "rev-parse", "--git-path", "hooks"],
+                       capture_output=True, text=True).stdout.strip()
+hook = pathlib.Path(hooks) / "pre-commit"
+gate = 'npx toolfactory check >/dev/null || { echo "toolfactory: generated files are stale; run npx toolfactory build" >&2; exit 1; }'
+if hook.is_file():
+    lines = hook.read_text(encoding="utf-8").splitlines()
+    if gate not in lines:
+        at = next((i for i, line in enumerate(lines) if line.startswith("exec ")), len(lines))
+        lines.insert(at, gate)
+        hook.write_text("\n".join(lines) + "\n", encoding="utf-8")
+PY
+
+# Project setup: the dependencies this project's toolchain needs.
 if ! command -v pnpm >/dev/null 2>&1; then
     corepack enable >/dev/null 2>&1 || true
 fi
 if command -v pnpm >/dev/null 2>&1; then
-    pnpm install --frozen-lockfile --prefer-offline >/dev/null 2>&1 ||
-        pnpm install --frozen-lockfile
+    pnpm install --prefer-offline
 else
     echo "pnpm not found: install Node >= 22.12 (corepack provides pnpm), then rerun .agents/setup" >&2
     exit 1
 fi
+# /tf:setup
+
+# Anything else this project needs at setup time (codegen, migrations) goes
+# here. Keep it idempotent and fast when there is nothing to do.

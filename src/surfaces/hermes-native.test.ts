@@ -17,6 +17,7 @@ const echo: Operation = {
     properties: { text: { type: "string" } },
     required: ["text"],
   },
+  outputSchema: { type: "object", properties: { text: { type: "string" } }, required: ["text"] },
   requires: [],
 };
 const shoot: Operation = { name: "shoot", inputSchema: { type: "object" }, requires: ["browser"] };
@@ -30,7 +31,7 @@ function project(overrides: Partial<Project> = {}): Project {
       binding: "typescript",
       surfaces: ["hermes-native", "cli"],
       bundle: { runtime: "package" },
-      tests: { examples: {} },
+      tests: { examples: { echo: { text: "hi" } } },
       config: {
         type: "object",
         properties: {
@@ -68,7 +69,9 @@ describe("hermes-native", () => {
       // biome-ignore lint/suspicious/noExplicitAny: manifest is untyped upstream YAML
       any
     >;
-    expect(manifest.manifest_version).toBe(2);
+    // 1, not the loader's newer-supported 2: `hermes plugins install`'s own cap is still stuck
+    // at 1 and rejects a v2 manifest outright, even though the loader and `doctor` accept it.
+    expect(manifest.manifest_version).toBe(1);
     expect(manifest.name).toBe("hello");
     // Only what the surface can actually run: `shoot` is excluded, so it is never advertised.
     expect(manifest.provides_tools).toEqual(["echo"]);
@@ -124,6 +127,25 @@ describe("hermes-native", () => {
     expect(pyproject.project.dependencies).toEqual(["hello>=1.2.0,<2"]);
     expect(pyproject.tool.uv.sources.hello).toEqual({ path: "../..", editable: true });
   });
+
+  it("emits a fake-ctx test that registers and calls a real handler, no Hermes import", () => {
+    const shim = emitted(project())[`${HOST_DIR}/tests/test_plugin.py`] ?? "";
+    expect(shim).not.toMatch(/^\s*(import|from) hermes/m);
+    expect(shim).toContain("from hello_hermes import register");
+    expect(shim).toContain("def register_tool(self, **kwargs: Any) -> None:");
+    expect(shim).toContain("self.state = _State(data_dir)");
+    // `shoot` is excluded (browser), so only `echo` is registered and only `echo` is callable.
+    expect(shim).toContain('assert [r["name"] for r in ctx.registrations] == ["echo"]');
+    expect(shim).toContain('r["name"] == "echo"');
+    expect(shim).toContain('handler({"text":"hi"})');
+    // The marker comes from `echo`'s own output schema, not a hardcoded assumption.
+    expect(shim).toContain('assert "text" in result');
+    expect(shim).toContain("checkout and Node, which the shim handler spawns");
+
+    const native = emitted(python)[`${HOST_DIR}/tests/test_plugin.py`] ?? "";
+    expect(native).toContain("from hello_hermes import register");
+    expect(native).not.toContain("and Node");
+  });
 });
 
 function hasHermes(): boolean {
@@ -145,8 +167,9 @@ describe.skipIf(!hasHermes())("hermes plugins doctor", () => {
         mkdirSync(dirname(join(root, file.path)), { recursive: true });
         writeFileSync(join(root, file.path), file.content);
       }
-      const [command] = surface.validate?.({ ...project(), root }) ?? [];
-      if (!command) throw new Error("the hermes surface no longer declares a validator");
+      const commands = surface.validate?.({ ...project(), root }) ?? [];
+      const command = commands.find((c) => c.label === "hermes plugins doctor");
+      if (!command) throw new Error("the hermes surface no longer declares a doctor validator");
       const output = execFileSync(command.command, command.args, { cwd: root, encoding: "utf8" });
       expect(output).toContain("registrations: 1 tool(s)");
     } finally {

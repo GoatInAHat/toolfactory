@@ -1,7 +1,10 @@
 /**
  * Claude Code plugin: an unconditional projection whenever selected, validated by
  * `claude plugin validate .`. Reuses the root `skills/`; MCP servers are declared inline.
+ * The repository is also its own single-plugin marketplace, because that is the only shape
+ * `claude plugin marketplace add <owner>/<repo>` (and Copilot CLI's identical command) installs.
  */
+import { githubSlug } from "../hosts/github.js";
 import type { Surface } from "../model.js";
 import {
   compact,
@@ -60,10 +63,25 @@ export const surface: Surface = {
           }
         : undefined,
     });
-    const files: ReturnType<Surface["plan"]> = [
+    // Required by the marketplace schema; the plugin's own author is the honest owner.
+    const owner = compact({
+      name:
+        identity.author?.name ?? githubSlug(identity.repository)?.split("/")[0] ?? identity.name,
+      email: identity.author?.email,
+      url: identity.author?.url,
+    });
+    const marketplace = compact({
+      $schema: "https://json.schemastore.org/claude-code-marketplace.json",
+      name: identity.name,
+      description: identity.description,
+      owner,
+      // `source: "./"` is the marketplace root itself: one repository, one plugin, no submodule.
+      plugins: [compact({ name: identity.name, source: "./", description: identity.description })],
+    });
+    return [
       { kind: "file", path: ".claude-plugin/plugin.json", content: json(manifest) },
+      { kind: "file", path: ".claude-plugin/marketplace.json", content: json(marketplace) },
     ];
-    return files;
   },
   validate(project) {
     return [

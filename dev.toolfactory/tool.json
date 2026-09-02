@@ -16,5 +16,10 @@
     "openclaw-native",
     "hermes-native",
     "web"
-  ]
+  ],
+  "tests": {
+    "examples": {
+      "doctor": {}
+    }
+  }
 }

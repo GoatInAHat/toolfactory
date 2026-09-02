@@ -93,7 +93,7 @@ matched by the `keep=` slug in the notice's marker, keeps it).
 
 | Environment | Committed hook |
 |---|---|
-| Claude Code (web and local) | `SessionStart` hook in `.claude/settings.json` |
+| Claude Code (web and local) | `SessionStart` hook in `.claude/settings.json`. The web UI's "Run setup script" step shows as skipped — that's the platform's own per-environment field, which a repo can't fill; setup runs a moment later, inside "Started Claude Code". Optionally paste `bash .agents/setup` into that field so a brand-new container's very first session also loads freshly generated MCP config at startup; later sessions have it either way (the container is cached after the hook). |
 | Devcontainers: Codespaces, Ona, DevPod | `postCreateCommand` in `.devcontainer/devcontainer.json` |
 | Cursor cloud agents | `install` in `.cursor/environment.json` |
 | Copilot coding agent | `.github/workflows/copilot-setup-steps.yml` |

@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { parse as yamlParse } from "yaml";
 import { bootstrapRepo } from "../hosts/github.js";
 import type { Operation, Project, SurfaceId } from "../model.js";
+import { gateSteps, packageSteps } from "../project/gate.js";
 import { surface } from "./workflows.js";
 
 const echo: Operation = { name: "echo", inputSchema: { type: "object" }, requires: [] };
@@ -43,7 +44,16 @@ function project(surfaces: SurfaceId[], overrides: Partial<Project> = {}): Proje
 
 function emitted(target: Project): Record<string, string> {
   return Object.fromEntries(
-    surface.plan(target).map((file) => [file.path, file.kind === "file" ? file.content : ""]),
+    surface
+      .plan(target)
+      .map((file) => [
+        file.path,
+        file.kind === "file"
+          ? file.content
+          : file.kind === "merge"
+            ? JSON.stringify(file.patch)
+            : "",
+      ]),
   );
 }
 
@@ -73,12 +83,18 @@ describe("workflows", () => {
     // No skill/claude/openclaw-native selected: no extra validator installs, no matrix guard.
     const steps = ci.jobs.test.steps as { run?: string; if?: string }[];
     expect(steps.some((s) => s.run?.includes("agentskills"))).toBe(false);
+    expect(
+      steps.filter((s) => (s as { uses?: string }).uses).map((s) => (s as { uses?: string }).uses),
+    ).toEqual(["actions/checkout@v7", "actions/setup-node@v7"]);
     expect(steps.some((s) => s.run?.includes("claude-code"))).toBe(false);
     expect(steps.find((s) => s.run === "npx toolfactory validate")?.if).toBeUndefined();
 
     const renovate = JSON.parse(files["renovate.json"]);
     expect(renovate.extends).toEqual(["config:recommended"]);
     expect(renovate.minimumReleaseAge).toBe("7 days");
+    // The generated workflows are SHA-locked projections: a Renovate PR editing one would make
+    // `toolfactory check` fail and the next `toolfactory build` revert it.
+    expect(renovate.ignorePaths).toContain(".github/workflows/**");
   });
 
   it("ci.yml installs each selected surface's validator and guards the openclaw leg on the matrix", () => {
@@ -110,37 +126,99 @@ describe("workflows", () => {
     expect(steps.some((s) => s.run === "uv run --with pytest pytest -q")).toBe(true);
   });
 
-  it("release.yml appears only with a registry surface, in the forced order npm -> mcp-registry -> clawhub", () => {
+  it("release.yml appears only with a registry surface, in the forced order npm -> oci -> mcp-registry -> clawhub", () => {
     expect(emitted(project(["cli"]))[".github/workflows/release.yml"]).toBeUndefined();
 
     const files = emitted(
-      project(["npm", "mcp-registry", "clawhub", "openclaw-native", "skill", "claude"]),
+      project(
+        ["npm", "mcp-registry", "clawhub", "openclaw-native", "skill", "claude", "web", "mcp"],
+        {
+          identity: {
+            name: "hello",
+            version: "0.1.0",
+            repository: "https://github.com/acme/hello.git",
+          },
+        },
+      ),
     );
     expectAllYamlAndJsonParse(files);
     const release = yamlParse(files[".github/workflows/release.yml"]);
     expect(release.on).toEqual({ push: { tags: ["v*"] } });
     expect(Object.keys(release.jobs)).toEqual([
       "gate",
+      "package",
       "publish-npm",
+      "publish-oci",
       "publish-mcp-registry",
       "publish-clawhub",
+      "release",
+      "pages-build",
+      "pages-deploy",
     ]);
     expect(release.jobs["publish-npm"].needs).toBe("gate");
-    expect(release.jobs["publish-mcp-registry"].needs).toBe("publish-npm");
-    expect(release.jobs["publish-clawhub"].needs).toEqual(["publish-npm", "publish-mcp-registry"]);
-    expect(release.jobs["publish-clawhub"].uses).toBe(
-      "openclaw/clawhub/.github/workflows/package-publish.yml@main",
-    );
+    expect(release.jobs["publish-oci"].needs).toBe("gate");
+    expect(release.jobs["publish-mcp-registry"].needs).toEqual(["publish-npm", "publish-oci"]);
+    // The ClawHub leg publishes the tarball `package` built, not the repository subdirectory:
+    // the reusable workflow has no build step of its own.
+    expect(release.jobs["publish-clawhub"].needs).toEqual([
+      "package",
+      "publish-npm",
+      "publish-oci",
+      "publish-mcp-registry",
+    ]);
+    expect(release.jobs["publish-clawhub"].with).toMatchObject({
+      package_artifact_name: "release-assets",
+      package_artifact_path: "openclaw-plugin-hello-0.1.0.tgz",
+    });
     expect(release.jobs["publish-clawhub"].secrets.clawhub_token).toContain("CLAWHUB_TOKEN");
-    // The gate is the same check sequence as ci.yml: build precedes `toolfactory validate`,
-    // which runs every selected surface's own validator (no transcribed commands to drift).
+    expect(release.jobs.release.needs.at(-1)).toBe("publish-clawhub");
+
+    // Every job that runs steps declares its own permissions; the workflow-call leg inherits the
+    // file's `contents: read`.
+    const withoutPermissions = Object.entries(
+      release.jobs as Record<string, { permissions?: unknown }>,
+    )
+      .filter(([, job]) => job.permissions === undefined)
+      .map(([name]) => name);
+    expect(withoutPermissions).toEqual(["publish-clawhub"]);
+    expect(release.permissions).toEqual({ contents: "read" });
+    expect(release.jobs["publish-oci"].permissions).toEqual({
+      contents: "read",
+      packages: "write",
+      attestations: "write",
+      "id-token": "write",
+    });
+    expect(release.jobs.release.permissions).toEqual({ contents: "write" });
+    expect(release.jobs["pages-deploy"].permissions).toEqual({
+      pages: "write",
+      "id-token": "write",
+    });
+
+    // The gate asserts the tag against the identity file's version and never writes it (§2.2).
     const gateRuns = (release.jobs.gate.steps as { run?: string }[])
       .map((s) => s.run)
       .filter(Boolean);
+    expect(gateRuns[0]).toBe(
+      'test "v$(node -p "require(\'./package.json\').version")" = "$GITHUB_REF_NAME"',
+    );
+    // The gate is the same check sequence as ci.yml: build precedes `toolfactory validate`,
+    // which runs every selected surface's own validator (no transcribed commands to drift).
     expect(gateRuns.indexOf("npm run --if-present build")).toBeLessThan(
       gateRuns.indexOf("npx toolfactory validate"),
     );
     expect(gateRuns.some((r) => r?.includes("openclaw plugins build"))).toBe(false);
+    // npm generates provenance itself under trusted publishing; --provenance is redundant.
+    expect(
+      (release.jobs["publish-npm"].steps as { run?: string }[]).some((s) =>
+        s.run?.endsWith("npm publish --access public"),
+      ),
+    ).toBe(true);
+    // The oci leg pushes the very image server.json's oci entry names.
+    const meta = (
+      release.jobs["publish-oci"].steps as { id?: string; with?: Record<string, string> }[]
+    ).find((s) => s.id === "meta");
+    expect(meta?.with?.images).toBe("ghcr.io/acme/hello");
+    expect(meta?.with?.labels).toBe("io.modelcontextprotocol.server.name=io.github.acme/hello");
     expect(files[".github/workflows/release.yml"]).toContain("no per-registry release-ledger");
     expect(files[".github/workflows/release.yml"]).toContain("CLAWHUB_TOKEN");
   });
@@ -156,6 +234,10 @@ describe("workflows", () => {
     const withBrowser = project(["openclaw-native"], { operations: [echo, shoot] });
     const compose = yamlParse(emitted(withBrowser)["compose.toolfactory.yaml"]);
     expect(compose.services.openclaw.image).toBe("ghcr.io/openclaw/openclaw:latest-browser");
+    // `--link` (a copy trips the install-time symlink scan) and a non-interactive accept.
+    expect(compose.services.openclaw.command[2]).toContain(
+      "openclaw plugins install --link /work/hosts/openclaw --force --accept-capabilities",
+    );
     expect(compose.services.openclaw.env_file).toEqual([".env"]);
     expect(compose.services.hermes).toBeUndefined();
     expect(compose.volumes.PLUGIN_DATA).toEqual({});
@@ -220,7 +302,26 @@ describe.skipIf(!actionlintAvailable())("actionlint", () => {
   it("accepts the generated ci.yml and release.yml", () => {
     const dir = mkdtempSync(join(tmpdir(), "tf-workflows-"));
     const files = emitted(
-      project(["npm", "mcp-registry", "clawhub", "openclaw-native", "skill", "claude"]),
+      project(
+        [
+          "npm",
+          "mcp-registry",
+          "clawhub",
+          "openclaw-native",
+          "hermes-native",
+          "skill",
+          "claude",
+          "web",
+          "mcp",
+        ],
+        {
+          identity: {
+            name: "hello",
+            version: "0.1.0",
+            repository: "https://github.com/acme/hello.git",
+          },
+        },
+      ),
     );
     const workflowPaths: string[] = [];
     for (const [path, content] of Object.entries(files)) {
@@ -260,5 +361,50 @@ describe("bootstrap-repo", () => {
     const noCredential = project(["cli"], { identity: target.identity });
     noCredential.tool.config = { ...noCredential.tool.config, required: [] };
     expect(() => bootstrapRepo(noCredential, { dryRun: true })).toThrow(/nothing to do/);
+  });
+});
+
+/**
+ * The gate is a command and the workflows are its projection: one list, two renderings. The
+ * local runner skips the runner-only provisioning, so what it skips and what it keeps is pinned.
+ */
+describe("gate", () => {
+  it("lists the same steps CI runs, marking the runner-only ones", () => {
+    const target = project(["npm", "claude", "openclaw-native", "mcp"]);
+    const steps = gateSteps(target);
+    expect(steps.map((step) => step.name)).toEqual([
+      "install",
+      "build",
+      "toolfactory check",
+      "Install Claude Code CLI",
+      "toolfactory validate",
+      "author checks",
+      "author tests",
+      "openclaw end-to-end (scripted model, no LLM key)",
+    ]);
+
+    // `npm ci` and a global CLI install are the runner's job, not a checkout's: `toolfactory gate`
+    // skips every `when: "ci"` step and runs the rest here, in order.
+    expect(steps.filter((step) => step.when === "ci").map((step) => step.name)).toEqual([
+      "install",
+      "Install Claude Code CLI",
+    ]);
+    expect(steps.filter((step) => step.when === "node24").map((step) => step.name)).toEqual([
+      "toolfactory validate",
+      "openclaw end-to-end (scripted model, no LLM key)",
+    ]);
+  });
+
+  it("packages one asset per selected distribution surface into dist/release", () => {
+    const target = project(["npm", "pypi", "openclaw-native", "skill", "claude", "web", "mcp"]);
+    const runs = packageSteps(target).map((step) => step.run);
+    expect(runs).toContain("npm pack --pack-destination dist/release");
+    expect(runs).toContain("uv build --out-dir dist/release");
+    expect(runs.some((run) => run.includes("npm pack ./hosts/openclaw"))).toBe(true);
+    expect(runs).toContain("zip -qr dist/release/hello-plugin.zip skills .claude-plugin");
+    expect(runs.some((run) => run.includes("hello-web.tar.gz"))).toBe(true);
+    expect(runs.at(-1)).toBe(
+      "cp COVERAGE.md dist/release/ && npx toolfactory coverage > dist/release/coverage.json",
+    );
   });
 });

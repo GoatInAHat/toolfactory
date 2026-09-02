@@ -1,8 +1,41 @@
 {
   "toolfactoryVersion": "0.1.0",
   "files": {
+    ".agents/mcp/servers.json": {
+      "sha256": "09ea6f67acacefa8901eaea338b1cedd86e99a1fdad21eecb89e502b69a10789",
+      "state": "generated",
+      "keys": [
+        "toolfactory",
+        "shadcn",
+        "playwright"
+      ]
+    },
+    ".agents/README.md": {
+      "sha256": "617acad815520ca8ee30e928e5e7a890aa2953287d4f849bd98a7475d0d71359",
+      "state": "generated"
+    },
+    ".agents/setup": {
+      "sha256": "7c5f59994d62a9c8e0862ea55e405870528d1bd46864daa4695ebcfee080952b",
+      "state": "generated"
+    },
+    ".agents/skills/.gitkeep": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "state": "generated"
+    },
+    ".agents/sync.py": {
+      "sha256": "6ebbc7efc764d0d8da813bd084b92fa8f59c9e4ad5ecccf517313f413407bb34",
+      "state": "generated"
+    },
+    ".claude-plugin/marketplace.json": {
+      "sha256": "16ea8884ca2521d3edf49f139f1f7778328e757c759d94e0b5d178140125186e",
+      "state": "generated"
+    },
     ".claude-plugin/plugin.json": {
       "sha256": "ba3dd55659fd1dd070c2c510554a8afcac6edc243414c5385c29ad4f4a60b150",
+      "state": "generated"
+    },
+    ".claude/settings.json": {
+      "sha256": "5ee165b2a1f069ac273d89ac660cca5992893a63fab8a96f93ffb625b507a538",
       "state": "generated"
     },
     ".codex-plugin/plugin.json": {
@@ -13,32 +46,60 @@
       "sha256": "40def3ca731a1e29096d9c0aa5a8be4295746ab411a03beeead051247e1a9127",
       "state": "generated"
     },
+    ".cursor/environment.json": {
+      "sha256": "559393387fffd75060e1c2b09ea284969712a8976ba13720bb3854d1712002a3",
+      "state": "generated"
+    },
+    ".devcontainer/devcontainer.json": {
+      "sha256": "a5c6eba400c390481132b6fbe913962f5372747acb6250b1363e51b0919482b4",
+      "state": "generated"
+    },
+    ".devcontainer/Dockerfile": {
+      "sha256": "710e6c9d3fc037871ede60912a009223fccc4e6dd6fc9880e57911bab3677ccf",
+      "state": "generated"
+    },
     ".env.example": {
       "sha256": "6e42aaf6b872941b038b928239bb26cfe34a55a566c5cd2263a9ac6584c02142",
       "state": "generated"
     },
+    ".gitattributes": {
+      "sha256": "7cd356096f360aa1f3207ff6eef9650ea9796dff3a9fe8618ea73793b93fd4a3",
+      "state": "generated"
+    },
+    ".github/workflows/agent-config.yml": {
+      "sha256": "f12a1696e9de7d74f78d7b7a214ffdc14e2ca1ce7522d8ee5f9ad54fb9ecd642",
+      "state": "generated"
+    },
     ".github/workflows/ci.yml": {
-      "sha256": "18c5328c2ba365550b01276956876849d666973de7fc40ab39fde46ea81e4cd6",
+      "sha256": "693ae92522b21f7c18389f1826c0d97be5a9c3af3ad8ff0b14704a23ebc0e9ad",
+      "state": "generated"
+    },
+    ".github/workflows/copilot-setup-steps.yml": {
+      "sha256": "2acbbf50f0610777823a3ccdf1fc7a533cfa2a236102cd4973fb516d5f9f24ab",
       "state": "generated"
     },
     ".github/workflows/release.yml": {
-      "sha256": "2219f2226d24c8904dcabbc674946516b63c324081b81ff0f012d595c2281bff",
+      "sha256": "9b303647090392263638855c86320639957c1a989b097b99e52279c5e4c13bcf",
+      "state": "generated"
+    },
+    ".gitignore": {
+      "sha256": "da1943520932ad08ba8a18396ea4c6e64e9a74b70c8c10fa05f7e2947ab37044",
       "state": "generated"
     },
     "AGENTS.md": {
-      "sha256": "09efe9bb201974bf258644c775f714a11f312b4b34a65b58545010215812c651",
+      "sha256": "c4e51c3db24cb6418aef0c2e6c415cc067154efd3d039a098c96309e64f33a9d",
       "state": "generated"
     },
     "compose.toolfactory.yaml": {
-      "sha256": "987446f92733ea0afba45df5bcdb2584608388ab53eed429446d0fc14fea9ea7",
+      "sha256": "78bd8ddb3cc47147b508c5e466ef1b4a313ba6556df33d6167af2a0d50a4ebae",
       "state": "generated"
     },
     "COVERAGE.md": {
-      "sha256": "c283bd516c51e661afa474abe974ddef8ec1b6e36db8c4a4bfb138f536e13896",
+      "sha256": "5be8e5689d987331df3e40da93a6c2560581531b6ef4a48f03fe82034567b433",
       "state": "generated"
     },
     "dev.toolfactory/coverage.json": {
-      "sha256": "8ceace5c7aa5db16d54549661ec1030743fecf0c959ef90e6cd72d2493afae1b",
+      "sha256": "d60e2b702a00abb737cb706fa566e1e415c3c05dfdb74fb12485c5b60ac28e08",
       "state": "generated"
     },
     "dev.toolfactory/inspector.json": {
@@ -46,7 +107,11 @@
       "state": "generated"
     },
     "dev.toolfactory/tool.schema.json": {
-      "sha256": "1b545cdd8fc194276f594f30367da361a73d12c01fe3a320924c1b67dd4aa651",
+      "sha256": "e244cbfb74e6c4cc884cc1a32ea4b0ccda194ddc1c5baf872153fe7b534dc1af",
+      "state": "generated"
+    },
+    "Dockerfile": {
+      "sha256": "c579b48ab6b3f21e5389a67b60da5b42ccce6d832488016efd58205b7fabae8c",
       "state": "generated"
     },
     "hosts/hermes/pyproject.toml": {
@@ -54,43 +119,63 @@
       "state": "generated"
     },
     "hosts/hermes/README.md": {
-      "sha256": "509c64ad1c1b94b9723c903f84833df1ec721afbef2d2425305a8140aea7dd7b",
+      "sha256": "8208509557afe210bdb4188b01d2af141d488bf1f6c483e416fdf9d5facf2c8b",
+      "state": "generated"
+    },
+    "hosts/hermes/tests/test_plugin.py": {
+      "sha256": "dd4939b4b4b9730fd80cc99077ff39c3958de56d231b5a611dd7e9571f579e32",
       "state": "generated"
     },
     "hosts/hermes/toolfactory_hermes/__init__.py": {
-      "sha256": "e85a8decc06cd0f5c552a630322cf67491107da7ca155f03b82bb0845da7e042",
+      "sha256": "ed8e501fc24ddb00c19bd1e908f25a4591b451e39380165a6625b77716e80888",
       "state": "generated"
     },
     "hosts/hermes/toolfactory_hermes/plugin.yaml": {
-      "sha256": "1dfe2800853c704faade4098b131e204e0bc3a5fb71fc1de63a4a1eba3accbce",
+      "sha256": "90d3d69f96049c992ee1359c52358d1423dac370edb8e3d483f296b920158e87",
+      "state": "generated"
+    },
+    "hosts/openclaw/.npmrc": {
+      "sha256": "2f460579e76dd78e75e907be8efdc26f79757e79fd895e4a5903aebe8ec5063a",
+      "state": "generated"
+    },
+    "hosts/openclaw/e2e/fixtures.json": {
+      "sha256": "aafe6c3e46113130948bf3017c85edda637ed96a0a1ac298774534974c28f56d",
+      "state": "generated"
+    },
+    "hosts/openclaw/e2e/openclaw.e2e.test.ts": {
+      "sha256": "87db485d20be92b04c9bf640137ea0b2af053d174f85d7c4e97bebad63956498",
       "state": "generated"
     },
     "hosts/openclaw/openclaw.plugin.json": {
-      "sha256": "b0c501edd770b58d6e576e68631a17cda98c8f6205cb8f53e9ae510bbea84683",
+      "sha256": "eda6bde02ac8d733f21720139d34020bf4673a63c238f9be267d8e47fdbfce33",
       "state": "generated"
     },
     "hosts/openclaw/package.json": {
-      "sha256": "0f76de886c65c4aad174aa52ba705892fc76d4225a80a9611f79b4930e35c261",
+      "sha256": "7a5c5f855c5883db224f333d21cc8ae164ce7df0fda8801b19136751c6591158",
       "state": "generated"
     },
     "hosts/openclaw/README.md": {
-      "sha256": "972d8c0e0fd9cf7a2fd37b2f351a49ef7cb8085e4d3e4803fcfd402f9c98be3e",
+      "sha256": "4c6eb881d6dd2df258617e722d3ff38de0cfaede164ce26ec915b0ac9a3a1eac",
       "state": "generated"
     },
     "hosts/openclaw/src/index.test.ts": {
-      "sha256": "801571d376f080eaa518122d6619775c55839d09b3a14c24c8e33888a8700649",
+      "sha256": "819c739bc2dd56791ae6f52327b1120f204935294828d751adb961a18b33f8d1",
       "state": "generated"
     },
     "hosts/openclaw/src/index.ts": {
-      "sha256": "f50f62bd3858ce21cf907f983a112cd1082888156dde68f4d77db65884d4860a",
+      "sha256": "4c3ba77c07ab756b8077ea0266ec269e66d6a805a3bbcb14af2ad626ca6936fe",
       "state": "generated"
     },
     "hosts/openclaw/tsconfig.json": {
-      "sha256": "0743ab64f72dbe3c496094ebc796717ee71e61e082c93dd7f740931a18ba5c6a",
+      "sha256": "106c946ea50b5c1a334631ad22dbbadcc7d1c19d416d7d02fd8bff0f75b2d603",
       "state": "generated"
     },
     "hosts/openclaw/vitest.config.ts": {
       "sha256": "4f49d01f0120eff8b5bac0c9abc9bf6263c8da9834d288ff884c1e397436209f",
+      "state": "generated"
+    },
+    "hosts/openclaw/vitest.e2e.config.ts": {
+      "sha256": "c6f0d6688fdb9eaf9e27ec6acf6165d2879de356905dcff566dc32eecf339bc7",
       "state": "generated"
     },
     "mcp.json": {
@@ -98,19 +183,44 @@
       "state": "generated"
     },
     "package.json": {
-      "sha256": "cbb1c3e320150340373f8a838575646b1618f61ccd29d7aa3c3860ada6bcdd2e",
+      "sha256": "9f1303c39d20b0e2f2bb08448166f9b35fbce40952298055274ff437f1dcea9d",
+      "state": "generated",
+      "keys": [
+        "name",
+        "version",
+        "description",
+        "license",
+        "homepage",
+        "repository.type",
+        "repository.url",
+        "keywords",
+        "type",
+        "bin",
+        "files",
+        "mcpName"
+      ]
+    },
+    "README.md": {
+      "sha256": "16b07b4c63f67e4853cd3d9b78507e4ceb712ac822793944357e654928a43d62",
       "state": "generated"
     },
     "renovate.json": {
-      "sha256": "7705a4ccf8017bda3bbe7737d146526b6bbb7757ee699243ccc8ac8f55d918fa",
-      "state": "generated"
+      "sha256": "02cc7a21703ded55f03de23dc475b511de0512acfd94370a30c2129bd3157c8c",
+      "state": "generated",
+      "keys": [
+        "$schema",
+        "extends",
+        "minimumReleaseAge",
+        "ignorePaths",
+        "packageRules"
+      ]
     },
     "server.json": {
-      "sha256": "402269cd258e0f4c3c5ea8d6ac858d52a67db9e5d9cce56ca66516f1aa321321",
+      "sha256": "638d3167b82724028dad98fbd27eddc0c7bb87e98f8ec28a903452dca195a3c3",
       "state": "generated"
     },
     "skills/toolfactory/SKILL.md": {
-      "sha256": "3f2b53e220283446adf962f6ccdd709c0f02b298789612aa236e4b170657e2f5",
+      "sha256": "60fd12379c15bff61278013eedc7e643fc310f14ba843cb95c0a1f1d4b36ed66",
       "state": "generated"
     },
     "src/toolfactory/cli.ts": {
@@ -143,7 +253,38 @@
     },
     "web/package.json": {
       "sha256": "e5216399a44a6718ba0e337920c3ce33ee0da4d7366f6cf821524f04b68bc98d",
-      "state": "generated"
+      "state": "generated",
+      "keys": [
+        "name",
+        "private",
+        "version",
+        "type",
+        "scripts.dev",
+        "scripts.build",
+        "scripts.lint",
+        "scripts.preview",
+        "scripts.smoke",
+        "dependencies.@base-ui/react",
+        "dependencies.@fontsource-variable/geist",
+        "dependencies.@tailwindcss/vite",
+        "dependencies.class-variance-authority",
+        "dependencies.clsx",
+        "dependencies.lucide-react",
+        "dependencies.react",
+        "dependencies.react-dom",
+        "dependencies.shadcn",
+        "dependencies.tailwind-merge",
+        "dependencies.tailwindcss",
+        "dependencies.tw-animate-css",
+        "devDependencies.@types/node",
+        "devDependencies.@types/react",
+        "devDependencies.@types/react-dom",
+        "devDependencies.@vitejs/plugin-react",
+        "devDependencies.oxlint",
+        "devDependencies.typescript",
+        "devDependencies.vite",
+        "devDependencies.playwright"
+      ]
     },
     "web/smoke.mjs": {
       "sha256": "6d46bbcafb59f4df990f560c85a93aa397268980c3ec4446136e89b3a2820447",
@@ -166,7 +307,7 @@
       "state": "generated"
     },
     "web/src/ops.json": {
-      "sha256": "da744638992fc6a2eec77ac125e33e50309139ede4e82b09f11d40552fd409d6",
+      "sha256": "9b6d8c58e5a1af567419a0ccd2266b4379765db58169396849111867bfab5a86",
       "state": "generated"
     },
     "web/src/schema-form.tsx": {
@@ -186,7 +327,7 @@
       "state": "generated"
     },
     "web/vite.config.ts": {
-      "sha256": "75e005d3429fa9708fe2b8b666ae1911e47b20e8abe1775e10b65be934ed06b5",
+      "sha256": "e1d5b36679f248542ffd7e7a99ba34a1e6633790c6457690d9d8078b2abb978b",
       "state": "generated"
     }
   }

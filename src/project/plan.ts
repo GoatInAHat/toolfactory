@@ -8,7 +8,7 @@ import { getBinding } from "../bindings/index.js";
 import type { PlannedFile, Project, Surface } from "../model.js";
 import { ToolConfigSchema } from "../model.js";
 import { computeCoverage, renderCoverageMarkdown } from "../report/coverage.js";
-import { getSurface, selectedSurfaces } from "../surfaces/registry.js";
+import { assertSurfaceRequirements, getSurface, selectedSurfaces } from "../surfaces/registry.js";
 import { json } from "../surfaces/shared.js";
 import { managedContent } from "./apply.js";
 import { readLock, TOOLFACTORY_DIR } from "./lock.js";
@@ -36,6 +36,8 @@ export function buildPlan(
   project: Project,
   surfaces: Surface[] = selectedSurfaces(project.tool.surfaces),
 ): PlannedFile[] {
+  // Always the declared selection, never the argument: `eject` plans one surface out of a valid one.
+  assertSurfaceRequirements(project.tool.surfaces);
   // Workflows are always generated: ci.yml for every project, release.yml when a registry is selected.
   // COVERAGE.md is always generated too: a one-surface table is still the record of what is excluded.
   const withWorkflows = surfaces.some((s) => s.id === "workflows")
@@ -45,14 +47,21 @@ export function buildPlan(
   const withAgents = withWorkflows.some((s) => s.id === "agents")
     ? withWorkflows
     : [...withWorkflows, getSurface("agents")];
-  const files = withAgents.flatMap((surface) => surface.plan(project));
+  // README.md's install region is always generated too: the one place a human or an agent
+  // reads to install what this repo ships.
+  const withReadme = withAgents.some((s) => s.id === "readme")
+    ? withAgents
+    : [...withAgents, getSurface("readme")];
+  const files = withReadme.flatMap((surface) => surface.plan(project));
   // The kernel exists for every tool: it is what the author's operation module imports and
   // what `introspect` spawns, whether or not the mcp surface ships it.
   files.push(...getBinding(project.tool.binding).kernel(project));
   files.push(...getBinding(project.tool.binding).liveTest(project));
   files.push({ kind: "file", path: TOOL_SCHEMA_PATH, content: json(toolJsonSchema()) });
   const coverage = computeCoverage(project, surfaces);
-  files.push({ kind: "file", path: COVERAGE_PATH, content: json(coverage) });
+  // The machine-readable half of the coverage report is a build output; COVERAGE.md is the
+  // tracked one, so a repo cannot silently drift to majority-manual (§2.2 S5).
+  files.push({ kind: "file", path: COVERAGE_PATH, content: json(coverage), output: true });
   const lock = readLock(project.root);
   const manual = Object.entries(lock?.files ?? {})
     .filter(([, entry]) => entry.state === "manual")

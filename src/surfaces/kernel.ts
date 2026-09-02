@@ -20,7 +20,15 @@ export const mcp: Surface = {
   id: "mcp",
   // The kernel itself is generated for every tool (plan.ts); this surface ships it.
   plan(project) {
-    return [{ kind: "file", path: INSPECTOR_CONFIG_PATH, content: inspectorConfig(project) }];
+    // A build output: it points at absolute-free launch args, is gitignored, and is rebuilt.
+    return [
+      {
+        kind: "file",
+        path: INSPECTOR_CONFIG_PATH,
+        content: inspectorConfig(project),
+        output: true,
+      },
+    ];
   },
   validate(project) {
     return [

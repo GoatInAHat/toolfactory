@@ -43,7 +43,8 @@
           "web",
           "dsh",
           "workflows",
-          "agents"
+          "agents",
+          "readme"
         ]
       },
       "description": "Selected surfaces. A file exists iff a selected surface owns it."

@@ -491,10 +491,6 @@ export function projectTable(project: Project): Record<string, unknown> {
   });
 }
 
-const GITIGNORE = [".venv/", "dist/", "__pycache__/", ".env", ".env.*", "!.env.example", ""].join(
-  "\n",
-);
-
 /** Written by `init` only when absent; owned by the author afterwards. */
 export function scaffold(project: Project): PlannedFile[] {
   const pkg = pythonPackage(project);
@@ -518,6 +514,5 @@ export function scaffold(project: Project): PlannedFile[] {
     },
     { kind: "file", path: opsPath(project), content: opsScaffold() },
     { kind: "file", path: "pyproject.toml", content: `${toml(pyproject)}\n` },
-    { kind: "file", path: ".gitignore", content: GITIGNORE },
   ];
 }

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { scaffoldDrift } from "../hosts/openclaw.js";
 import type { Operation, Project } from "../model.js";
 import { computeCoverage, renderCoverageMarkdown } from "../report/coverage.js";
-import { HOST_DIR, OPENCLAW_SCAFFOLD, surface } from "./openclaw-native.js";
+import { HOST_DIR, OPENCLAW_ADDITIONS, OPENCLAW_SCAFFOLD, surface } from "./openclaw-native.js";
 
 const echo: Operation = {
   name: "echo",
@@ -13,6 +13,11 @@ const echo: Operation = {
     type: "object",
     properties: { text: { type: "string" } },
     required: ["text"],
+  },
+  outputSchema: {
+    type: "object",
+    properties: { echoed: { type: "string" } },
+    required: ["echoed"],
   },
   requires: [],
 };
@@ -27,7 +32,7 @@ function project(overrides: Partial<Project> = {}): Project {
       binding: "typescript",
       surfaces: ["openclaw-native", "mcp"],
       bundle: { runtime: "package" },
-      tests: { examples: {} },
+      tests: { examples: { echo: { text: "hello" } } },
     },
     identity: { name: "hello", version: "0.1.0", description: "Say hello" },
     identityExtra: {},
@@ -104,6 +109,10 @@ describe("openclaw-native", () => {
     // JSON Schema goes through untouched via Type.Unsafe; $schema is what OpenClaw strips.
     expect(files[`${HOST_DIR}/src/index.ts`]).toContain('"text"');
     expect(files[`${HOST_DIR}/src/index.ts`]).not.toContain("$schema");
+    // Module load must be side-effect-free: every host loader, and `plugin-inspector check
+    // --runtime`, import the entry long before a tool runs.
+    expect(files[`${HOST_DIR}/src/index.ts`]).toContain("const dataDir = () => join(");
+    expect(files[`${HOST_DIR}/src/index.ts`]).toContain("dataDir: dataDir(),");
   });
 
   it("degrades a non-TypeScript core to an out-of-process shim", () => {
@@ -118,7 +127,7 @@ describe("openclaw-native", () => {
     expect(index).toContain('"run", "python", "-m", "hello.toolfactory.cli"');
     // The host's state directory reaches an out-of-process kernel as the environment variable
     // every surface reads it from.
-    expect(index).toContain('env["HELLO_DATA_DIR"] = dataDir;');
+    expect(index).toContain('env["HELLO_DATA_DIR"] = dataDir();');
     expect(index).not.toContain("ops.js");
     expect(JSON.parse(emitted(python)[`${HOST_DIR}/package.json`] ?? "{}").dependencies).toEqual(
       OPENCLAW_SCAFFOLD.dependencies,
@@ -155,6 +164,54 @@ describe("openclaw-native", () => {
     expect(test).toContain("entry.register(api as OpenClawPluginApi)");
     expect(test).toContain('registered["registerRealtimeVoiceProvider"]');
     expect(files[`${HOST_DIR}/README.md`]).toContain("codex-app-server-extensions.ts");
+  });
+
+  it("projects a discriminating scripted-model e2e lane, and none without a tool to call", () => {
+    const files = emitted(project());
+    const fixtures = JSON.parse(files[`${HOST_DIR}/e2e/fixtures.json`] ?? "{}");
+    // Leg 1 asks for the operation with the authored example arguments; leg 2 answers OK only
+    // when the tool's own result carries a name its output schema promises; leg 3 catches the rest.
+    expect(fixtures.fixtures).toEqual([
+      {
+        match: { toolName: "echo", hasToolResult: false },
+        response: { toolCalls: [{ name: "echo", arguments: { text: "hello" } }] },
+      },
+      {
+        match: { hasToolResult: true, toolResultContains: "echoed" },
+        response: { content: "HELLO_OK" },
+      },
+      { match: { hasToolResult: true }, response: { content: "HELLO_FAIL" } },
+    ]);
+    const e2e = files[`${HOST_DIR}/e2e/openclaw.e2e.test.ts`] ?? "";
+    expect(e2e).toContain('expect(turn.payloads[0].text).toBe("HELLO_OK")');
+    expect(e2e).toContain('"plugins", "install", "--link", pluginDir');
+    // The three constraints that are not discoverable anywhere else.
+    expect(e2e).toContain('key !== "VITEST" && !key.startsWith("VITEST_")');
+    expect(files[`${HOST_DIR}/vitest.e2e.config.ts`]).toContain(
+      'include: ["e2e/**/*.e2e.test.ts"]',
+    );
+
+    const pkg = JSON.parse(files[`${HOST_DIR}/package.json`] ?? "{}");
+    expect(pkg.scripts["test:e2e"]).toBe(OPENCLAW_ADDITIONS.e2eScript);
+    expect(pkg.devDependencies["@copilotkit/aimock"]).toBe(OPENCLAW_ADDITIONS.aimock);
+    // `file:../..` becomes a node_modules symlink out of the install root, which OpenClaw's
+    // install-time safety scan refuses; install-links materialises it instead.
+    expect(files[`${HOST_DIR}/.npmrc`]).toContain("install-links=true");
+    // Without it `tsc` emits a dist/ from source that failed type-checking.
+    expect(
+      JSON.parse(files[`${HOST_DIR}/tsconfig.json`] ?? "{}").compilerOptions.noEmitOnError,
+    ).toBe(true);
+
+    // The lane is opt-in: a real turn really runs the operation, so no `tests.examples` entry
+    // (and no operation at all) means no lane.
+    const base = project();
+    const unexampled = emitted({ ...base, tool: { ...base.tool, tests: { examples: {} } } });
+    expect(unexampled[`${HOST_DIR}/e2e/fixtures.json`]).toBeUndefined();
+    const none = emitted(voice());
+    expect(none[`${HOST_DIR}/e2e/fixtures.json`]).toBeUndefined();
+    expect(
+      JSON.parse(none[`${HOST_DIR}/package.json`] ?? "{}").scripts["test:e2e"],
+    ).toBeUndefined();
   });
 
   it("reports what a zero-operation plugin contributes instead of an empty table", () => {

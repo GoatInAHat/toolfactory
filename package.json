@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "description": "Build an agent tool once; ship it as Agent Skills, MCP servers, Agent Plugins / Claude / Codex / Cursor bundles, OpenClaw and Hermes plugins, CLIs, and packages, with the tests and releases to match.",
   "license": "MIT",
-  "repository": "https://github.com/GoatInAHat/toolfactory",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GoatInAHat/toolfactory.git"
+  },
   "type": "module",
   "packageManager": "pnpm@10.33.0",
   "engines": {
@@ -14,7 +17,8 @@
     "check": "biome check . && tsc -p tsconfig.json --noEmit",
     "format": "biome format --write .",
     "test": "vitest run --passWithNoTests",
-    "toolfactory": "node --import tsx src/toolfactory/cli.ts"
+    "toolfactory": "node --import tsx src/toolfactory/cli.ts",
+    "vendor:template": "node --import tsx src/hosts/template.ts --write"
   },
   "dependencies": {
     "@modelcontextprotocol/client": "^2.0.0",

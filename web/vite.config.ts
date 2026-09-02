@@ -10,6 +10,9 @@ const mcp = new URL(process.env.VITE_MCP_URL ?? "http://localhost:3000/mcp")
 
 // https://vite.dev/config/
 export default defineConfig({
+  // A GitHub Pages project page is not served from the domain root; the release workflow sets
+  // PAGES_BASE=/<repo>/ for that build only, so `npm run dev` and every other build stay at "/".
+  base: process.env.PAGES_BASE ?? "/",
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {

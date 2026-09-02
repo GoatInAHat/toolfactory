@@ -17,6 +17,33 @@ pip install .            # registers the hermes_agent.plugins entry point
 hermes plugins enable toolfactory
 ```
 
+Developing against this checkout, without publishing a package first:
+
+```bash
+hermes plugins install file://<repo>#hosts/hermes/toolfactory_hermes --force
+```
+
+Hermes copies from that URL rather than linking it — there is no dev-link mode — so re-run
+the command above after every change. `file://` sources (like `http://`) trigger a security
+warning at install time; that is expected for a local checkout, not a sign anything is
+wrong. Each `hermes` invocation is a fresh process that already re-reads the plugin, so
+nothing needs restarting; `hermes gateway restart` only matters if the long-running
+messaging gateway (Telegram, Discord, WhatsApp, …), not the CLI itself, is what needs the
+new registration.
+
+Remove it cleanly with `hermes plugins remove toolfactory` (aliases `rm`,
+`uninstall`) — it deletes Hermes' own copy and never touches this checkout.
+
+## Validate without Hermes
+
+```bash
+cd hosts/hermes && uv run --with pytest pytest -q
+```
+
+Registers the generated plugin through a fake `PluginContext` and calls one handler for
+real — the same behaviour `hermes plugins doctor --ci` proves for registration, plus the
+call doctor never makes, with no Hermes install required.
+
 ## Tools
 
 - `adopt` — Stop regenerating one file; it becomes the author's (recorded as manual in the lock). (degraded:out-of-process)
@@ -26,8 +53,10 @@ hermes plugins enable toolfactory
 - `coverage` — The operation × surface verdict matrix: native, bridged, degraded, or excluded, with reasons. (degraded:out-of-process)
 - `doctor` — Report which upstream CLIs this machine can delegate to (git, gh, npm, uv, claude, openclaw, clawhub, hermes, uvx, agentskills, MCP Inspector, docker). (degraded:out-of-process)
 - `eject` — Adopt every file a surface owns, so the author takes it over entirely. (degraded:out-of-process)
+- `gate` — Run the gate here, in order: build, the drift check, every selected surface's upstream validator, the author's checks and tests, and the credential-free host end-to-end. The same step list the generated ci.yml renders, so a project with no CI has the identical gate. (degraded:out-of-process)
 - `init` — Create a new tool: dev.toolfactory/tool.json, the authored identity file, the kernel scaffold for the chosen language, and the first build of every selected surface. (degraded:out-of-process)
 - `introspect` — Spawn the kernel MCP server, list its tools, and snapshot them to dev.toolfactory/ops.json. (degraded:out-of-process)
+- `package` — Build every release asset into dist/release/ — npm tarball, Python distributions, OpenClaw plugin tarball, plugin bundle zip, web build, coverage — by the same steps the release workflow's package job runs. Publishing stays a CI concern. (degraded:out-of-process)
 - `unadopt` — Return an adopted file to toolfactory and regenerate it. (degraded:out-of-process)
 - `validate` — Run each selected surface's own upstream validator (agentskills, claude plugin validate, MCP Inspector, openclaw, hermes, npm pack, uv build). (degraded:out-of-process)
 

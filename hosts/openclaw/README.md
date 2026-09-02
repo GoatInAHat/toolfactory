@@ -11,7 +11,36 @@ npm install
 npm run plugin:build
 npm run plugin:validate
 npm test
+npm run test:e2e
 ```
+
+`.npmrc` sets `install-links=true`. OpenClaw's install-time safety scan refuses a
+`node_modules` symlink whose target lies outside the install root, which is what npm makes of a
+`file:` dependency such as the core package in `package.json`; with `install-links` npm
+materialises it as a real directory and `openclaw plugins install --link` succeeds.
+
+## Install into a live OpenClaw, and remove it again
+
+```bash
+openclaw plugins install --link hosts/openclaw --force --accept-capabilities
+openclaw plugins inspect toolfactory --runtime --json
+openclaw plugins disable toolfactory
+```
+
+`--link` registers this checkout in place rather than copying it (a copy takes
+`node_modules/openclaw` with it), so the plugin's origin is a config entry and
+`plugins disable` is what removes it again, leaving the checkout untouched.
+`openclaw plugins uninstall toolfactory --keep-files` is the equivalent for a
+plugin installed as a package; against a linked checkout it reports conflicting registry rows
+and changes nothing (openclaw 2026.8.2).
+
+## End to end, without an LLM key
+
+`npm run test:e2e` runs one real OpenClaw agent turn against a scripted OpenAI-compatible
+model (`@copilotkit/aimock`, the same package OpenClaw's own QA lane uses). `e2e/fixtures.json`
+is projected from `dev.toolfactory/ops.json` and `tool.json`'s `tests.examples`: the model asks
+for `doctor` with those arguments, and answers `TOOLFACTORY_OK` only when the tool's own
+result comes back carrying what its output schema promises.
 
 ## Tools
 
@@ -22,7 +51,9 @@ npm test
 - `coverage` — The operation × surface verdict matrix: native, bridged, degraded, or excluded, with reasons. (native)
 - `doctor` — Report which upstream CLIs this machine can delegate to (git, gh, npm, uv, claude, openclaw, clawhub, hermes, uvx, agentskills, MCP Inspector, docker). (native)
 - `eject` — Adopt every file a surface owns, so the author takes it over entirely. (native)
+- `gate` — Run the gate here, in order: build, the drift check, every selected surface's upstream validator, the author's checks and tests, and the credential-free host end-to-end. The same step list the generated ci.yml renders, so a project with no CI has the identical gate. (native)
 - `init` — Create a new tool: dev.toolfactory/tool.json, the authored identity file, the kernel scaffold for the chosen language, and the first build of every selected surface. (native)
 - `introspect` — Spawn the kernel MCP server, list its tools, and snapshot them to dev.toolfactory/ops.json. (native)
+- `package` — Build every release asset into dist/release/ — npm tarball, Python distributions, OpenClaw plugin tarball, plugin bundle zip, web build, coverage — by the same steps the release workflow's package job runs. Publishing stays a CI concern. (native)
 - `unadopt` — Return an adopted file to toolfactory and regenerate it. (native)
 - `validate` — Run each selected surface's own upstream validator (agentskills, claude plugin validate, MCP Inspector, openclaw, hermes, npm pack, uv build). (native)

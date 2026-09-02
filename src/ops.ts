@@ -33,9 +33,49 @@ export const operations = [
         .optional()
         .describe("Source repository URL (GitHub URL enables the MCP Registry name)"),
       author: z.string().optional().describe("Author name"),
+      git: z
+        .boolean()
+        .default(true)
+        .describe("git init when the directory is not a repository yet, and make the first commit"),
+      setup: z
+        .boolean()
+        .default(true)
+        .describe(
+          "Run .agents/setup: render the harness adapters, install the git hooks, install dependencies",
+        ),
+      repo: z
+        .string()
+        .optional()
+        .describe("owner/name of a GitHub repository to create with gh and push to"),
+      public: z.boolean().default(false).describe("Create that repository public, not private"),
+      dryRun: z
+        .boolean()
+        .default(false)
+        .describe("Print the gh invocations instead of running them"),
+      reviewers: z
+        .array(z.string())
+        .default([])
+        .describe(
+          "GitHub logins that must approve a live run, when the repository gets a live tier",
+        ),
     }),
-    output: z.object({ written: z.array(z.string()) }),
+    output: z.object({
+      written: z.array(z.string()),
+      agentConfig: z.object({ setup: z.boolean(), harnesses: z.array(z.string()) }),
+      repository: z
+        .object({
+          repository: z.string(),
+          visibility: z.string(),
+          topics: z.array(z.string()),
+          secrets: z.array(z.string()),
+          commands: z.array(z.string()),
+          dryRun: z.boolean(),
+        })
+        .optional(),
+      nextSteps: z.array(z.string()),
+    }),
     annotations: { idempotentHint: true },
+    requires: ["shell", "net", "fs"],
     handler: async (args) => commands.init(args),
   }),
   operation({
@@ -164,6 +204,28 @@ export const operations = [
     }),
     requires: ["shell", "net", "secret"],
     handler: async (args) => commands.bootstrapRepo(args),
+  }),
+  operation({
+    name: "gate",
+    description:
+      "Run the gate here, in order: build, the drift check, every selected surface's upstream validator, the author's checks and tests, and the credential-free host end-to-end. The same step list the generated ci.yml renders, so a project with no CI has the identical gate.",
+    input: z.object({ root }),
+    output: z.object({
+      steps: z.array(z.object({ name: z.string(), ok: z.boolean(), durationMs: z.number() })),
+    }),
+    requires: ["shell", "net", "fs"],
+    handler: async ({ root }) => commands.gate(root),
+  }),
+  operation({
+    name: "package",
+    description:
+      "Build every release asset into dist/release/ — npm tarball, Python distributions, OpenClaw plugin tarball, plugin bundle zip, web build, coverage — by the same steps the release workflow's package job runs. Publishing stays a CI concern.",
+    input: z.object({ root }),
+    output: z.object({
+      steps: z.array(z.object({ name: z.string(), ok: z.boolean(), durationMs: z.number() })),
+    }),
+    requires: ["shell", "net", "fs"],
+    handler: async ({ root }) => commands.packageRelease(root),
   }),
   operation({
     name: "doctor",

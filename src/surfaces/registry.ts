@@ -11,6 +11,7 @@ import { surface as mcpRegistry } from "./mcp-registry.js";
 import { surface as npm } from "./npm.js";
 import { surface as openclawNative } from "./openclaw-native.js";
 import { surface as pypi } from "./pypi.js";
+import { surface as readme } from "./readme.js";
 import { surface as skill } from "./skill.js";
 import { surface as web } from "./web.js";
 import { surface as workflows } from "./workflows.js";
@@ -20,7 +21,9 @@ const registry: Partial<Record<SurfaceId, Surface>> = {
   agents,
   claude,
   codex,
-  cursor,
+  // Declared dependencies (§3): these projectors point at a file another surface writes, so a
+  // selection without it would ship an artifact referencing nothing. Refused at plan time.
+  cursor: { ...cursor, requires: ["agent-plugins"] },
   clawhub,
   dsh,
   cli,
@@ -31,7 +34,8 @@ const registry: Partial<Record<SurfaceId, Surface>> = {
   "hermes-native": hermesNative,
   "openclaw-native": openclawNative,
   pypi,
-  web,
+  readme,
+  web: { ...web, requires: ["mcp"] },
   workflows,
 };
 
@@ -47,4 +51,17 @@ export function getSurface(id: SurfaceId): Surface {
 
 export function selectedSurfaces(ids: readonly SurfaceId[]): Surface[] {
   return ids.map(getSurface);
+}
+
+/** A selection is valid only when every surface's declared dependencies are selected too. */
+export function assertSurfaceRequirements(ids: readonly SurfaceId[]): void {
+  const selected = new Set(ids);
+  for (const id of ids) {
+    for (const required of getSurface(id).requires ?? []) {
+      if (selected.has(required)) continue;
+      throw new Error(
+        `Surface "${id}" requires surface "${required}", which is not selected (surfaces: ${ids.join(", ")}). Select "${required}" or drop "${id}".`,
+      );
+    }
+  }
 }

@@ -388,8 +388,6 @@ export function cli(project: Project): PlannedFile[] {
   return [{ kind: "file", path: `${KERNEL_DIR}/cli.ts`, content: cliTemplate(project) }];
 }
 
-const GITIGNORE = ["node_modules/", "dist/", ".env", ".env.*", "!.env.example", ""].join("\n");
-
 /** Written by `init` only when absent; owned by the author afterwards. */
 export function scaffold(project: Project): PlannedFile[] {
   const packageJson = {
@@ -397,6 +395,8 @@ export function scaffold(project: Project): PlannedFile[] {
     version: project.identity.version ?? "0.1.0",
     description: project.identity.description,
     license: project.identity.license,
+    repository: project.identity.repository,
+    homepage: project.identity.homepage,
     type: "module",
     engines: { node: ">=22.12" },
     scripts: {
@@ -436,6 +436,5 @@ export function scaffold(project: Project): PlannedFile[] {
     { kind: "file", path: OPS_PATH, content: opsScaffold() },
     { kind: "file", path: "package.json", content: `${JSON.stringify(packageJson, null, 2)}\n` },
     { kind: "file", path: "tsconfig.json", content: `${JSON.stringify(tsconfig, null, 2)}\n` },
-    { kind: "file", path: ".gitignore", content: GITIGNORE },
   ];
 }

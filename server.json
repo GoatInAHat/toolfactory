@@ -16,6 +16,13 @@
       "transport": {
         "type": "stdio"
       }
+    },
+    {
+      "registryType": "oci",
+      "identifier": "ghcr.io/goatinahat/toolfactory:0.1.0",
+      "transport": {
+        "type": "stdio"
+      }
     }
   ]
 }

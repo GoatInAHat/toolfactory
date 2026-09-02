@@ -1,0 +1,35 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "toolName": "doctor",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "doctor",
+            "arguments": {}
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "hasToolResult": true,
+        "toolResultContains": "toolfactory"
+      },
+      "response": {
+        "content": "TOOLFACTORY_OK"
+      }
+    },
+    {
+      "match": {
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "TOOLFACTORY_FAIL"
+      }
+    }
+  ]
+}

@@ -102,11 +102,19 @@ Arguments: `root`, `surface`.
 
 `toolfactory eject --json '<arguments>'` prints a JSON result. MCP tool `eject` on server `toolfactory` returns the same result as `structuredContent`.
 
+### gate
+
+Run the gate here, in order: build, the drift check, every selected surface's upstream validator, the author's checks and tests, and the credential-free host end-to-end. The same step list the generated ci.yml renders, so a project with no CI has the identical gate.
+
+Arguments: `root`.
+
+`toolfactory gate --json '<arguments>'` prints a JSON result. MCP tool `gate` on server `toolfactory` returns the same result as `structuredContent`.
+
 ### init
 
 Create a new tool: dev.toolfactory/tool.json, the authored identity file, the kernel scaffold for the chosen language, and the first build of every selected surface.
 
-Arguments: `root`, `name`, `binding`, `surfaces`, `description`, `license`, `repository`, `author`.
+Arguments: `root`, `name`, `binding`, `surfaces`, `description`, `license`, `repository`, `author`, `git`, `setup`, `repo`, `public`, `dryRun`, `reviewers`.
 
 `toolfactory init --json '<arguments>'` prints a JSON result. MCP tool `init` on server `toolfactory` returns the same result as `structuredContent`.
 
@@ -117,6 +125,14 @@ Spawn the kernel MCP server, list its tools, and snapshot them to dev.toolfactor
 Arguments: `root`.
 
 `toolfactory introspect --json '<arguments>'` prints a JSON result. MCP tool `introspect` on server `toolfactory` returns the same result as `structuredContent`.
+
+### package
+
+Build every release asset into dist/release/ — npm tarball, Python distributions, OpenClaw plugin tarball, plugin bundle zip, web build, coverage — by the same steps the release workflow's package job runs. Publishing stays a CI concern.
+
+Arguments: `root`.
+
+`toolfactory package --json '<arguments>'` prints a JSON result. MCP tool `package` on server `toolfactory` returns the same result as `structuredContent`.
 
 ### unadopt
 

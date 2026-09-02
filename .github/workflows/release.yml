@@ -4,6 +4,8 @@
 #
 # One-time human setup (no API, so not automated here): register a GitHub trusted
 # publisher for this repo + this workflow filename on npmjs.com / pypi.org.
+#
+# One-time human setup for Pages: Settings -> Pages -> Source = GitHub Actions.
 
 name: Release
 on:
@@ -15,22 +17,18 @@ permissions:
 jobs:
   gate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: "24"
           cache: pnpm
       - uses: astral-sh/setup-uv@v6
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm run --if-present build
-      - name: toolfactory check
-        run: npx toolfactory check
-      - name: Install Claude Code CLI
-        run: npm i -g @anthropic-ai/claude-code
-      - name: Install Chromium dependencies
-        run: npx --yes playwright install-deps chromium
+      - name: tag matches plugin.json
+        run: test "v$(node -p "require('./plugin.json').version")" = "$GITHUB_REF_NAME"
       - name: Restore Hermes
         id: hermes
         uses: actions/cache@v4
@@ -49,12 +47,59 @@ jobs:
         run: curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash -s -- --commit 180291162ff4df0d42b5dc4fecd08005cf7cebf9 --skip-setup --skip-browser --skip-computer-use --non-interactive --no-skills
       - name: Hermes on PATH
         run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: install
+        run: pnpm install --frozen-lockfile
+      - name: build
+        run: pnpm run --if-present build
+      - name: toolfactory check
+        run: npx toolfactory check
+      - name: Install Claude Code CLI
+        run: npm i -g @anthropic-ai/claude-code
+      - name: Install Chromium dependencies
+        run: npx --yes playwright install-deps chromium
       - name: toolfactory validate
         run: npx toolfactory validate
       - name: author checks
         run: pnpm run --if-present check
       - name: author tests
         run: pnpm test
+      - name: openclaw end-to-end (scripted model, no LLM key)
+        run: npm --prefix hosts/openclaw run --if-present test:e2e
+  package:
+    needs: gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: pnpm
+      - uses: astral-sh/setup-uv@v6
+      - name: release directory
+        run: rm -rf dist/release && mkdir -p dist/release
+      - name: install
+        run: pnpm install --frozen-lockfile
+      - name: build
+        run: pnpm run --if-present build
+      - name: npm tarball
+        run: npm pack --pack-destination dist/release
+      - name: OpenClaw plugin tarball
+        run: npm --prefix hosts/openclaw install && npm --prefix hosts/openclaw run build && npm pack ./hosts/openclaw --pack-destination dist/release
+      - name: plugin bundle
+        run: zip -qr dist/release/toolfactory-plugin.zip plugin.json mcp.json skills .claude-plugin .codex-plugin .cursor-plugin
+      - name: web build
+        run: npm -C web ci && npm -C web run build && tar -czf dist/release/toolfactory-web.tar.gz -C web/dist .
+        env:
+          PAGES_BASE: /
+      - name: coverage report
+        run: cp COVERAGE.md dist/release/ && npx toolfactory coverage > dist/release/coverage.json
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-assets
+          path: dist/release/
   publish-npm:
     needs: gate
     runs-on: ubuntu-latest
@@ -62,20 +107,107 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: "24"
           registry-url: https://registry.npmjs.org
-      - run: pnpm install --frozen-lockfile && pnpm run --if-present build && npm publish --provenance
+      - run: pnpm install --frozen-lockfile && pnpm run --if-present build && npm publish --access public
+  publish-oci:
+    needs: gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/goatinahat/toolfactory
+          tags: type=semver,pattern={{version}}
+          labels: io.modelcontextprotocol.server.name=io.github.GoatInAHat/toolfactory
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
   publish-mcp-registry:
-    needs: publish-npm
+    needs:
+      - publish-npm
+      - publish-oci
     runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - run: curl -sL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
       - run: ./mcp-publisher login github-oidc && ./mcp-publisher publish
+  release:
+    needs:
+      - package
+      - publish-npm
+      - publish-oci
+      - publish-mcp-registry
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-assets
+          path: release-assets
+      - uses: softprops/action-gh-release@v3
+        with:
+          generate_release_notes: true
+          files: release-assets/*
+          fail_on_unmatched_files: true
+  pages-build:
+    needs: gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: pnpm
+      - uses: astral-sh/setup-uv@v6
+      - name: install
+        run: pnpm install --frozen-lockfile
+      - name: build
+        run: pnpm run --if-present build
+      - uses: actions/configure-pages@v5
+      - name: web build
+        env:
+          PAGES_BASE: /${{ github.event.repository.name }}/
+        run: npm -C web ci && npm -C web run build
+      - name: publish the schema and the coverage report alongside the app
+        run: cp dev.toolfactory/tool.schema.json COVERAGE.md web/dist/ && npx toolfactory coverage > web/dist/coverage.json
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+  pages-deploy:
+    needs: pages-build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

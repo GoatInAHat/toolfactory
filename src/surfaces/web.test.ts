@@ -160,6 +160,19 @@ describe("web", () => {
     });
   });
 
+  it("src/ops.json is an output file: a lossy duplicate rebuilt by `npm run build`, not tracked (D8)", () => {
+    const file = surface
+      .plan(project())
+      .find((candidate) => candidate.path === `${WEB_DIR}/src/ops.json`);
+    if (file?.kind !== "file") throw new Error("web/src/ops.json is no longer a plain file");
+    expect(file.output).toBe(true);
+  });
+
+  it('vite.config.ts reads base from PAGES_BASE so a GitHub Pages project page (served from /<repo>/) doesn\'t break `npm run dev` at "/"', () => {
+    const content = planned().get(`${WEB_DIR}/vite.config.ts`) ?? "";
+    expect(content).toContain('base: process.env.PAGES_BASE ?? "/"');
+  });
+
   it("previews the CLI only when the cli surface is also selected", () => {
     expect(opsJson().cliAvailable).toBe(true);
     const without = project({ tool: { ...project().tool, surfaces: ["web", "mcp"] } });

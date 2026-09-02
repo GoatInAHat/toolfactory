@@ -44,6 +44,7 @@ export const SURFACE_IDS = [
   "dsh",
   "workflows",
   "agents",
+  "readme",
 ] as const;
 export type SurfaceId = (typeof SURFACE_IDS)[number];
 
@@ -186,6 +187,11 @@ export interface FullFile {
   path: string;
   content: string;
   mode?: number;
+  /**
+   * A build output: generated and locked like any other file, but not expected to exist.
+   * `check` does not report it missing (it is gitignored and rebuilt), only stale when present.
+   */
+  output?: true;
 }
 
 export interface Region {
@@ -249,6 +255,11 @@ export interface Surface {
   validate?(project: Project): Command[];
   /** Per-operation verdict on this surface. Default: portable ⇒ native, else excluded. */
   verdict?(operation: Operation, project: Project): Verdict;
+  /**
+   * Surfaces this one reads the output of. A selection that omits one is refused by name at
+   * plan time instead of emitting an artifact that points at a file nobody writes.
+   */
+  requires?: SurfaceId[];
 }
 
 export function isPortable(operation: Operation): boolean {

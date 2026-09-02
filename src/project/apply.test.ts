@@ -1,9 +1,10 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { MergeFile, PlannedFile, RegionFile } from "../model.js";
+import type { MergeFile, PlannedFile, Project, RegionFile } from "../model.js";
 import { apply, check, setState } from "./apply.js";
+import { buildPlan } from "./plan.js";
 
 function tmp(): string {
   return mkdtempSync(join(tmpdir(), "tf-apply-"));
@@ -171,5 +172,71 @@ describe("apply / check — merge files", () => {
     expect(text).toContain('version = "0.1.0"');
     expect(text).toContain('dependencies = [ "zod" ]');
     expect(check(root, plan, "0.1.0")).toEqual([]);
+  });
+});
+
+describe("apply / check — inverses and outputs", () => {
+  it("uninstalls the keys a patch stops writing, keeping every other key", () => {
+    const root = tmp();
+    mkdirSync(root, { recursive: true });
+    writeFileSync(
+      join(root, "package.json"),
+      JSON.stringify({ scripts: { test: "vitest" } }, null, 2),
+    );
+    const plan = (registry: boolean): MergeFile[] => [
+      {
+        kind: "merge",
+        path: "package.json",
+        format: "json",
+        patch: {
+          name: "hello",
+          ...(registry
+            ? { scripts: { smoke: "node smoke.js" }, mcpName: "io.github.o/hello", tf: { mark: 1 } }
+            : {}),
+        },
+      },
+    ];
+    apply(root, plan(true), "0.1.0");
+    expect(check(root, plan(false), "0.1.0")).toEqual([{ path: "package.json", kind: "changed" }]);
+    apply(root, plan(false), "0.1.0");
+    expect(JSON.parse(readFileSync(join(root, "package.json"), "utf8"))).toEqual({
+      name: "hello",
+      scripts: { test: "vitest" },
+    });
+    expect(check(root, plan(false), "0.1.0")).toEqual([]);
+  });
+
+  it("a merge file toolfactory stops writing loses its keys, not its existence", () => {
+    const root = tmp();
+    mkdirSync(root, { recursive: true });
+    writeFileSync(
+      join(root, "package.json"),
+      JSON.stringify({ scripts: { test: "vitest" } }, null, 2),
+    );
+    const plan: MergeFile[] = [
+      { kind: "merge", path: "package.json", format: "json", patch: { name: "hello" } },
+    ];
+    apply(root, plan, "0.1.0");
+    expect(check(root, [], "0.1.0")).toEqual([{ path: "package.json", kind: "orphan" }]);
+    expect(apply(root, [], "0.1.0").deleted).toEqual([]);
+    expect(JSON.parse(readFileSync(join(root, "package.json"), "utf8"))).toEqual({
+      scripts: { test: "vitest" },
+    });
+  });
+
+  it("an output file is drift only when it is present and stale", () => {
+    const root = tmp();
+    const path = "dev.toolfactory/coverage.json";
+    const plan: PlannedFile[] = [{ kind: "file", path, content: "{}\n", output: true }];
+    apply(root, plan, "0.1.0");
+    rmSync(join(root, path));
+    expect(check(root, plan, "0.1.0")).toEqual([]);
+    writeFileSync(join(root, path), "stale\n");
+    expect(check(root, plan, "0.1.0")).toEqual([{ path, kind: "changed" }]);
+  });
+
+  it("refuses a selection that omits a surface another one declares it requires", () => {
+    const project = { root: tmp(), tool: { surfaces: ["cli", "web"] } } as unknown as Project;
+    expect(() => buildPlan(project)).toThrow(/Surface "web" requires surface "mcp"/);
   });
 });

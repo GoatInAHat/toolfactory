@@ -1,8 +1,9 @@
 /**
- * The I/O half of the T4 live tier: preparing the repository so the generated `live` job can
- * run. Two things GitHub only exposes over its API — an environment with required reviewers,
- * and the secrets inside it — done through the official `gh` CLI (§8 C1: own no client), never
- * a hand-rolled HTTP call.
+ * Everything toolfactory does to a GitHub repository: creating and pushing it (`init --repo`),
+ * and preparing the T4 live tier — an environment with required reviewers and the secrets inside
+ * it, the two things GitHub only exposes over its API. All of it through the official `gh` CLI
+ * (§8 C1: own no client), never a hand-rolled HTTP call, and all of it optional: a project with
+ * no GitHub at all never reaches this file.
  *
  * Secret values are read from the local `.env`, piped to `gh` on stdin, and never written to a
  * command line, a log line, or the returned result.
@@ -11,13 +12,15 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseEnv } from "node:util";
-import type { Project } from "../model.js";
+import type { Project, SurfaceId } from "../model.js";
 import { envName, liveCredentials } from "../surfaces/shared.js";
 
 /** The GitHub environment the generated `live` job deploys to. */
 export const LIVE_ENVIRONMENT = "live-tests";
 
 export interface BootstrapOptions {
+  /** `owner/repo` to prepare; the default is the identity file's repository URL. */
+  repository?: string;
   /** GitHub logins that must approve a live run. Empty leaves the environment ungated. */
   reviewers?: string[];
   /** Where the secret values come from; defaults to `<root>/.env`. */
@@ -44,8 +47,9 @@ export function githubSlug(repository: string | undefined): string | undefined {
   return match ? `${match[1]}/${match[2]}` : undefined;
 }
 
-function gh(args: string[], stdin?: string): string {
+function gh(args: string[], stdin?: string, cwd?: string): string {
   return execFileSync("gh", args, {
+    cwd,
     encoding: "utf8",
     input: stdin,
     stdio: ["pipe", "pipe", "inherit"],
@@ -53,7 +57,7 @@ function gh(args: string[], stdin?: string): string {
 }
 
 export function bootstrapRepo(project: Project, options: BootstrapOptions = {}): BootstrapResult {
-  const repository = githubSlug(project.identity.repository);
+  const repository = options.repository ?? githubSlug(project.identity.repository);
   if (!repository) {
     throw new Error(
       "bootstrap-repo needs a GitHub repository URL in the identity file to know which repo to prepare.",
@@ -112,4 +116,84 @@ export function bootstrapRepo(project: Project, options: BootstrapOptions = {}):
     commands,
     dryRun,
   };
+}
+
+/**
+ * One GitHub topic per selected surface, so a repository `init` creates is discoverable as what
+ * it actually ships. Surfaces that only package the same tool (`cli`, `npm`, `pypi`, `web`,
+ * `clawhub`, `workflows`) name no ecosystem and get none.
+ */
+export const SURFACE_TOPICS: Partial<Record<SurfaceId, string>> = {
+  skill: "agent-skill",
+  "agent-plugins": "agent-plugins",
+  claude: "claude-plugin",
+  codex: "codex-plugin",
+  cursor: "cursor-plugin",
+  mcp: "mcp-server",
+  "mcp-registry": "mcp-registry",
+  "openclaw-native": "openclaw-plugin",
+  "hermes-native": "hermes-plugin",
+  dsh: "dsh-plugin",
+};
+
+export interface CreateRepoOptions {
+  /** `owner/name` of the repository to create. */
+  slug: string;
+  /** Public instead of the private default. */
+  public?: boolean;
+  /** Print the `gh` invocations instead of running them. */
+  dryRun?: boolean;
+}
+
+export interface CreateRepoResult {
+  repository: string;
+  visibility: "private" | "public";
+  topics: string[];
+  /** Every `gh` invocation, in order, as it is (or would be) run. */
+  commands: string[];
+  dryRun: boolean;
+}
+
+/** `gh <args>`, copy-pasteable: only arguments that need quoting get it. */
+function render(args: string[]): string {
+  return `gh ${args.map((arg) => (/[\s"'$]/.test(arg) ? JSON.stringify(arg) : arg)).join(" ")}`;
+}
+
+/**
+ * Create the repository from the checkout and push it: `gh repo create --source --remote --push`,
+ * private unless asked otherwise, then one `gh repo edit --add-topic` for the selected surfaces.
+ * `gh` is the only GitHub client (§8 C1); nothing here talks to the API directly.
+ */
+export function createRepo(project: Project, options: CreateRepoOptions): CreateRepoResult {
+  const { slug, dryRun = false } = options;
+  if (!/^[^/\s]+\/[^/\s]+$/.test(slug)) {
+    throw new Error(`repo takes owner/name, not ${JSON.stringify(slug)}.`);
+  }
+  const visibility = options.public ? "public" : "private";
+  const topics = [
+    ...new Set(
+      project.tool.surfaces
+        .flatMap((surface) => SURFACE_TOPICS[surface] ?? [])
+        .concat("toolfactory"),
+    ),
+  ];
+  const commands: string[] = [];
+  const create = [
+    "repo",
+    "create",
+    slug,
+    `--${visibility}`,
+    ...(project.identity.description ? ["--description", project.identity.description] : []),
+    "--source",
+    ".",
+    "--remote",
+    "origin",
+    "--push",
+  ];
+  const edit = ["repo", "edit", slug, "--add-topic", topics.join(",")];
+  for (const args of [create, edit]) {
+    commands.push(render(args));
+    if (!dryRun) gh(args, undefined, project.root);
+  }
+  return { repository: slug, visibility, topics, commands, dryRun };
 }

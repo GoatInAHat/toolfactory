@@ -11,5 +11,24 @@
         "*"
       ]
     }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "GitHub Action pins in the workflows generator (the generated workflows are SHA-locked projections)",
+      "managerFilePatterns": [
+        "/^src/surfaces/workflows\\.ts$/"
+      ],
+      "matchStrings": [
+        "\"(?<depName>[a-z0-9][a-z0-9-]*/[A-Za-z0-9._-]+)@(?<currentValue>v\\d+)\""
+      ],
+      "datasourceTemplate": "github-tags",
+      "versioningTemplate": "docker"
+    }
+  ],
+  "ignorePaths": [
+    ".github/workflows/**",
+    "hosts/*/package.json",
+    "web/package.json"
   ]
 }

@@ -1,11 +1,16 @@
 {
   "shadcn": {
     "command": "npx",
-    "args": ["shadcn@latest", "mcp"]
+    "args": [
+      "shadcn@latest",
+      "mcp"
+    ]
   },
   "playwright": {
     "command": "npx",
-    "args": ["@playwright/mcp@latest"]
+    "args": [
+      "@playwright/mcp@latest"
+    ]
   },
   "github": {
     "type": "http",
@@ -17,5 +22,13 @@
   "openai-docs": {
     "type": "http",
     "url": "https://developers.openai.com/mcp"
+  },
+  "toolfactory": {
+    "command": "node",
+    "args": [
+      "--import",
+      "tsx",
+      "src/toolfactory/mcp.ts"
+    ]
   }
 }

@@ -13,8 +13,18 @@
  *     propagates into dispatch, so every generated handler returns `{"error": ...}` instead.
  *
  * `validate()` runs `hermes plugins doctor --ci`, which loads the plugin through the real
- * runtime under a temp `HERMES_HOME` with network denied, so none of the above is assumed.
+ * runtime under a temp `HERMES_HOME` with network denied, so none of the above is assumed —
+ * `doctor` proves registration only, never a handler call (`hermes_cli/plugin_dev.py`'s
+ * `doctor_plugin()` tears the registration down without dispatching). `hosts/hermes/tests/
+ * test_plugin.py` proves the rest: a fake `PluginContext` collects `register_tool(...)` calls
+ * and drives one real handler, entirely without importing Hermes. It is deliberately not built
+ * on `hermes_cli.plugin_dev`'s `_doctor_runtime` / `tools.registry.registry.dispatch` — that
+ * machinery works, but its own module docstring calls it "deliberately private Doctor
+ * machinery, not a standalone plugin test framework", and shipping it into every generated repo
+ * would pin thousands of projects to an underscore-prefixed API upstream has declined to
+ * support. The fake-ctx test gets the same behavioural coverage with no Hermes import at all.
  */
+import { join } from "node:path";
 import { stringify as toml } from "smol-toml";
 import { stringify as yaml } from "yaml";
 import { KERNEL_DIR } from "../bindings/typescript.js";
@@ -34,8 +44,16 @@ import {
 
 export const HOST_DIR = "hosts/hermes";
 
-/** `hermes_cli/plugins.py` `SUPPORTED_MANIFEST_VERSION`. */
-export const MANIFEST_VERSION = 2;
+/**
+ * `hermes_cli/plugins.py` `SUPPORTED_MANIFEST_VERSION` is 2 and the loader parses every field
+ * toolfactory emits (`python_dependencies`, `license`, `homepage`, …) regardless of the declared
+ * version — but `hermes plugins install`'s own cap, `hermes_cli/plugins_cmd.py`
+ * `_SUPPORTED_MANIFEST_VERSION`, is still 1 and rejects a v2 manifest outright before ever
+ * loading it (verified against the pinned commit: `Plugin '<name>' requires manifest_version 2,
+ * but this installer only supports up to 1`). Declaring 1 costs nothing — v1 is "supported
+ * forever" — and is what makes `hermes plugins install file://…` actually install.
+ */
+export const MANIFEST_VERSION = 1;
 
 /**
  * The Hermes this generator was proven against (C5). Hermes ships through its own installer
@@ -137,6 +155,99 @@ export function toolSchemas(operations: Operation[]): Record<string, unknown>[] 
       parameters,
     };
   });
+}
+
+/**
+ * The one operation `hosts/hermes/tests/test_plugin.py` calls for real: the first callable one
+ * `tool.json` `tests.examples` supplies complete arguments for — the same predicate
+ * `openclaw-native.ts`'s `e2eCase` uses, so one declaration drives both credential-free suites —
+ * else the first that needs none. An operation whose required input nobody supplied gets no
+ * lane rather than a call guaranteed to fail. `marker` mirrors the OpenClaw e2e gate: a name the
+ * operation's own output schema promises, so the assertion means the handler actually ran rather
+ * than merely not throwing.
+ */
+function testCase(
+  project: Project,
+  operations: Operation[],
+): { operation: Operation; args: Record<string, unknown>; marker: string | undefined } | undefined {
+  const examples = project.tool.tests.examples;
+  const callable = (candidate: Operation) => {
+    const args = examples[candidate.name] ?? {};
+    const required = candidate.inputSchema.required;
+    return (Array.isArray(required) ? (required as string[]) : []).every((key) => key in args);
+  };
+  const candidates = operations.filter(callable);
+  const operation = candidates.find((candidate) => examples[candidate.name]) ?? candidates[0];
+  if (!operation) return undefined;
+  const schema = operation.outputSchema ?? {};
+  const required = Array.isArray(schema.required) ? (schema.required as string[]) : [];
+  const properties = Object.keys((schema.properties ?? {}) as Record<string, unknown>);
+  return { operation, args: examples[operation.name] ?? {}, marker: required[0] ?? properties[0] };
+}
+
+/** A Python identifier from an operation name, for the generated test function's suffix. */
+function pySafeName(name: string): string {
+  return name.replace(/[^A-Za-z0-9_]/g, "_");
+}
+
+/**
+ * `hosts/hermes/tests/test_plugin.py`. See the module doc comment for why this exists instead of
+ * `hermes_cli.plugin_dev`.
+ */
+function testPluginPy(project: Project, operations: Operation[]): string {
+  const pkg = pluginPackage(project);
+  const names = operations.map((operation) => operation.name);
+  const kase = testCase(project, operations);
+  const handlerTest = kase
+    ? `
+
+
+def test_${pySafeName(kase.operation.name)}_handler_returns_the_real_result() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        ctx = FakeCtx(Path(tmp))
+        register(ctx)
+        handler = next(r["handler"] for r in ctx.registrations if r["name"] == ${JSON.stringify(kase.operation.name)})
+        result = json.loads(handler(${JSON.stringify(kase.args)}))
+        assert "error" not in result${kase.marker ? `\n        assert ${JSON.stringify(kase.marker)} in result` : ""}`
+    : "";
+  return `${HEADER}"""Registers the generated plugin through a fake \`PluginContext\` and, when \`tool.json\`
+\`tests.examples\` supplies one, calls a real handler — everything \`hermes plugins doctor --ci\`
+proves for registration, plus the one call doctor never makes. No Hermes import: needs only this
+checkout${project.tool.binding === "python" ? "" : " and Node, which the shim handler spawns"}.
+"""
+
+from __future__ import annotations
+
+import json
+import tempfile
+from pathlib import Path
+from typing import Any
+
+from ${pkg} import register
+
+
+class _State:
+    def __init__(self, data_dir: Path) -> None:
+        self.data_dir = data_dir
+
+
+class FakeCtx:
+    """The slice of \`hermes_cli.plugins.PluginContext\` that \`register(ctx)\` touches."""
+
+    def __init__(self, data_dir: Path) -> None:
+        self.state = _State(data_dir)
+        self.registrations: list[dict[str, Any]] = []
+
+    def register_tool(self, **kwargs: Any) -> None:
+        self.registrations.append(kwargs)
+
+
+def test_register_adds_every_declared_tool() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        ctx = FakeCtx(Path(tmp))
+        register(ctx)
+        assert [r["name"] for r in ctx.registrations] == ${JSON.stringify(names)}${handlerTest}
+`;
 }
 
 function manifest(project: Project, operations: Operation[]): string {
@@ -362,6 +473,33 @@ function readme(project: Project, operations: Operation[]): string {
     `hermes plugins enable ${project.identity.name}`,
     "```",
     "",
+    "Developing against this checkout, without publishing a package first:",
+    "",
+    "```bash",
+    `hermes plugins install file://<repo>#${pluginDir(project)} --force`,
+    "```",
+    "",
+    "Hermes copies from that URL rather than linking it — there is no dev-link mode — so re-run",
+    "the command above after every change. `file://` sources (like `http://`) trigger a security",
+    "warning at install time; that is expected for a local checkout, not a sign anything is",
+    "wrong. Each `hermes` invocation is a fresh process that already re-reads the plugin, so",
+    "nothing needs restarting; `hermes gateway restart` only matters if the long-running",
+    "messaging gateway (Telegram, Discord, WhatsApp, …), not the CLI itself, is what needs the",
+    "new registration.",
+    "",
+    `Remove it cleanly with \`hermes plugins remove ${project.identity.name}\` (aliases \`rm\`,`,
+    "`uninstall`) — it deletes Hermes' own copy and never touches this checkout.",
+    "",
+    "## Validate without Hermes",
+    "",
+    "```bash",
+    "cd hosts/hermes && uv run --with pytest pytest -q",
+    "```",
+    "",
+    "Registers the generated plugin through a fake `PluginContext` and calls one handler for",
+    "real — the same behaviour `hermes plugins doctor --ci` proves for registration, plus the",
+    "call doctor never makes, with no Hermes install required.",
+    "",
     "## Tools",
     "",
     ...(operations.length
@@ -415,10 +553,23 @@ export const surface: Surface = {
       { kind: "file", path: `${dir}/__init__.py`, content: initPy(project, operations) },
       { kind: "file", path: `${HOST_DIR}/pyproject.toml`, content: pyproject(project) },
       { kind: "file", path: `${HOST_DIR}/README.md`, content: readme(project, operations) },
+      {
+        kind: "file",
+        path: `${HOST_DIR}/tests/test_plugin.py`,
+        content: testPluginPy(project, operations),
+      },
     ];
   },
   validate(project) {
     return [
+      {
+        // Registration and one real handler call, with no Hermes import and therefore no
+        // Hermes install — safe to run everywhere `uv` already runs.
+        label: "hermes plugin behaviour",
+        command: "uv",
+        args: ["run", "--with", "pytest", "pytest", "-q"],
+        cwd: join(project.root, HOST_DIR),
+      },
       {
         // Loads the plugin through Hermes' real discovery, import and registration path,
         // under a temporary HERMES_HOME with outbound sockets denied.

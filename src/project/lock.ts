@@ -13,6 +13,12 @@ export const LockSchema = z.object({
     z.object({
       sha256: z.string(),
       state: z.enum(["generated", "manual"]),
+      /**
+       * A merge file's inverse: the dotted key paths its patch wrote. Keys the current patch no
+       * longer carries are removed from the document before merging, so dropping a key from a
+       * patch — or deselecting the surface that added it — uninstalls it instead of stranding it.
+       */
+      keys: z.array(z.string()).optional(),
     }),
   ),
 });
