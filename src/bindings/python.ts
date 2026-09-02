@@ -7,6 +7,7 @@
 import { stringify as toml } from "smol-toml";
 import { projectName } from "../identity/name.js";
 import type { PlannedFile, Project } from "../model.js";
+import { secretsOf } from "../project/gate.js";
 import {
   compact,
   configProperties,
@@ -17,6 +18,7 @@ import {
   liveExample,
   pypiName,
 } from "../surfaces/shared.js";
+import { WEB_DIR } from "../surfaces/web.js";
 
 /** Import package: the canonical name with `.` and `-` folded to `_` (PEP 8 / PEP 503). */
 export function pythonPackage(project: Project): string {
@@ -156,12 +158,184 @@ def context() -> Context:
 `;
 }
 
+/**
+ * What the kernel adds when the `web` surface is selected: the Starlette routes for the built
+ * page and — only when the project declares a secret — `/env`, which the page's Secrets panel
+ * reads and writes. `.env` is the developer's own file, resolved from the working directory:
+ * names out, one name in, never a value in a log or a response.
+ */
+function webRoutes(secrets: string[]): string {
+  const env = !secrets.length
+    ? ""
+    : `
+
+
+#: The names this project declares; \`/env\` writes no other.
+SECRETS = ${JSON.stringify(secrets)}
+
+
+def env_path() -> Path:
+    return Path.cwd() / ".env"
+
+
+def env_lines() -> "list[str]":
+    try:
+        return env_path().read_text().rstrip("\\n").split("\\n")
+    except OSError:
+        return []
+
+
+def env_present() -> "list[str]":
+    """Which declared names \`.env\` already carries a value for. Names only — never a value."""
+    found = {}
+    for line in env_lines():
+        name, _, value = line.lstrip().removeprefix("export ").partition("=")
+        if value.strip():
+            found[name.strip()] = True
+    return [name for name in SECRETS if name in found]
+
+
+def env_write(name: str, value: str) -> None:
+    """Rewrite one line of \`.env\`, keeping every other line, and keep the file private."""
+    lines = env_lines()
+    for index, line in enumerate(lines):
+        if line.lstrip().removeprefix("export ").partition("=")[0].strip() == name:
+            lines[index] = f"{name}={value}"
+            break
+    else:
+        lines.append(f"{name}={value}")
+    env_path().write_text("\\n".join(lines) + "\\n")
+    env_path().chmod(0o600)
+    # The name, never the value: this log is the one place a secret could leak by accident.
+    print(f".env: set {name}", file=sys.stderr, flush=True)
+
+
+def env_route(token: "str | None") -> Route:
+    """\`GET\` the names present, \`POST {name, value}\` one of them. Writing needs the bearer token."""
+
+    async def endpoint(request: Any) -> JSONResponse:
+        # Names, never values: what this project declares and which \`.env\` already carries.
+        if request.method == "GET":
+            return JSONResponse({"declared": SECRETS, "present": env_present()})
+        # Even on loopback: without a token in force there is no client to trust with a write.
+        if token is None:
+            return JSONResponse({"error": "unpaired: restart with \`mcp --http --open\`"}, status_code=403)
+        try:
+            payload = await request.json()
+            name, value = payload["name"], payload["value"]
+        except Exception:
+            return JSONResponse({"error": "expected {name, value}"}, status_code=400)
+        if name not in SECRETS:
+            return JSONResponse({"error": "not a declared secret"}, status_code=400)
+        if not isinstance(value, str) or not value:
+            return JSONResponse({"error": "empty value"}, status_code=400)
+        env_write(name, value)
+        return JSONResponse({"declared": SECRETS, "present": env_present()})
+
+    return Route("/env", endpoint, methods=["GET", "POST"])`;
+  return `
+
+def web_dist() -> "Path | None":
+    """The built page: the wheel force-includes \`${WEB_DIR}/dist\` here, a checkout has it in place."""
+    package = Path(__file__).resolve().parent.parent
+    for candidate in (package / "${WEB_DIR}", package.parent.parent / "${WEB_DIR}" / "dist"):
+        if candidate.is_dir():
+            return candidate
+    return None
+
+
+def web_route() -> "Mount | Route":
+    """Everything that is not an API route is the page, or the hint that it was never built."""
+    directory = web_dist()
+    if directory is not None:
+        return Mount("/", app=StaticFiles(directory=directory, html=True))
+
+    async def missing(request: Any) -> PlainTextResponse:
+        return PlainTextResponse("no ${WEB_DIR}/dist; run \`npm -C ${WEB_DIR} run build\`\\n", status_code=404)
+
+    return Route("/{path:path}", missing)${env}
+`;
+}
+
+/**
+ * The `web` operation, generated with the `web` surface: it reaches every surface at once
+ * (MCP `tools/call`, the skill, the CLI, the page itself) without a socket inside the stdio
+ * server — the kernel's own HTTP listener runs in a detached child, which is also what opens
+ * the browser, so the page appears on the machine running the tool and no host has to open a
+ * URL a tool returns.
+ */
+function webTemplate(): string {
+  return `${HEADER}"""The \`web\` operation: start the kernel's HTTP listener and hand back its URL."""
+
+import re
+import subprocess
+import sys
+from typing import Any
+from urllib.parse import urlsplit
+
+from pydantic import BaseModel
+
+from .types import Context, Operation
+
+SERVING = re.compile(r"Serving MCP streamable HTTP on (\\S+)")
+
+
+class WebInput(BaseModel):
+    pass
+
+
+class WebOutput(BaseModel):
+    url: str
+
+
+def web(arguments: WebInput, context: Context) -> WebOutput:
+    child: Any = subprocess.Popen(
+        [sys.executable, "-m", f"{__package__}.mcp", "--http", "0", "--open"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        text=True,
+        # The listener outlives this call, and this process: an operation may not hold a socket.
+        start_new_session=True,
+    )
+    for line in child.stderr:
+        found = SERVING.search(line)
+        if found:
+            served = urlsplit(found.group(1))
+            # The page, not the endpoint, and without the token the child already handed the
+            # browser: an operation's result travels through an agent, and a token is a credential.
+            return WebOutput(url=f"{served.scheme}://{served.netloc}/")
+    raise RuntimeError("the kernel exited before it started serving")
+
+
+OPERATION = Operation(
+    name="web",
+    description=(
+        "Open this tool's web app: serves the operations page and the MCP endpoint on a free "
+        "local port, opens a browser there, and returns the URL."
+    ),
+    input=WebInput,
+    output=WebOutput,
+    requires=("shell", "net"),
+    annotations={"openWorldHint": False},
+    handler=web,
+)
+`;
+}
+
 function mcpTemplate(project: Project): string {
   const tokenEnv = `${envName(project.identity.name)}_MCP_TOKEN`;
+  const web = has(project, "web");
+  const declared = web ? secretsOf(project) : [];
   return `${HEADER}"""The kernel MCP server: every operation registered from its pydantic input model.
 
 Serves over stdio by default; \`serve_http()\` (or the CLI's \`mcp --http [port]\`) serves the
-same server over MCP streamable HTTP instead, via \`MCPServer.run(transport="streamable-http", ...)\`.
+same server over MCP streamable HTTP instead: one Starlette app — the SDK's own streamable-HTTP
+route${web ? ", the built web app" : ""}${declared.length ? " and `/env`" : ""} — under uvicorn.${
+    web
+      ? `
+The page is served beside the endpoint so it POSTs same-origin, and \`--open\` is the whole launch.`
+      : ""
+  }
 """
 
 import argparse
@@ -170,14 +344,35 @@ import hmac
 import inspect
 import os
 import secrets
+import sys${
+    web
+      ? `
+import webbrowser`
+      : ""
+  }
 from pathlib import Path
 from typing import Annotated, Any
 
-from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver import MCPServer${
+    web
+      ? `
+from starlette.responses import JSONResponse, PlainTextResponse
+from starlette.routing import Mount, Route
+from starlette.staticfiles import StaticFiles`
+      : ""
+  }
 
-from ..ops import OPERATIONS
+from ..ops import OPERATIONS${web ? " as AUTHORED_OPERATIONS" : ""}
 from .config import context, data_dir
-from .types import Operation, serves
+from .types import Operation, serves${
+    web
+      ? `
+from .web import OPERATION as WEB_OPERATION
+
+#: The authored operations plus the generated \`web\` one; \`introspect\` snapshots this list.
+OPERATIONS = [*AUTHORED_OPERATIONS, WEB_OPERATION]`
+      : ""
+  }
 
 server = MCPServer(
     name=${JSON.stringify(project.identity.name)},
@@ -250,23 +445,23 @@ def paired_token() -> str | None:
         return None
 
 
-def mint_token(url: str) -> str:
-    """\`--pair\`: mint a token, keep it 0600 under the data directory, print \`<url>#<token>\`."""
+def mint_token() -> str:
+    """Mint a token and keep it 0600 under the data directory. Never rotates an existing one."""
     token = secrets.token_urlsafe(32)
     path = token_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(f"{token}\\n")
     path.chmod(0o600)
-    print(f"{url}#{token}", flush=True)
     return token
 
 
-def guard(app: Any, token: str) -> Any:
-    """Wrap the ASGI app: no \`Authorization: Bearer <token>\`, no request. Constant-time compare."""
+def guard(app: Any, token: str, paths: "set[str]") -> Any:
+    """Wrap the ASGI app: no \`Authorization: Bearer <token>\`, no request — on the API paths only.
+    The page itself is never guarded: a browser cannot put a header on its own document request."""
     expected = hashlib.sha256(token.encode()).digest()
 
     async def guarded(scope: Any, receive: Any, send: Any) -> None:
-        if scope["type"] == "http":
+        if scope["type"] == "http" and scope["path"] in paths:
             presented = dict(scope["headers"]).get(b"authorization", b"").removeprefix(b"Bearer ")
             if not hmac.compare_digest(hashlib.sha256(presented).digest(), expected):
                 await send(
@@ -281,18 +476,55 @@ def guard(app: Any, token: str) -> Any:
         await app(scope, receive, send)
 
     return guarded
+${web ? webRoutes(declared) : ""}
 
-
-def serve_http(host: str = "127.0.0.1", port: int = 3000, path: str = "/mcp", pair: bool = False) -> None:
+def serve_http(
+    host: str = "127.0.0.1",
+    port: int = 3000,
+    path: str = "/mcp",
+    pair: bool = False,${
+      web
+        ? `
+    open_browser: bool = False,`
+        : ""
+    }
+) -> None:
     """Serve over MCP streamable HTTP instead of stdio. Opt-in; stdio stays the default transport."""
-    token = mint_token(f"http://{host}:{port}{path}") if pair else paired_token()
-    if token is None:
-        server.run("streamable-http", host=host, port=port, streamable_http_path=path, stateless_http=True)
-        return
     import uvicorn
-
-    app = server.streamable_http_app(streamable_http_path=path, stateless_http=True, host=host)
-    uvicorn.run(guard(app, token), host=host, port=port)
+${
+  web
+    ? `
+    # \`--open\` needs a token for the page to call back with; an existing one is never rotated,
+    # because the browser extension holds it.
+    token = mint_token() if pair else (paired_token() or (mint_token() if open_browser else None))`
+    : `
+    token = mint_token() if pair else paired_token()`
+}
+    # One ASGI app: the SDK's own streamable-HTTP route (its session-manager lifespan with it),
+    # plus ours. Appending to its router is what keeps that lifespan the app's own.
+    app = server.streamable_http_app(streamable_http_path=path, stateless_http=True, host=host)${
+      web
+        ? `${declared.length ? "\n    app.router.routes.append(env_route(token))" : ""}
+    app.router.routes.append(web_route())`
+        : ""
+    }
+    if token is not None:
+        app = guard(app, token, {path${web && declared.length ? ', "/env"' : ""}})
+    config = uvicorn.Config(app, host=host, port=port, log_level="warning")
+    # Bind before serving: \`--http 0\` asks the OS for a free port and the URL is only known then.
+    sock = config.bind_socket()
+    base = f"http://{host}:{sock.getsockname()[1]}"
+    if pair:
+        print(f"{base}{path}#{token}", flush=True)
+    suffix = " (bearer token required)" if token else ""
+    print(f"Serving MCP streamable HTTP on {base}{path}{suffix}", file=sys.stderr, flush=True)${
+      web
+        ? `
+    if open_browser:
+        webbrowser.open(f"{base}/#{token}")`
+        : ""
+    }
+    uvicorn.Server(config).run(sockets=[sock])
 
 
 def main() -> None:
@@ -310,12 +542,22 @@ def main() -> None:
         "--pair",
         action="store_true",
         help="serve over HTTP with a fresh pairing token: prints <url>#<token> and requires it as a bearer token",
-    )
+    )${
+      web
+        ? `
+    parser.add_argument(
+        "--open",
+        action="store_true",
+        help="serve over HTTP and open the web app in this machine's browser",
+    )`
+        : ""
+    }
     args = parser.parse_args()
-    if args.http is None and not args.pair:
+    if args.http is None and not args.pair${web ? " and not args.open" : ""}:
         serve()
     else:
-        serve_http(port=args.http or 3000, pair=args.pair)
+        # \`--http 0\` is a port, not a missing one: only \`None\` means "use the default".
+        serve_http(port=3000 if args.http is None else args.http, pair=args.pair${web ? ", open_browser=args.open" : ""})
 
 
 if __name__ == "__main__":
@@ -324,6 +566,7 @@ if __name__ == "__main__":
 }
 
 function cliTemplate(project: Project): string {
+  const web = has(project, "web");
   const mcpCommand = has(project, "mcp")
     ? `
     mcp = subcommands.add_parser(
@@ -342,16 +585,25 @@ function cliTemplate(project: Project): string {
         "--pair",
         action="store_true",
         help="serve over HTTP with a fresh pairing token: prints <url>#<token> and requires it as a bearer token",
-    )
+    )${
+      web
+        ? `
+    mcp.add_argument(
+        "--open",
+        action="store_true",
+        help="serve over HTTP and open the web app in this machine's browser",
+    )`
+        : ""
+    }
     mcp.set_defaults(tf_operation=None, tf_schema={})
 `
     : "";
   const mcpDispatch = has(project, "mcp")
     ? `    if options.tf_operation is None:
-        if options.http is not None or options.pair:
+        if options.http is not None or options.pair${web ? " or options.open" : ""}:
             from .mcp import serve_http
 
-            serve_http(port=options.http or 3000, pair=options.pair)
+            serve_http(port=3000 if options.http is None else options.http, pair=options.pair${web ? ", open_browser=options.open" : ""})
         else:
             from .mcp import serve
 
@@ -369,9 +621,17 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from ..ops import OPERATIONS
+from ..ops import OPERATIONS${web ? " as AUTHORED_OPERATIONS" : ""}
 from .types import serves
-from .config import context
+from .config import context${
+    web
+      ? `
+from .web import OPERATION as WEB_OPERATION
+
+#: The authored operations plus the generated \`web\` one, exactly as the MCP kernel lists them.
+OPERATIONS = [*AUTHORED_OPERATIONS, WEB_OPERATION]`
+      : ""
+  }
 
 
 def kind(schema: dict[str, Any]) -> str:
@@ -543,6 +803,11 @@ export function kernel(project: Project): PlannedFile[] {
     { kind: "file", path: `${dir}/config.py`, content: configTemplate(project) },
   ];
   files.push({ kind: "file", path: `${dir}/mcp.py`, content: mcpTemplate(project) });
+  // The `web` surface's own operation: generated here because it is the kernel's listener it
+  // starts, and appended to `OPERATIONS` by the two templates above, so `introspect` sees it.
+  if (has(project, "web")) {
+    files.push({ kind: "file", path: `${dir}/web.py`, content: webTemplate() });
+  }
   return files;
 }
 

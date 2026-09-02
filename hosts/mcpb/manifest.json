@@ -95,6 +95,10 @@
     {
       "name": "validate",
       "description": "Run each selected surface's own upstream validator (agentskills, claude plugin validate, MCP Inspector, openclaw, hermes, npm pack, uv build)."
+    },
+    {
+      "name": "web",
+      "description": "Open this tool's web app: serves the operations page and the MCP endpoint on a free local port, opens a browser there, and returns the URL."
     }
   ],
   "compatibility": {

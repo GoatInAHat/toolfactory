@@ -434,6 +434,14 @@ TOOLS = json.loads(
         }
       }
     }
+  },
+  {
+    "name": "web",
+    "description": "Open this tool's web app: serves the operations page and the MCP endpoint on a free local port, opens a browser there, and returns the URL.",
+    "parameters": {
+      "type": "object",
+      "properties": {}
+    }
   }
 ]"""
 )

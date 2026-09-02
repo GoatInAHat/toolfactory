@@ -154,6 +154,15 @@ function installLines(project: Project): string[] {
       ].join("\n"),
     );
   }
+  if (has(project, "web")) {
+    // Not an install: the one command that puts the page in front of a human, from wherever the
+    // tool already is. The same listener answers `/mcp`, so the page needs nothing else running.
+    lines.push(
+      `- **Web app** — \`${mcpCommand(project)} --http --open\` serves the operations page beside the`,
+      "  MCP endpoint on one port and opens it; over MCP or a skill, the `web` operation does the same and",
+      "  returns the URL.",
+    );
+  }
   if (has(project, "npm")) lines.push(`- **npm package** — \`npm install ${npmName(project)}\``);
   if (has(project, "pypi")) lines.push(`- **PyPI package** — \`uv add ${pypiName(project)}\``);
   return lines;

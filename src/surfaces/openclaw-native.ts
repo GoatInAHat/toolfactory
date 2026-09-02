@@ -15,6 +15,7 @@
  * any of them drifted. Every pinned value lives in OPENCLAW_SCAFFOLD below and nowhere else.
  */
 import { execArgv } from "node:process";
+import { KERNEL_DIR } from "../bindings/typescript.js";
 import { DRIFT_ENTRY } from "../hosts/openclaw.js";
 import { projectName } from "../identity/name.js";
 import { isPortable, type Operation, type Project, type Surface, type Verdict } from "../model.js";
@@ -24,6 +25,7 @@ import {
   configProperties,
   dataDirEnvName,
   envName,
+  has,
   isSensitive,
   json,
   npmName,
@@ -121,6 +123,22 @@ export function registrations(project: Project): Registration[] {
   return project.tool.openclaw?.registers ?? [];
 }
 
+/**
+ * The gateway route and the Control UI tab the plugin adds when the tool also has a `web`
+ * surface. Only for the in-process binding: the route hands requests to the core package's own
+ * exported handler, so `<prefix>/mcp` is answered by the same operations without a second
+ * listener, and `<prefix>/` is the built page. A Python tool's plugin is an out-of-process
+ * shim with no such handler to mount, so it gets the README's `mcp --http --open` line instead.
+ */
+function servesWeb(project: Project, operations: Operation[]): boolean {
+  return has(project, "web") && project.tool.binding === "typescript" && operations.length > 0;
+}
+
+/** The prefix the route claims and the tab points at; one constant, three uses. */
+function webPath(project: Project): string {
+  return `/plugins/${project.identity.name}/web`;
+}
+
 /** `activation` for both the entry and the manifest; OpenClaw's own default is startup. */
 export function activation(project: Project): Record<string, unknown> {
   return project.tool.openclaw?.activation ?? { onStartup: true };
@@ -192,6 +210,18 @@ function contractKeys(project: Project, operations: Operation[]): string[] {
  * from the source and the contracts from the manifest, so a declaration nobody wired fails
  * `plugin-inspector inspect --check` by name.
  */
+/**
+ * Every registrar the entry calls: the ones `tool.json` declares, plus — generated, not
+ * declared — the web tab's route and descriptor. Neither of those is a manifest contract key,
+ * so `contracts` is unchanged; the inspector's static scan is what has to agree.
+ */
+function expectedRegistrations(project: Project, operations: Operation[]): string[] {
+  return [
+    ...registrations(project).map((registration) => registration.api),
+    ...(servesWeb(project, operations) ? ["registerHttpRoute", "registerControlUiDescriptor"] : []),
+  ];
+}
+
 function pluginInspector(project: Project, operations: Operation[]): Record<string, unknown> {
   return {
     version: OPENCLAW_SCAFFOLD.inspector.version,
@@ -201,7 +231,7 @@ function pluginInspector(project: Project, operations: Operation[]): Record<stri
       seams: OPENCLAW_SCAFFOLD.inspector.seams,
       sourceRoot: OPENCLAW_SCAFFOLD.inspector.sourceRoot,
       expect: {
-        registrations: registrations(project).map((registration) => registration.api),
+        registrations: expectedRegistrations(project, operations),
         manifestContracts: contractKeys(project, operations),
       },
     },
@@ -237,7 +267,7 @@ function packageJson(project: Project, operations: Operation[], kase?: E2eCase):
         compat: { pluginApi: pluginApi(project) },
         build: { openclawVersion: OPENCLAW_SCAFFOLD.openclawVersion },
       },
-      pluginInspector: registrations(project).length
+      pluginInspector: expectedRegistrations(project, operations).length
         ? pluginInspector(project, operations)
         : undefined,
     }),
@@ -338,6 +368,12 @@ function indexRegion(project: Project, operations: Operation[]): string {
     ...(typescript && operations.length
       ? [`import { operations } from ${JSON.stringify(`${npmName(project)}/dist/ops.js`)};`]
       : []),
+    ...(servesWeb(project, operations)
+      ? [
+          `import { handler } from ${JSON.stringify(`${npmName(project)}/dist/${KERNEL_DIR.replace(/^src\//, "")}/mcp.js`)};`,
+          `import type { OpenClawPluginApi } from ${JSON.stringify(OPENCLAW_SCAFFOLD.entryModule)};`,
+        ]
+      : []),
   ];
   // The host's own state directory is what the tool keeps its data under; the kernel's
   // `<N>_DATA_DIR` fallback only has to answer when no host supplies one.
@@ -389,6 +425,43 @@ ${pythonKernel(project)}`;
         ...declared,
       ]
     : [];
+  const web = !servesWeb(project, operations)
+    ? ""
+    : `
+/**
+ * The web app, as a tab in the Control UI: one prefix route the gateway authenticates, handled
+ * by the core package's own exported router — so \`<prefix>/mcp\` is answered in-process by the
+ * same operations and everything else is the built page — and one descriptor that makes the
+ * dashboard render it, instead of a URL an operator has to go and find.
+ */
+const WEB_PATH = ${JSON.stringify(webPath(project))};
+
+const registerTools = entry.register;
+entry.register = (api: OpenClawPluginApi) => {
+  registerTools(api);
+  api.registerHttpRoute({
+    path: WEB_PATH,
+    match: "prefix",
+    // A Control UI tab may only point at a gateway-authenticated route, and the operator's
+    // gateway session is the authentication — the page needs no pairing token of its own.
+    auth: "gateway",
+    // \`env: false\`: the Secrets panel writes the developer's \`.env\` in their checkout, and
+    // this plugin runs in the gateway's working directory, not theirs.
+    handler: handler({ path: \`\${WEB_PATH}/mcp\`, prefix: WEB_PATH, env: false }),
+  });
+  const descriptor = {
+    id: ${JSON.stringify(`${project.identity.name}-web`)},
+    surface: "tab" as const,
+    label: ${JSON.stringify(displayName(project.identity.name))},
+    path: \`\${WEB_PATH}/\`,
+  };
+  // \`api.session.controls\` is the current facade and the top-level registrar its deprecated
+  // alias; the plugin inspector's mock SDK has only the latter, so take whichever is there.
+  const controls = api.session?.controls;
+  if (controls) controls.registerControlUiDescriptor(descriptor);
+  else api.registerControlUiDescriptor(descriptor);
+};
+`;
   return `
 ${HEADER}${imports.join("\n")}
 ${dataDir}${preamble}
@@ -399,7 +472,7 @@ const entry = defineToolPlugin({
   activation: ${literal(activation(project), 2)},
 ${configLine}${tools.length ? `  tools: (tool) => [\n${tools.join("\n")}\n  ],` : "  tools: () => [],"}
 });
-${trailer.join("\n")}
+${web}${trailer.join("\n")}
 `;
 }
 
@@ -458,9 +531,34 @@ ${declared
   .join("\n")}
   });
 `;
-  const entryImport = declared.length
-    ? `import type { OpenClawPluginApi } from ${JSON.stringify(OPENCLAW_SCAFFOLD.entryModule)};\n`
-    : "";
+  const web = !servesWeb(project, operations)
+    ? ""
+    : `
+  it("serves the web app as a Control UI tab", () => {
+    const registered: Record<string, unknown[]> = {};
+    const record = (name: string) => (value: unknown) => {
+      (registered[name] ??= []).push(value);
+    };
+    const api = {
+      registerTool: record("registerTool"),
+      registerHttpRoute: record("registerHttpRoute"),
+      registerControlUiDescriptor: record("registerControlUiDescriptor"),
+    } as Partial<OpenClawPluginApi>;
+
+    entry.register(api as OpenClawPluginApi);
+
+    expect(registered.registerHttpRoute).toEqual([
+      expect.objectContaining({ path: ${JSON.stringify(webPath(project))}, match: "prefix", auth: "gateway" }),
+    ]);
+    expect(registered.registerControlUiDescriptor).toEqual([
+      expect.objectContaining({ surface: "tab", path: ${JSON.stringify(`${webPath(project)}/`)} }),
+    ]);
+  });
+`;
+  const entryImport =
+    declared.length || servesWeb(project, operations)
+      ? `import type { OpenClawPluginApi } from ${JSON.stringify(OPENCLAW_SCAFFOLD.entryModule)};\n`
+      : "";
   return `${HEADER}import { getToolPluginMetadata } from ${JSON.stringify(OPENCLAW_SCAFFOLD.sdkModule)};
 ${entryImport}import { describe, expect, it } from "vitest";
 import entry from "./index.js";
@@ -469,7 +567,7 @@ describe(${JSON.stringify(project.identity.name)}, () => {
   it("declares tool metadata", () => {
     expect(getToolPluginMetadata(entry)?.tools.map((tool) => tool.name)).toEqual(${JSON.stringify(operations.map((operation) => operation.name))});
   });
-${registrationTest}});
+${registrationTest}${web}});
 `;
 }
 

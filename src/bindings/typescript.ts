@@ -4,6 +4,7 @@
  * author's `src/ops.ts` is scaffolded once and then owned.
  */
 import type { PlannedFile, Project } from "../model.js";
+import { secretsOf } from "../project/gate.js";
 import {
   configProperties,
   dataDirEnvName,
@@ -13,6 +14,7 @@ import {
   liveExample,
   npmName,
 } from "../surfaces/shared.js";
+import { WEB_DIR } from "../surfaces/web.js";
 
 export const KERNEL_DIR = "src/toolfactory";
 export const OPS_PATH = "src/ops.ts";
@@ -182,24 +184,197 @@ describe.skipIf(!live)(${JSON.stringify(`${project.identity.name} against the re
   ];
 }
 
+/**
+ * What the kernel adds when the `web` surface is selected: the static half of the router (the
+ * built page under `web/dist`), the OS opener `--open` shells out to, and — only when the
+ * project declares a secret — the `/env` route the page's Secrets panel reads and writes.
+ * `.env` is the developer's own file, resolved from the working directory: names out, one
+ * name in, never a value in a log or a response.
+ */
+function webRoutes(secrets: string[]): string {
+  const env = !secrets.length
+    ? ""
+    : `
+/** The names this project declares; \`/env\` writes no other. */
+const SECRETS = ${JSON.stringify(secrets)};
+const ENV_LINE = (name: string) => new RegExp(\`^\\\\s*(export\\\\s+)?\${name}\\\\s*=\`);
+
+function envPath(): string {
+  return join(process.cwd(), ".env");
+}
+
+/** Which declared names \`.env\` already carries a value for. Names only — never a value. */
+function envPresent(): string[] {
+  let text = "";
+  try {
+    text = readFileSync(envPath(), "utf8");
+  } catch {
+    return [];
+  }
+  return SECRETS.filter((name) =>
+    text.split("\\n").some((line) => ENV_LINE(name).test(line) && line.split("=").slice(1).join("=").trim()),
+  );
+}
+
+/** Rewrite one line of \`.env\`, keeping every other line, and keep the file private. */
+function envWrite(name: string, value: string): void {
+  let lines: string[] = [];
+  try {
+    lines = readFileSync(envPath(), "utf8").replace(/\\n$/, "").split("\\n");
+  } catch {
+    lines = [];
+  }
+  const index = lines.findIndex((line) => ENV_LINE(name).test(line));
+  if (index === -1) lines.push(\`\${name}=\${value}\`);
+  else lines[index] = \`\${name}=\${value}\`;
+  writeFileSync(envPath(), \`\${lines.join("\\n")}\\n\`, { mode: 0o600 });
+  chmodSync(envPath(), 0o600);
+  // The name, never the value: this log is the one place a secret could leak by accident.
+  console.error(\`.env: set \${name}\`);
+}
+
+/** \`GET\` the names present, \`POST {name, value}\` one of them. Writing needs the bearer token. */
+function serveEnv(request: IncomingMessage, response: ServerResponse, token: string | undefined): void {
+  const json = (status: number, body: unknown): void => {
+    response.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify(body));
+  };
+  // Names, never values: what this project declares and which of them \`.env\` already carries.
+  if (request.method === "GET") return json(200, { declared: SECRETS, present: envPresent() });
+  if (request.method !== "POST") return json(405, { error: "GET or POST" });
+  // Even on loopback: without a token in force there is no client to trust with a write.
+  if (!token) return json(403, { error: "unpaired: restart with \`mcp --http --open\`" });
+  let body = "";
+  request.on("data", (chunk: Buffer) => {
+    body += chunk;
+  });
+  request.on("end", () => {
+    let name = "";
+    let value = "";
+    try {
+      ({ name, value } = JSON.parse(body) as { name: string; value: string });
+    } catch {
+      return json(400, { error: "expected {name, value}" });
+    }
+    if (!SECRETS.includes(name)) return json(400, { error: "not a declared secret" });
+    if (typeof value !== "string" || !value) return json(400, { error: "empty value" });
+    envWrite(name, value);
+    json(200, { declared: SECRETS, present: envPresent() });
+  });
+}
+`;
+  return `
+/** The built page: \`npm -C ${WEB_DIR} run build\` writes it beside the kernel, and the package ships it. */
+const WEB_DIST = fileURLToPath(new URL("../../${WEB_DIR}/dist/", import.meta.url));
+const TYPES: Record<string, string> = {
+  ".html": "text/html",
+  ".js": "text/javascript",
+  ".css": "text/css",
+  ".json": "application/json",
+  ".svg": "image/svg+xml",
+  ".woff2": "font/woff2",
+};
+
+/** One file under \`web/dist\`; a pathname with no extension is a client route, so the page answers. */
+function serveWeb(pathname: string, response: ServerResponse): void {
+  const relative = normalize(pathname.replace(/^\\//, "")).replace(/^(\\.\\.[/\\\\])+/, "");
+  const file = join(WEB_DIST, extname(relative) ? relative : "index.html");
+  readFile(file).then(
+    (body) => {
+      response.writeHead(200, { "content-type": TYPES[extname(file)] ?? "application/octet-stream" });
+      response.end(body);
+    },
+    () => {
+      response.writeHead(404, { "content-type": "text/plain" });
+      response.end(\`no \${file}; run \\\`npm -C ${WEB_DIR} run build\\\`\\n\`);
+    },
+  );
+}
+
+/**
+ * Best effort, by platform, because neither Node nor any single CLI opens a URL everywhere:
+ * a container, a CI runner and an SSH session have no opener and that must not fail the command.
+ */
+function openBrowser(url: string): void {
+  const [command, args] =
+    process.platform === "darwin"
+      ? ["open", [url]]
+      : process.platform === "win32"
+        ? ["cmd", ["/c", "start", "", url]]
+        : ["xdg-open", [url]];
+  execFile(command, args as string[], () => {});
+}
+${env}
+export interface HandlerOptions {
+  /** Pathname the MCP endpoint answers on. */
+  path?: string;
+  /** Pathname the page is mounted under, when a host owns the listener (OpenClaw's plugin route). */
+  prefix?: string;
+  /** Bearer token the API routes require, when one is in force. */
+  token?: string;
+  /** Host-header guard, for a listener of our own on loopback. */
+  hostGuard?: (request: IncomingMessage, response: ServerResponse) => boolean;
+  /**
+   * Answer \`/env\`; off where the working directory is not the developer's own checkout (the
+   * OpenClaw route). Always declared, so a host mounting this handler needs no build-time
+   * knowledge of whether the project happens to declare a secret.
+   */
+  env?: boolean;
+}
+`;
+}
+
 function mcpTemplate(project: Project): string {
   const tokenEnv = `${envName(project.identity.name)}_MCP_TOKEN`;
+  const web = has(project, "web");
+  const secrets = web ? secretsOf(project) : [];
   return `${HEADER}/**
  * The kernel MCP server: stdio by default; \`--http [port]\` (or \`serveHttp()\`) serves the
  * same operations over MCP streamable HTTP instead, stateless per MCP 2026-07-28 (a fresh
- * server instance per request, from \`createMcpHandler\`).
+ * server instance per request, from \`createMcpHandler\`).${
+   web
+     ? `
+ *
+ * The same listener serves the built web app: \`/mcp\` is the endpoint, everything else is a
+ * file under \`web/dist\`, so the page POSTs same-origin and \`--open\` is the whole launch.
+ * \`handler()\` is that router, exported so a host with its own listener (the OpenClaw plugin's
+ * gateway route) can mount it instead of binding a port.`
+     : ""
+}
  */
 import { localhostHostValidation, toNodeHandler } from "@modelcontextprotocol/node";
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
-import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
+import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";${
+    web
+      ? `
+import { execFile } from "node:child_process";`
+      : ""
+  }
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { createServer as createHttpServer } from "node:http";
-import { dirname, join } from "node:path";
+import { ${secrets.length ? "chmodSync, " : ""}mkdirSync, readFileSync, writeFileSync } from "node:fs";${
+    web
+      ? `
+import { readFile } from "node:fs/promises";`
+      : ""
+  }
+import { createServer as createHttpServer${web ? ", type IncomingMessage, type ServerResponse" : ""} } from "node:http";
+import { dirname, join${web ? ", extname, normalize" : ""} } from "node:path";${
+    web
+      ? `
+import { fileURLToPath } from "node:url";`
+      : ""
+  }
 import { z } from "zod";
-import { operations } from "../ops.js";
+import { operations${web ? " as authored" : ""} } from "../ops.js";
 import { context } from "./config.js";
-import { serves } from "./types.js";
+import { serves } from "./types.js";${
+    web
+      ? `
+import { web } from "./web.js";
+
+/** The authored operations plus the generated \`web\` one; \`introspect\` snapshots this list. */
+const operations = [...authored, web];`
+      : ""
+  }
 
 /** toolfactory introspects with every operation visible; a served instance lists only what MCP can run. */
 const introspecting = Boolean(process.env.TOOLFACTORY_INTROSPECT);
@@ -259,12 +434,11 @@ function pairedToken(): string | undefined {
   }
 }
 
-/** \`--pair\`: mint a token, keep it 0600 under the data directory, print \`<url>#<token>\`. */
-function mintToken(url: string): string {
+/** Mint a token and keep it 0600 under the data directory. Never rotates an existing one. */
+function mintToken(): string {
   const token = randomBytes(32).toString("base64url");
   mkdirSync(dirname(tokenPath()), { recursive: true });
   writeFileSync(tokenPath(), \`\${token}\\n\`, { mode: 0o600 });
-  process.stdout.write(\`\${url}#\${token}\\n\`);
   return token;
 }
 
@@ -273,46 +447,105 @@ function authorized(header: string | undefined, token: string): boolean {
   const digest = (value: string) => createHash("sha256").update(value).digest();
   return timingSafeEqual(digest(header?.replace(/^Bearer /, "") ?? ""), digest(token));
 }
-
+${web ? webRoutes(secrets) : ""}
 export interface HttpOptions {
   port?: number;
   host?: string;
   path?: string;
   /** Mint a fresh pairing token, print \`<url>#<token>\`, and require it from every client. */
-  pair?: boolean;
+  pair?: boolean;${
+    web
+      ? `
+  /** Ensure a token, then open the page in the machine's browser. */
+  open?: boolean;`
+      : ""
+  }
 }
-
+${
+  web
+    ? `
+/**
+ * The whole router, so a host that owns the listener mounts the same function: \`path\` answers
+ * MCP, ${secrets.length ? "`<prefix>/env` the Secrets panel, " : ""}everything else is a file under \`web/dist\`. The token guards the
+ * ${secrets.length ? "two API routes" : "endpoint"}, never the page — a browser cannot put a header on its own document request.
+ */
+export function handler(options: HandlerOptions = {}): (request: IncomingMessage, response: ServerResponse) => void {
+  const { path = "/mcp", prefix = "", token, hostGuard${secrets.length ? ", env = true" : ""} } = options;
+  const handle = toNodeHandler(createMcpHandler(createServer));
+  const unauthorized = (response: ServerResponse): void => {
+    response.writeHead(401, { "WWW-Authenticate": "Bearer" }).end();
+  };
+  return (request, response) => {
+    const { pathname } = new URL(request.url ?? "/", "http://localhost");
+    if (hostGuard && !hostGuard(request, response)) return;
+    if (pathname === path) {
+      if (token && !authorized(request.headers.authorization, token)) return unauthorized(response);
+      handle(request, response).catch((error: unknown) => {
+        console.error(error);
+        if (!response.headersSent) response.writeHead(500);
+        response.end();
+      });
+      return;
+    }${
+      secrets.length
+        ? `
+    if (env && pathname === \`\${prefix}/env\`) {
+      if (token && !authorized(request.headers.authorization, token)) return unauthorized(response);
+      serveEnv(request, response, token);
+      return;
+    }`
+        : ""
+    }
+    serveWeb(pathname.slice(prefix.length), response);
+  };
+}
+`
+    : ""
+}
 /** Serve over MCP streamable HTTP instead of stdio. Opt-in; stdio stays the default transport. */
 export async function serveHttp(options: HttpOptions = {}): Promise<void> {
-  const { port = 3000, host = "127.0.0.1", path = "/mcp", pair = false } = options;
-  const handle = toNodeHandler(createMcpHandler(createServer));
+  const { port = 3000, host = "127.0.0.1", path = "/mcp", pair = false${web ? ", open = false" : ""} } = options;
   const loopback = host === "127.0.0.1" || host === "localhost" || host === "::1";
   const hostGuard = loopback ? localhostHostValidation() : undefined;
-  const base = \`http://\${host}:\${port}\`;
-  const token = pair ? mintToken(\`\${base}\${path}\`) : pairedToken();
-  const httpServer = createHttpServer((req, res) => {
-    if (new URL(req.url ?? "/", base).pathname !== path) {
-      res.writeHead(404).end();
+  // \`--open\` needs a token for the page to call back with; an existing one is never rotated,
+  // because the browser extension holds it.
+  const token = pair ? mintToken() : ${web ? "(pairedToken() ?? (open ? mintToken() : undefined))" : "pairedToken()"};
+${
+  web
+    ? "  const httpServer = createHttpServer(handler({ path, token, hostGuard }));"
+    : `  const handle = toNodeHandler(createMcpHandler(createServer));
+  const httpServer = createHttpServer((request, response) => {
+    if (new URL(request.url ?? "/", "http://localhost").pathname !== path) {
+      response.writeHead(404).end();
       return;
     }
-    if (hostGuard && !hostGuard(req, res)) return;
-    if (token && !authorized(req.headers.authorization, token)) {
-      res.writeHead(401, { "WWW-Authenticate": "Bearer" }).end();
+    if (hostGuard && !hostGuard(request, response)) return;
+    if (token && !authorized(request.headers.authorization, token)) {
+      response.writeHead(401, { "WWW-Authenticate": "Bearer" }).end();
       return;
     }
-    handle(req, res).catch((error: unknown) => {
+    handle(request, response).catch((error: unknown) => {
       console.error(error);
-      if (!res.headersSent) res.writeHead(500);
-      res.end();
+      if (!response.headersSent) response.writeHead(500);
+      response.end();
     });
-  });
+  });`
+}
   await new Promise<void>((resolve, reject) => {
     httpServer.once("error", reject);
     httpServer.listen(port, host, resolve);
   });
+  // \`--http 0\` asks the OS for a free port; the URL is only known once it is bound.
+  const base = \`http://\${host}:\${(httpServer.address() as { port: number }).port}\`;
+  if (pair) process.stdout.write(\`\${base}\${path}#\${token}\\n\`);
   console.error(
     \`Serving MCP streamable HTTP on \${base}\${path}\${token ? " (bearer token required)" : ""}\`,
-  );
+  );${
+    web
+      ? `
+  if (open) openBrowser(\`\${base}/#\${token}\`);`
+      : ""
+  }
 }
 
 /** Parses a manually-run \`node mcp.ts [--http [port]]\` invocation; the CLI's \`mcp\` subcommand parses its own. */
@@ -325,8 +558,17 @@ function httpPortArg(argv: string[]): number | undefined {
 
 if (process.argv[1] && /toolfactory[\\\\/]mcp\\.[cm]?[jt]s$/.test(process.argv[1])) {
   const port = httpPortArg(process.argv.slice(2));
-  const pair = process.argv.includes("--pair");
-  (port === undefined && !pair ? serve() : serveHttp({ port: port ?? 3000, pair })).catch((error) => {
+  const pair = process.argv.includes("--pair");${
+    web
+      ? `
+  const open = process.argv.includes("--open");
+  (port === undefined && !pair && !open
+    ? serve()
+    : serveHttp({ port: port ?? 3000, pair, open })
+  ).catch((error) => {`
+      : `
+  (port === undefined && !pair ? serve() : serveHttp({ port: port ?? 3000, pair })).catch((error) => {`
+  }
     console.error(error);
     process.exit(1);
   });
@@ -334,13 +576,77 @@ if (process.argv[1] && /toolfactory[\\\\/]mcp\\.[cm]?[jt]s$/.test(process.argv[1
 `;
 }
 
+/**
+ * The `web` operation, generated with the `web` surface: it reaches every surface at once
+ * (MCP `tools/call`, the skill, the CLI, the page itself) without a socket inside the stdio
+ * server — the kernel's own HTTP listener runs in a detached child, which is also what opens
+ * the browser, so the page appears on the machine running the tool and no host has to open a
+ * URL a tool returns.
+ */
+function webTemplate(): string {
+  return `${HEADER}import { spawn } from "node:child_process";
+import { extname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { z } from "zod";
+import { operation } from "./types.js";
+
+/** The kernel beside this file, in the form that is running: \`.ts\` under tsx, \`.js\` from dist. */
+const KERNEL = fileURLToPath(
+  new URL(\`./mcp\${extname(fileURLToPath(import.meta.url))}\`, import.meta.url),
+);
+const SERVING = /Serving MCP streamable HTTP on (\\S+)/;
+
+export const web = operation({
+  name: "web",
+  description:
+    "Open this tool's web app: serves the operations page and the MCP endpoint on a free local port, opens a browser there, and returns the URL.",
+  input: z.object({}),
+  output: z.object({ url: z.string() }),
+  requires: ["shell", "net"],
+  annotations: { openWorldHint: false },
+  handler: () =>
+    new Promise<{ url: string }>((resolve, reject) => {
+      const child = spawn(process.execPath, [...process.execArgv, KERNEL, "--http", "0", "--open"], {
+        detached: true,
+        stdio: ["ignore", "ignore", "pipe"],
+      });
+      let output = "";
+      child.on("error", reject);
+      child.on("exit", (code) => reject(new Error(\`the kernel exited with \${code}: \${output}\`)));
+      child.stderr.setEncoding("utf8");
+      child.stderr.on("data", (chunk: string) => {
+        output += chunk;
+        const serving = SERVING.exec(output);
+        if (!serving) return;
+        // The child outlives this process; unref both handles so neither keeps it alive, and
+        // leave the pipe open so the kernel's own stderr never writes to a closed one.
+        child.unref();
+        (child.stderr as unknown as { unref: () => void }).unref();
+        // The page, not the endpoint, and without the token the child already handed the browser:
+        // an operation's result travels through an agent, and a token is a credential.
+        resolve({ url: new URL("/", serving[1]).href });
+      });
+    }),
+});
+`;
+}
+
 function cliTemplate(project: Project): string {
+  const web = has(project, "web");
   return `#!/usr/bin/env node
 ${HEADER}import { Command } from "commander";
 import { z } from "zod";
-import { operations } from "../ops.js";
+import { operations${web ? " as authored" : ""} } from "../ops.js";
 import { context } from "./config.js";
-import { serves } from "./types.js";
+import { serves } from "./types.js";${
+    web
+      ? `
+import { web } from "./web.js";
+
+/** The authored operations plus the generated \`web\` one, exactly as the MCP kernel lists them. */
+const operations = [...authored, web];`
+      : ""
+  }
 
 const program = new Command()
   .name(${JSON.stringify(project.identity.name)})
@@ -391,13 +697,18 @@ ${
   .option(
     "--pair",
     "serve over HTTP with a fresh pairing token: prints <url>#<token> and requires it as a bearer token",
-  )
-  .action(async (options: { http?: string | boolean; pair?: boolean }) => {
+  )${
+    web
+      ? `
+  .option("--open", "serve over HTTP and open the web app in this machine's browser")`
+      : ""
+  }
+  .action(async (options: { http?: string | boolean; pair?: boolean${web ? "; open?: boolean" : ""} }) => {
     const { serve, serveHttp } = await import("./mcp.js");
-    if (options.http === undefined && !options.pair) await serve();
+    if (options.http === undefined && !options.pair${web ? " && !options.open" : ""}) await serve();
     else {
       const port = options.http === undefined || options.http === true ? 3000 : Number(options.http);
-      await serveHttp({ port, pair: options.pair });
+      await serveHttp({ port, pair: options.pair${web ? ", open: options.open" : ""} });
     }
   });
 
@@ -438,6 +749,11 @@ export function kernel(project: Project): PlannedFile[] {
     { kind: "file", path: `${KERNEL_DIR}/types.ts`, content: typesTemplate() },
     { kind: "file", path: `${KERNEL_DIR}/config.ts`, content: configTemplate(project) },
     { kind: "file", path: `${KERNEL_DIR}/mcp.ts`, content: mcpTemplate(project) },
+    // The `web` surface's own operation: generated here because it is the kernel's listener it
+    // starts, and appended to `operations` by the two templates above, so `introspect` sees it.
+    ...(has(project, "web")
+      ? [{ kind: "file" as const, path: `${KERNEL_DIR}/web.ts`, content: webTemplate() }]
+      : []),
   ];
 }
 

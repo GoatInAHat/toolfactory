@@ -39,5 +39,25 @@
     "build": {
       "openclawVersion": "2026.8.2"
     }
+  },
+  "pluginInspector": {
+    "version": 1,
+    "plugin": {
+      "id": "toolfactory",
+      "priority": "high",
+      "seams": [
+        "plugin-runtime"
+      ],
+      "sourceRoot": ".",
+      "expect": {
+        "registrations": [
+          "registerHttpRoute",
+          "registerControlUiDescriptor"
+        ],
+        "manifestContracts": [
+          "tools"
+        ]
+      }
+    }
   }
 }

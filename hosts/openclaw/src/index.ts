@@ -5,6 +5,8 @@ import { defineToolPlugin } from "openclaw/plugin-sdk/tool-plugin";
 import { resolveStateDir } from "openclaw/plugin-sdk/state-paths";
 import { Type } from "typebox";
 import { operations } from "toolfactory/dist/ops.js";
+import { handler } from "toolfactory/dist/toolfactory/mcp.js";
+import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 
 /**
  * Where this tool may keep its own state: OpenClaw's state directory, one folder per plugin.
@@ -521,8 +523,55 @@ const entry = defineToolPlugin({
           dataDir: dataDir(),
         }),
     }),
+    tool({
+      name: "web",
+      description: "Open this tool's web app: serves the operations page and the MCP endpoint on a free local port, opens a browser there, and returns the URL.",
+      parameters: Type.Unsafe({
+        "type": "object",
+        "properties": {}
+      }),
+      execute: async (params, config) =>
+        operation("web").handler(params as never, {
+          config: config as Record<string, string | undefined>,
+          dataDir: dataDir(),
+        }),
+    }),
   ],
 });
+
+/**
+ * The web app, as a tab in the Control UI: one prefix route the gateway authenticates, handled
+ * by the core package's own exported router — so `<prefix>/mcp` is answered in-process by the
+ * same operations and everything else is the built page — and one descriptor that makes the
+ * dashboard render it, instead of a URL an operator has to go and find.
+ */
+const WEB_PATH = "/plugins/toolfactory/web";
+
+const registerTools = entry.register;
+entry.register = (api: OpenClawPluginApi) => {
+  registerTools(api);
+  api.registerHttpRoute({
+    path: WEB_PATH,
+    match: "prefix",
+    // A Control UI tab may only point at a gateway-authenticated route, and the operator's
+    // gateway session is the authentication — the page needs no pairing token of its own.
+    auth: "gateway",
+    // `env: false`: the Secrets panel writes the developer's `.env` in their checkout, and
+    // this plugin runs in the gateway's working directory, not theirs.
+    handler: handler({ path: `${WEB_PATH}/mcp`, prefix: WEB_PATH, env: false }),
+  });
+  const descriptor = {
+    id: "toolfactory-web",
+    surface: "tab" as const,
+    label: "Toolfactory",
+    path: `${WEB_PATH}/`,
+  };
+  // `api.session.controls` is the current facade and the top-level registrar its deprecated
+  // alias; the plugin inspector's mock SDK has only the latter, so take whichever is there.
+  const controls = api.session?.controls;
+  if (controls) controls.registerControlUiDescriptor(descriptor);
+  else api.registerControlUiDescriptor(descriptor);
+};
 
 // /tf:entry
 

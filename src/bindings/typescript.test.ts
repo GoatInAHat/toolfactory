@@ -147,6 +147,39 @@ describe("typescript binding", () => {
     expect(cli).toContain("serve, serveHttp");
     expect(cli).toContain("if (options.http === undefined && !options.pair) await serve();");
     expect(cli).toContain('"--pair"');
+    // Without the `web` surface there is no page to serve, open or write secrets for.
+    expect(mcp).not.toContain("WEB_DIST");
+    expect(mcp).not.toContain("SECRETS");
+    expect(paths(kernel(project(["mcp", "cli"])))).not.toContain("src/toolfactory/web.ts");
+  });
+
+  it("serves the page, opens it and takes a secret when the web surface is selected", () => {
+    const target = withCredential(["mcp", "cli", "web"]);
+    const files = [...kernel(target), ...cliFiles(target)];
+    const mcp = text(files, "src/toolfactory/mcp.ts");
+    // One router, exported, so a host with its own listener mounts the same function.
+    expect(mcp).toContain("export function handler(options: HandlerOptions = {})");
+    expect(mcp).toContain('const { path = "/mcp", prefix = "", token, hostGuard, env = true }');
+    expect(mcp).toContain('fileURLToPath(new URL("../../web/dist/", import.meta.url))');
+    expect(mcp).toContain("run \\`npm -C web run build\\`");
+    // The token guards the API routes only — a browser cannot put a header on its own document.
+    expect(mcp).toContain("serveWeb(pathname.slice(prefix.length), response);");
+    expect(mcp).toContain('const SECRETS = ["PASSKEY"];');
+    expect(mcp).toContain("json(200, { declared: SECRETS, present: envPresent() })");
+    expect(mcp).toContain("chmodSync(envPath(), 0o600)");
+    expect(mcp).toContain("console.error(`.env: set ${name}`)");
+    expect(mcp).toContain("openBrowser(`${base}/#${token}`)");
+    expect(mcp).toContain("pairedToken() ?? (open ? mintToken() : undefined)");
+
+    // The `web` operation: a detached child holds the socket, never this process.
+    const web = text(files, "src/toolfactory/web.ts");
+    expect(web).toContain('[...process.execArgv, KERNEL, "--http", "0", "--open"]');
+    expect(web).toContain("detached: true");
+    expect(web).toContain("const SERVING = /Serving MCP streamable HTTP on (\\S+)/;");
+    expect(mcp).toContain("const operations = [...authored, web];");
+    expect(text(files, "src/toolfactory/cli.ts")).toContain(
+      "const operations = [...authored, web];",
+    );
   });
 });
 

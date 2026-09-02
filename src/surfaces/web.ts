@@ -16,17 +16,22 @@
  * into the author's tree, and `validate()` asks it for them.
  */
 import { execArgv } from "node:process";
+import { getBinding } from "../bindings/index.js";
 import { DRIFT_ENTRY } from "../hosts/web.js";
 import type { Operation, Project, Surface } from "../model.js";
 import { includedOperations } from "../report/coverage.js";
-import { has, json, mcpVerdict } from "./shared.js";
+import { envName, has, json, mcpVerdict } from "./shared.js";
 
 export const WEB_DIR = "web";
 
 /** MCP revision whose per-request `_meta` keys the page sends. */
 const MCP_PROTOCOL_VERSION = "2026-07-28";
-/** Where the page POSTs by default: same-origin, proxied to the kernel by vite.config.ts. */
-const ENDPOINT_PATH = "/mcp";
+/**
+ * Where the page POSTs by default, relative to the document: one build then serves under `/`
+ * (the kernel's own `mcp --http`), under a plugin's prefix (the OpenClaw Control UI tab), and
+ * on GitHub Pages, without a rebuild. The dev server proxies the same path to the kernel.
+ */
+const ENDPOINT_PATH = "mcp";
 
 /**
  * Everything the upstream generators wrote, transcribed once; `validate()` proves it current.
@@ -152,7 +157,7 @@ export default defineConfig({
       "lucide-react": "^1.39.0",
       react: "^19.2.8",
       "react-dom": "^19.2.8",
-      shadcn: "^4.19.1",
+      shadcn: "^4.20.1",
       "tailwind-merge": "^3.6.0",
       tailwindcss: "^4.3.3",
       "tw-animate-css": "^1.4.0",
@@ -409,6 +414,28 @@ interface Page {
 /** TypeScript widens ops.json into a union of literal schemas; the page reads it as one shape. */
 const DATA = page as unknown as Page
 
+/**
+ * Same origin as whatever served this document, so one build works under \`/\` (the kernel's
+ * \`mcp --http\`), under a plugin route's prefix, and on GitHub Pages.
+ */
+const DEFAULT_ENDPOINT = new URL(DATA.defaultEndpoint, document.baseURI).href
+
+/**
+ * \`<url>/#<token>\` is what \`mcp --http --open\` opens: read the fragment once, keep it in
+ * memory and strip it from the address bar, then present it on the API calls. Nothing stores it.
+ */
+const TOKEN = (() => {
+  const fragment = window.location.hash.replace(/^#/, "")
+  if (!fragment) return ""
+  window.history.replaceState(null, "", window.location.pathname + window.location.search)
+  return fragment
+})()
+
+/** \`Authorization\` when this page was opened with a token; nothing when it was not. */
+function authorization(): Record<string, string> {
+  return TOKEN ? { Authorization: \`Bearer \${TOKEN}\` } : {}
+}
+
 interface Outcome {
   cli: string | null
   request: unknown
@@ -452,6 +479,7 @@ async function call(
       "MCP-Protocol-Version": DATA.mcpProtocolVersion,
       "Mcp-Method": request.method,
       "Mcp-Name": request.params.name,
+      ...authorization(),
     },
     body: JSON.stringify(request),
   })
@@ -569,20 +597,108 @@ function OperationCard({ operation, endpoint }: { operation: Operation; endpoint
   )
 }
 
+/**
+ * The developer's own \`.env\`, edited from the page the kernel is already serving: the kernel
+ * answers \`/env\` with the names it declares and which of them have a value, and takes one
+ * \`{name, value}\` back. It is the escape hatch for an author working inside an agent harness,
+ * where there is no terminal to type a credential into — never the tool's runtime config, which
+ * a host injects into the environment.
+ *
+ * The panel is absent wherever \`/env\` is not answered: a static host (GitHub Pages), a kernel
+ * whose project declares no secret, or a build served by anything but the kernel.
+ */
+function SecretsPanel() {
+  const [env, setEnv] = useState<{ declared: string[]; present: string[] } | null>(null)
+  const [values, setValues] = useState<Record<string, string>>({})
+  const [status, setStatus] = useState("")
+  const url = new URL("env", document.baseURI).href
+  const load = () =>
+    fetch(url, { headers: authorization() })
+      .then((response) => (response.ok ? response.json() : Promise.reject(response.status)))
+      .then((body: { declared: string[]; present: string[] }) => setEnv(body))
+      .catch(() => setEnv(null))
+  // Once, on mount: the kernel is the only thing that can answer, and it does not change.
+  useEffect(() => {
+    load()
+  }, [])
+  if (!env || env.declared.length === 0) return null
+
+  async function save(name: string) {
+    setStatus("")
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authorization() },
+      body: JSON.stringify({ name, value: values[name] ?? "" }),
+    })
+    const body = (await response.json()) as { present?: string[]; error?: string }
+    if (!response.ok) return setStatus(body.error ?? \`HTTP \${response.status}\`)
+    setValues((current) => ({ ...current, [name]: "" }))
+    setStatus(\`\${name} written to .env\`)
+    await load()
+  }
+
+  return (
+    <Card data-slot="secrets">
+      <CardHeader>
+        <CardTitle>Secrets</CardTitle>
+        <CardDescription>
+          Written to this checkout's gitignored <code>.env</code>, which the live tests and
+          <code> toolfactory bootstrap-repo</code> read. Run <code>toolfactory secrets check</code>{" "}
+          to ask each registry whether it accepts them.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {env.declared.map((name) => (
+          <Field key={name} orientation="horizontal">
+            <FieldLabel htmlFor={\`secret-\${name}\`} className="w-64 shrink-0">
+              {name}{" "}
+              <Badge variant={env.present.includes(name) ? "secondary" : "outline"}>
+                {env.present.includes(name) ? "set" : "missing"}
+              </Badge>
+            </FieldLabel>
+            <Input
+              id={\`secret-\${name}\`}
+              type="password"
+              autoComplete="off"
+              placeholder={env.present.includes(name) ? "replace" : "paste the value"}
+              value={values[name] ?? ""}
+              onChange={(event) => setValues({ ...values, [name]: event.target.value })}
+            />
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={!values[name]}
+              onClick={() => save(name)}
+            >
+              Save
+            </Button>
+          </Field>
+        ))}
+        {status ? (
+          <p data-slot="secrets-status" className="text-sm text-muted-foreground">
+            {status}
+          </p>
+        ) : null}
+      </CardContent>
+    </Card>
+  )
+}
+
 /** The generated operations page: one form per operation over \`ops.json\`, wired to \`/mcp\`. */
 export function OperationsPage() {
-  const [endpoint, setEndpoint] = useState(DATA.defaultEndpoint)
+  const [endpoint, setEndpoint] = useState(DEFAULT_ENDPOINT)
   const [active, setActive] = useState(DATA.operations[0]?.name ?? "")
   const activeOperation = DATA.operations.find((operation) => operation.name === active)
 
   return (
     <div className="flex flex-col gap-6">
+      <SecretsPanel />
       <Field>
         <FieldLabel htmlFor="endpoint">MCP endpoint</FieldLabel>
         <Input
           id="endpoint"
           value={endpoint}
-          placeholder={DATA.defaultEndpoint}
+          placeholder={DEFAULT_ENDPOINT}
           onChange={(event) => setEndpoint(event.target.value)}
         />
       </Field>
@@ -887,48 +1003,49 @@ export function SchemaFields({
 }
 `;
 
-const SMOKE_MJS = `// Generated by toolfactory. Do not edit; run \`toolfactory build\` to regenerate.
 /**
- * Playwright smoke for the generated page: the first operation's form renders its fields,
- * submitting previews the call, and an endpoint that is not there shows an error instead of
- * breaking the page. Run \`npm --prefix web run build\` first; this serves \`web/dist\`.
+ * Playwright smoke for the generated page, driven the way a user runs it: `mcp --http` serves
+ * `web/dist` beside the MCP endpoint on one port, so the page is loaded from the very origin it
+ * calls, with the token in the fragment exactly as `--open` hands it over. The first read-only
+ * operation is then submitted for real and its result has to come back; an operation that is
+ * not read-only is never run, because this is the author's own project.
+ *
+ * Run `npm --prefix web run build` first; the kernel serves what it wrote.
  */
+function smokeMjs(project: Project): string {
+  const { command, args } = getBinding(project.tool.binding).kernelCommand(project);
+  return `// Generated by toolfactory. Do not edit; run \`toolfactory build\` to regenerate.
+import { spawn } from "node:child_process"
 import { readFile } from "node:fs/promises"
-import { createServer } from "node:http"
-import { extname, join, normalize } from "node:path"
-import { fileURLToPath } from "node:url"
 import { chromium } from "playwright"
 
-const dist = fileURLToPath(new URL("./dist/", import.meta.url))
 const page = JSON.parse(await readFile(new URL("./src/ops.json", import.meta.url), "utf8"))
-const TYPES = {
-  ".html": "text/html",
-  ".js": "text/javascript",
-  ".css": "text/css",
-  ".json": "application/json",
-  ".svg": "image/svg+xml",
-  ".woff2": "font/woff2",
-}
+const KERNEL = ${JSON.stringify([command, ...args])}
+// A token of this run's own, so the smoke never depends on whether the author has paired, and
+// the fragment-to-bearer path the page uses is what gets exercised.
+const TOKEN = \`smoke-\${Math.random().toString(36).slice(2)}\`
 
-const server = createServer(async (request, response) => {
-  const path = new URL(request.url, "http://localhost").pathname
-  const file = join(dist, normalize(path === "/" ? "index.html" : path).replace(/^(\\.\\.[/\\\\])+/, ""))
-  try {
-    const body = await readFile(file)
-    response.writeHead(200, { "content-type": TYPES[extname(file)] ?? "application/octet-stream" })
-    response.end(body)
-  } catch {
-    // Everything outside dist — including the /mcp endpoint — is deliberately unreachable here.
-    response.writeHead(404, { "content-type": "text/plain" }).end("no endpoint")
-  }
+const kernel = spawn(KERNEL[0], [...KERNEL.slice(1), "--http", "0"], {
+  stdio: ["ignore", "ignore", "pipe"],
+  env: { ...process.env, ${JSON.stringify(`${envName(project.identity.name)}_MCP_TOKEN`)}: TOKEN },
 })
-await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve))
-const origin = \`http://127.0.0.1:\${server.address().port}\`
+const origin = await new Promise((resolve, reject) => {
+  let output = ""
+  kernel.stderr.setEncoding("utf8")
+  kernel.stderr.on("data", (chunk) => {
+    output += chunk
+    const serving = /Serving MCP streamable HTTP on (\\S+)/.exec(output)
+    if (serving) resolve(new URL("/", serving[1]).href)
+  })
+  kernel.on("exit", (code) => reject(new Error(\`the kernel exited with \${code}: \${output}\`)))
+})
+console.log(\`PASS the kernel serves \${origin}\`)
 
-const operation = page.operations[0]
+// Read-only, because clicking Run here calls the real operation against the real project.
+const operation = page.operations.find((candidate) => candidate.annotations?.readOnlyHint)
 if (!operation) {
-  console.log("PASS no operations reach this surface; nothing to smoke")
-  server.close()
+  console.log("PASS no read-only operation to round-trip; nothing to smoke")
+  kernel.kill()
   process.exit(0)
 }
 
@@ -937,7 +1054,7 @@ try {
   const tab = await browser.newPage()
   const failures = []
   tab.on("pageerror", (error) => failures.push(error.message))
-  await tab.goto(origin)
+  await tab.goto(\`\${origin}#\${TOKEN}\`)
 
   await tab.getByRole("button", { name: operation.name, exact: true }).click()
   const expected = Object.keys(operation.inputSchema.properties ?? {})
@@ -946,8 +1063,8 @@ try {
   }
   console.log(\`PASS \${operation.name} renders \${expected.length} field(s): \${expected.join(", ")}\`)
 
-  // Fill the first plain-string property so the previews carry a real argument.
-  const filled = expected.find((name) => {
+  // Only a required plain string: anything with a default is already the value that works.
+  const filled = (operation.inputSchema.required ?? []).find((name) => {
     const property = operation.inputSchema.properties[name]
     return property.type === "string" && !property.enum
   })
@@ -965,18 +1082,24 @@ try {
     console.log(\`PASS cli preview: \${text}\`)
   }
 
-  await tab.getByRole("tab", { name: "Error" }).click()
-  const error = tab.locator('pre[data-failed="true"]')
-  await error.waitFor({ state: "visible" })
-  console.log(\`PASS unreachable endpoint: \${(await error.textContent()).trim()}\`)
+  // The round trip: same origin, bearer from the fragment, a real tools/call answered by the
+  // kernel that served this page.
+  await tab.getByRole("tab", { name: "Result" }).click()
+  const result = tab.locator('pre[data-slot="result"]')
+  await result.waitFor({ state: "visible" })
+  if ((await result.getAttribute("data-failed")) === "true") {
+    throw new Error(\`\${operation.name} failed: \${(await result.textContent()).trim()}\`)
+  }
+  console.log(\`PASS \${operation.name} round-tripped: \${(await result.textContent()).trim().slice(0, 200)}\`)
 
   if (failures.length) throw new Error(\`page raised: \${failures.join("; ")}\`)
   console.log("PASS no uncaught page errors")
 } finally {
   await browser.close()
-  server.close()
+  kernel.kill()
 }
 `;
+}
 
 const VITE_CONFIG_TS = `// Generated by toolfactory. Do not edit; run \`toolfactory build\` to regenerate.
 import path from "path"
@@ -990,9 +1113,11 @@ const mcp = new URL(process.env.VITE_MCP_URL ?? "http://localhost:3000/mcp")
 
 // https://vite.dev/config/
 export default defineConfig({
-  // A GitHub Pages project page is not served from the domain root; the release workflow sets
-  // PAGES_BASE=/<repo>/ for that build only, so \`npm run dev\` and every other build stay at "/".
-  base: process.env.PAGES_BASE ?? "/",
+  // Relative, so the one build is served the same wherever it is mounted: at "/" by
+  // \`mcp --http\`, under a plugin route's prefix in the OpenClaw Control UI, and under
+  // /<repo>/ on GitHub Pages. PAGES_BASE stays an override for a deployment that needs an
+  // absolute one; the dev server is always "/".
+  base: process.env.PAGES_BASE ?? "./",
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
@@ -1078,6 +1203,9 @@ function opsJson(project: Project, operations: Operation[]): string {
       name: operation.name,
       description: operation.description,
       inputSchema: operation.inputSchema,
+      // The tool contract's own hints, as MCP carries them; `smoke.mjs` only ever runs a
+      // `readOnlyHint` operation, because it runs it against the author's real project.
+      annotations: operation.annotations,
     })),
     excluded: project.operations
       .filter((operation) => !included.has(operation.name))
@@ -1106,7 +1234,7 @@ export const surface: Surface = {
         format: "json",
         patch: packageJsonPatch(project),
       },
-      file("smoke.mjs", SMOKE_MJS),
+      file("smoke.mjs", smokeMjs(project)),
       {
         kind: "region",
         path: `${WEB_DIR}/src/App.tsx`,

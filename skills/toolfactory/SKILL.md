@@ -166,4 +166,10 @@ Arguments: `root`, `surface`.
 
 `toolfactory validate --json '<arguments>'` prints a JSON result. MCP tool `validate` on server `toolfactory` returns the same result as `structuredContent`.
 
+### web
+
+Open this tool's web app: serves the operations page and the MCP endpoint on a free local port, opens a browser there, and returns the URL.
+
+`toolfactory web --json '<arguments>'` prints a JSON result. MCP tool `web` on server `toolfactory` returns the same result as `structuredContent`.
+
 <!-- /tf:operations -->

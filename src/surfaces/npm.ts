@@ -7,6 +7,7 @@ import { githubSlug } from "../hosts/github.js";
 import type { Surface } from "../model.js";
 import { registryName } from "./mcp-registry.js";
 import { compact, has, npmName } from "./shared.js";
+import { WEB_DIR } from "./web.js";
 
 /**
  * npm's object form. A bare URL string is only valid as one of npm's shorthands, so `publint`
@@ -42,7 +43,16 @@ export const surface: Surface = {
         has(project, "cli") || has(project, "mcp")
           ? { [identity.name]: "./dist/toolfactory/cli.js" }
           : undefined,
-      files: ["dist", "src", "schemas", "README.md", "LICENSE"],
+      // `web/dist` only with the `web` surface: the kernel serves the built page from inside
+      // the installed package, so `npx <tool> mcp --http --open` works without a checkout.
+      files: [
+        "dist",
+        "src",
+        "schemas",
+        ...(has(project, "web") ? [`${WEB_DIR}/dist`] : []),
+        "README.md",
+        "LICENSE",
+      ],
       mcpName: has(project, "mcp-registry") ? registryName(project) : undefined,
     });
     return [{ kind: "merge", path: "package.json", format: "json", patch, owned: ["bin"] }];

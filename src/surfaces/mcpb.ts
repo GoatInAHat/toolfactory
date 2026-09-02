@@ -36,7 +36,12 @@ export const MANIFEST_VERSION = "0.2";
  * The kernel's built `mcp` entry inside the bundle root — the same file the `mcp-registry`
  * surface's Dockerfile runs, because both start from the published package's `dist/`.
  */
-export const ENTRY_POINT = `${KERNEL_DIR.replace(/^src\//, "dist/")}/mcp.js`;
+function entryPoint(): string {
+  // A function, not a module-level constant: `mcpb` sits in an import cycle with the
+  // TypeScript binding, and a `const` derived from another module's `const` at evaluation
+  // time is only defined for one of the two possible orders.
+  return `${KERNEL_DIR.replace(/^src\//, "dist/")}/mcp.js`;
+}
 
 /**
  * `compatibility.runtimes.node`: the kernel's own floor, mirroring the TypeScript scaffold's
@@ -91,12 +96,12 @@ export const surface: Surface = {
       keywords: identity.keywords,
       server: {
         type: "node",
-        entry_point: ENTRY_POINT,
+        entry_point: entryPoint(),
         // `${__dirname}` is the installed bundle's own directory: an install is an unzip
         // somewhere else, so nothing in the launch may be repository-relative.
         mcp_config: compact({
           command: "node",
-          args: [`\${__dirname}/${ENTRY_POINT}`],
+          args: [`\${__dirname}/${entryPoint()}`],
           env: Object.keys(env).length ? env : undefined,
         }),
       },

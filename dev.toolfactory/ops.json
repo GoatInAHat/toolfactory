@@ -1173,6 +1173,39 @@
           "requires": []
         }
       }
+    },
+    {
+      "name": "web",
+      "description": "Open this tool's web app: serves the operations page and the MCP endpoint on a free local port, opens a browser there, and returns the URL.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "openWorldHint": false
+      },
+      "_meta": {
+        "dev.toolfactory": {
+          "requires": [
+            "shell",
+            "net"
+          ]
+        }
+      }
     }
   ]
 }

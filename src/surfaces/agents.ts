@@ -28,7 +28,7 @@ import {
 } from "./dsh.js";
 import { pluginDir as hermesPluginDir } from "./hermes-native.js";
 import { INSPECTOR_CONFIG_PATH } from "./kernel.js";
-import { HOST_DIR as OPENCLAW_HOST_DIR } from "./openclaw-native.js";
+import { displayName, HOST_DIR as OPENCLAW_HOST_DIR } from "./openclaw-native.js";
 import { envName, has, liveCredentials, TOOLFACTORY_DIR } from "./shared.js";
 import { WEB_DIR } from "./web.js";
 
@@ -375,6 +375,44 @@ function worktreesSection(): string[] {
 }
 
 /** The content of the generated region — everything between the markers, not the markers themselves. */
+/**
+ * Where the web app comes up, per surface. One page, one listener: the kernel serves `web/dist`
+ * beside its own `/mcp`, so every row below is a way of starting or reaching that one process —
+ * never a second server, and never a build step at launch time.
+ */
+function launchSection(project: Project): string[] {
+  if (!has(project, "web")) return [];
+  const { command, args } = getBinding(project.tool.binding).cliCommand(project);
+  const cli = `${[command, ...args].join(" ")} mcp --http --open`;
+  const lines = [
+    "## Launch the web app",
+    "",
+    `- **This checkout**: \`${cli}\` — serves the operations page and \`/mcp\` on one port, opens it,`,
+    "  and (once the project declares a secret) carries the Secrets panel that writes `.env`.",
+    "- **From an agent**: call the `web` operation — it starts the same listener detached, opens the",
+    "  browser on this machine, and returns the URL. Over MCP, a skill, the CLI, or the page itself.",
+  ];
+  if (has(project, "openclaw-native") && project.tool.binding === "typescript") {
+    lines.push(
+      `- **OpenClaw**: a **${displayName(project.identity.name)}** tab in the Control UI once the plugin is enabled — the`,
+      `  plugin serves the same page at \`/plugins/${project.identity.name}/web\` through the gateway, so there is`,
+      "  nothing to start.",
+    );
+  }
+  if (has(project, "browser-extension")) {
+    lines.push(
+      "- **Browser extension**: click the toolbar icon, then **Open full page**; the options page is the",
+      "  same tree, paired to a kernel over the relay.",
+    );
+  }
+  lines.push(
+    "- **Hermes, DSH, Gemini CLI, Claude Code**: no native surface for a page — run the line above, or",
+    "  ask the agent to call `web`.",
+    "",
+  );
+  return lines;
+}
+
 export function agentsContent(project: Project): string {
   const lines = [
     "",
@@ -382,6 +420,7 @@ export function agentsContent(project: Project): string {
     ...layoutSection(project),
     ...boundarySection(),
     ...agentConfigSection(project),
+    ...launchSection(project),
     ...installSection(project),
     ...listingSection(project),
     ...reloadSection(project),

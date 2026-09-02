@@ -3,10 +3,11 @@
  * the console script for the CLI, and the MCP Registry ownership marker, which for PyPI is
  * an `mcp-name:` line in the README the registry reads back off the published project page.
  */
-import { cliEntryPoint, projectTable } from "../bindings/python.js";
+import { cliEntryPoint, projectTable, pythonPackage } from "../bindings/python.js";
 import type { Surface } from "../model.js";
 import { registryName } from "./mcp-registry.js";
 import { compact, has } from "./shared.js";
+import { WEB_DIR } from "./web.js";
 
 export const README_PATH = "README.md";
 export const MCP_NAME_BEGIN = "<!-- tf:mcp-name -->";
@@ -28,6 +29,25 @@ export const surface: Surface = {
           ? { [project.identity.name]: cliEntryPoint(project) }
           : undefined,
       }),
+      // The kernel serves the built page from inside its own package, so the wheel has to
+      // carry it: `packages` only copies the package tree, `force-include` maps anything else.
+      ...(has(project, "web")
+        ? {
+            tool: {
+              hatch: {
+                build: {
+                  targets: {
+                    wheel: {
+                      "force-include": {
+                        [`${WEB_DIR}/dist`]: `${pythonPackage(project)}/${WEB_DIR}`,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          }
+        : {}),
     };
     const files = [
       {

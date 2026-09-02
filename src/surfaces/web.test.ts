@@ -1,8 +1,16 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { kernel, scaffold } from "../bindings/typescript.js";
 import { run } from "../commands.js";
 import { DRIFT_ENTRY } from "../hosts/web.js";
 import type { Operation, Project } from "../model.js";
@@ -19,6 +27,7 @@ const echo: Operation = {
     properties: { text: { type: "string", description: "Text to echo back" } },
     required: ["text"],
   },
+  annotations: { readOnlyHint: true },
   requires: [],
 };
 const shoot: Operation = {
@@ -148,11 +157,18 @@ describe("web", () => {
     const data = opsJson();
     expect(data.tool).toEqual({ name: "hello", version: "0.1.0", description: "Say hello" });
     expect(data.mcpProtocolVersion).toBe("2026-07-28");
-    expect(data.defaultEndpoint).toBe("/mcp");
+    // Relative to the document: one build serves under `/`, under a plugin prefix, and on Pages.
+    expect(data.defaultEndpoint).toBe("mcp");
 
-    const operations = data.operations as { name: string; inputSchema: unknown }[];
+    const operations = data.operations as {
+      name: string;
+      inputSchema: unknown;
+      annotations?: unknown;
+    }[];
     expect(operations.map((operation) => operation.name)).toEqual(["echo"]);
     expect(operations[0]?.inputSchema).toEqual(echo.inputSchema);
+    // `smoke.mjs` runs the first read-only operation for real, so the hints have to travel.
+    expect(operations[0]?.annotations).toEqual({ readOnlyHint: true });
     expect(data.excluded).toEqual([{ name: "shoot", reason: "excluded:mcp-no-host-capabilities" }]);
     expect(surface.verdict?.(shoot, project())).toEqual({
       kind: "excluded",
@@ -168,9 +184,29 @@ describe("web", () => {
     expect(file.output).toBe(true);
   });
 
-  it('vite.config.ts reads base from PAGES_BASE so a GitHub Pages project page (served from /<repo>/) doesn\'t break `npm run dev` at "/"', () => {
+  it("the page and the smoke both talk to the kernel that served them: relative endpoint, bearer from the fragment, one listener", () => {
+    const files = planned();
+    const app = files.get(`${WEB_DIR}/src/App.tsx`) ?? "";
+    expect(app).toContain("new URL(DATA.defaultEndpoint, document.baseURI).href");
+    expect(app).toContain("window.location.hash");
+    expect(app).toContain("Authorization: `Bearer ${TOKEN}`");
+    // The Secrets panel is the developer's `.env`, and it is the kernel's `/env` that answers.
+    expect(app).toContain('new URL("env", document.baseURI).href');
+    expect(app).toContain("toolfactory secrets check");
+    expect(app).toContain('type="password"');
+
+    // The smoke drives the real kernel over --http instead of a static server of its own.
+    const smoke = files.get(`${WEB_DIR}/smoke.mjs`) ?? "";
+    expect(smoke).toContain('const KERNEL = ["node","--import","tsx","src/toolfactory/mcp.ts"]');
+    expect(smoke).toContain('"--http", "0"');
+    expect(smoke).toContain("HELLO_MCP_TOKEN");
+    expect(smoke).toContain("candidate.annotations?.readOnlyHint");
+    expect(smoke).not.toContain("createServer");
+  });
+
+  it("builds with a relative base, so one build is served the same at /, under a plugin prefix and on Pages", () => {
     const content = planned().get(`${WEB_DIR}/vite.config.ts`) ?? "";
-    expect(content).toContain('base: process.env.PAGES_BASE ?? "/"');
+    expect(content).toContain('base: process.env.PAGES_BASE ?? "./"');
   });
 
   it("previews the CLI only when the cli surface is also selected", () => {
@@ -239,7 +275,14 @@ describe.skipIf(!browserAvailable())("validated the way an author runs it", () =
         })),
       }),
     );
-    writeFileSync(join(root, "package.json"), json(fixture.identity));
+    // The smoke drives the real kernel, so the fixture is a real project: the binding's kernel
+    // and scaffold, and this checkout's `node_modules` (the SDK, zod and tsx the kernel imports).
+    for (const file of [...kernel(fixture), ...scaffold(fixture)]) {
+      if (file.kind !== "file") continue;
+      mkdirSync(dirname(join(root, file.path)), { recursive: true });
+      writeFileSync(join(root, file.path), file.content);
+    }
+    symlinkSync(join(process.cwd(), "node_modules"), join(root, "node_modules"));
 
     for (const command of surface.validate?.(fixture) ?? []) {
       // Vitest runs this file from source, so the drift entry is still TypeScript: give node
@@ -250,7 +293,11 @@ describe.skipIf(!browserAvailable())("validated the way an author runs it", () =
           : command,
       );
       expect(outcome.ok, `${outcome.label}: ${outcome.output}`).toBe(true);
-      if (outcome.label.includes("smoke")) expect(outcome.output).toContain("PASS cli preview");
+      if (outcome.label.includes("smoke")) {
+        expect(outcome.output).toContain("PASS cli preview");
+        // The whole point of driving the kernel: the page's own call came back from it.
+        expect(outcome.output).toContain('PASS echo round-tripped: {\n  "text": "smoke"\n}');
+      }
     }
   }, 900_000);
 });

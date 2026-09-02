@@ -24,6 +24,7 @@ every per-browser manifest difference — MV2 against MV3, `background.scripts` 
 | `unadopt` | native | native | native |
 | `unpublish` | native | native | native |
 | `validate` | native | native | native |
+| `web` | native | native | native |
 
 ## What the table cannot tell you
 

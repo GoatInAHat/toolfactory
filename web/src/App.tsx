@@ -44,6 +44,28 @@ interface Page {
 /** TypeScript widens ops.json into a union of literal schemas; the page reads it as one shape. */
 const DATA = page as unknown as Page
 
+/**
+ * Same origin as whatever served this document, so one build works under `/` (the kernel's
+ * `mcp --http`), under a plugin route's prefix, and on GitHub Pages.
+ */
+const DEFAULT_ENDPOINT = new URL(DATA.defaultEndpoint, document.baseURI).href
+
+/**
+ * `<url>/#<token>` is what `mcp --http --open` opens: read the fragment once, keep it in
+ * memory and strip it from the address bar, then present it on the API calls. Nothing stores it.
+ */
+const TOKEN = (() => {
+  const fragment = window.location.hash.replace(/^#/, "")
+  if (!fragment) return ""
+  window.history.replaceState(null, "", window.location.pathname + window.location.search)
+  return fragment
+})()
+
+/** `Authorization` when this page was opened with a token; nothing when it was not. */
+function authorization(): Record<string, string> {
+  return TOKEN ? { Authorization: `Bearer ${TOKEN}` } : {}
+}
+
 interface Outcome {
   cli: string | null
   request: unknown
@@ -87,6 +109,7 @@ async function call(
       "MCP-Protocol-Version": DATA.mcpProtocolVersion,
       "Mcp-Method": request.method,
       "Mcp-Name": request.params.name,
+      ...authorization(),
     },
     body: JSON.stringify(request),
   })
@@ -204,20 +227,108 @@ function OperationCard({ operation, endpoint }: { operation: Operation; endpoint
   )
 }
 
+/**
+ * The developer's own `.env`, edited from the page the kernel is already serving: the kernel
+ * answers `/env` with the names it declares and which of them have a value, and takes one
+ * `{name, value}` back. It is the escape hatch for an author working inside an agent harness,
+ * where there is no terminal to type a credential into — never the tool's runtime config, which
+ * a host injects into the environment.
+ *
+ * The panel is absent wherever `/env` is not answered: a static host (GitHub Pages), a kernel
+ * whose project declares no secret, or a build served by anything but the kernel.
+ */
+function SecretsPanel() {
+  const [env, setEnv] = useState<{ declared: string[]; present: string[] } | null>(null)
+  const [values, setValues] = useState<Record<string, string>>({})
+  const [status, setStatus] = useState("")
+  const url = new URL("env", document.baseURI).href
+  const load = () =>
+    fetch(url, { headers: authorization() })
+      .then((response) => (response.ok ? response.json() : Promise.reject(response.status)))
+      .then((body: { declared: string[]; present: string[] }) => setEnv(body))
+      .catch(() => setEnv(null))
+  // Once, on mount: the kernel is the only thing that can answer, and it does not change.
+  useEffect(() => {
+    load()
+  }, [])
+  if (!env || env.declared.length === 0) return null
+
+  async function save(name: string) {
+    setStatus("")
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authorization() },
+      body: JSON.stringify({ name, value: values[name] ?? "" }),
+    })
+    const body = (await response.json()) as { present?: string[]; error?: string }
+    if (!response.ok) return setStatus(body.error ?? `HTTP ${response.status}`)
+    setValues((current) => ({ ...current, [name]: "" }))
+    setStatus(`${name} written to .env`)
+    await load()
+  }
+
+  return (
+    <Card data-slot="secrets">
+      <CardHeader>
+        <CardTitle>Secrets</CardTitle>
+        <CardDescription>
+          Written to this checkout's gitignored <code>.env</code>, which the live tests and
+          <code> toolfactory bootstrap-repo</code> read. Run <code>toolfactory secrets check</code>{" "}
+          to ask each registry whether it accepts them.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {env.declared.map((name) => (
+          <Field key={name} orientation="horizontal">
+            <FieldLabel htmlFor={`secret-${name}`} className="w-64 shrink-0">
+              {name}{" "}
+              <Badge variant={env.present.includes(name) ? "secondary" : "outline"}>
+                {env.present.includes(name) ? "set" : "missing"}
+              </Badge>
+            </FieldLabel>
+            <Input
+              id={`secret-${name}`}
+              type="password"
+              autoComplete="off"
+              placeholder={env.present.includes(name) ? "replace" : "paste the value"}
+              value={values[name] ?? ""}
+              onChange={(event) => setValues({ ...values, [name]: event.target.value })}
+            />
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={!values[name]}
+              onClick={() => save(name)}
+            >
+              Save
+            </Button>
+          </Field>
+        ))}
+        {status ? (
+          <p data-slot="secrets-status" className="text-sm text-muted-foreground">
+            {status}
+          </p>
+        ) : null}
+      </CardContent>
+    </Card>
+  )
+}
+
 /** The generated operations page: one form per operation over `ops.json`, wired to `/mcp`. */
 export function OperationsPage() {
-  const [endpoint, setEndpoint] = useState(DATA.defaultEndpoint)
+  const [endpoint, setEndpoint] = useState(DEFAULT_ENDPOINT)
   const [active, setActive] = useState(DATA.operations[0]?.name ?? "")
   const activeOperation = DATA.operations.find((operation) => operation.name === active)
 
   return (
     <div className="flex flex-col gap-6">
+      <SecretsPanel />
       <Field>
         <FieldLabel htmlFor="endpoint">MCP endpoint</FieldLabel>
         <Input
           id="endpoint"
           value={endpoint}
-          placeholder={DATA.defaultEndpoint}
+          placeholder={DEFAULT_ENDPOINT}
           onChange={(event) => setEndpoint(event.target.value)}
         />
       </Field>

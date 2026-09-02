@@ -99,6 +99,19 @@ describe("agents", () => {
     expect(hosts).toContain("`uv run --quiet python -m hello.toolfactory.cli mcp --http --pair`");
     expect(hosts).toContain("selectors are yours to maintain");
     expect(hosts).toContain("wxt dev");
+
+    // Launch: one line per way of reaching the one listener. A Python plugin's OpenClaw shim is
+    // out of process, so it gets no Control UI tab — the CLI line is the honest answer there.
+    expect(hosts).toContain("## Launch the web app");
+    expect(hosts).toContain("`uv run --quiet python -m hello.toolfactory.cli mcp --http --open`");
+    expect(hosts).toContain("call the `web` operation");
+    expect(hosts).toContain("Open full page");
+    expect(hosts).not.toContain("tab in the Control UI");
+    expect(bare).not.toContain("## Launch the web app");
+
+    const native = region(project(["openclaw-native", "web", "mcp"]), "AGENTS.md");
+    expect(native).toContain("**Hello** tab in the Control UI");
+    expect(native).toContain("/plugins/hello/web");
   });
 
   it("vendors the template's carriers and keeps its head inside the setup region", () => {

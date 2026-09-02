@@ -5,7 +5,9 @@ import { mount, Pairing } from "../../utils/page";
 
 mount(
   <>
-    <Pairing />
+    <div style={{ display: "flex", alignItems: "center" }}>
+      <Pairing />
+    </div>
     <App />
   </>,
 );

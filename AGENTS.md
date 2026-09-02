@@ -143,6 +143,20 @@ Personal-only config: gitignored `.agents/local/`, same shape. Details: `.agents
 This tool's own kernel is registered there as `toolfactory`, so an agent developing it can call
 the operations it is writing; register nothing by hand.
 
+## Launch the web app
+
+- **This checkout**: `node --import tsx src/toolfactory/cli.ts mcp --http --open` — serves the operations page and `/mcp` on one port, opens it,
+  and (once the project declares a secret) carries the Secrets panel that writes `.env`.
+- **From an agent**: call the `web` operation — it starts the same listener detached, opens the
+  browser on this machine, and returns the URL. Over MCP, a skill, the CLI, or the page itself.
+- **OpenClaw**: a **Toolfactory** tab in the Control UI once the plugin is enabled — the
+  plugin serves the same page at `/plugins/toolfactory/web` through the gateway, so there is
+  nothing to start.
+- **Browser extension**: click the toolbar icon, then **Open full page**; the options page is the
+  same tree, paired to a kernel over the relay.
+- **Hermes, DSH, Gemini CLI, Claude Code**: no native surface for a page — run the line above, or
+  ask the agent to call `web`.
+
 ## Installing into the host you are developing in
 
 - **Gemini CLI**: `gemini extensions link .` links the checkout in place; a new `gemini`

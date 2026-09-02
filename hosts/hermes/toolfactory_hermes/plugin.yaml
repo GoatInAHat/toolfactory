@@ -24,6 +24,7 @@ provides_tools:
   - unadopt
   - unpublish
   - validate
+  - web
 optional_env:
   - name: TOOLFACTORY_ROOT
     description: "Path to the toolfactory checkout the kernel CLI runs from

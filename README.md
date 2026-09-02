@@ -31,6 +31,9 @@ generated and every surface still installs, builds and publishes.
   extensions; the Chrome Web Store, Firefox Add-ons and Edge Add-ons listings appear once the release's
   submit step has each store's credentials. Then pair it: `npx -y toolfactory mcp --http --pair`
   prints the `<url>#<token>` the extension's options page accepts.
+- **Web app** — `npx -y toolfactory mcp --http --open` serves the operations page beside the
+  MCP endpoint on one port and opens it; over MCP or a skill, the `web` operation does the same and
+  returns the URL.
 - **npm package** — `npm install toolfactory`
 
 <!-- /tf:install -->

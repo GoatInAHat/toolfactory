@@ -62,6 +62,23 @@ export function Pairing() {
   );
 }
 
+/**
+ * The popup is the same page in 540 pixels; this is how it becomes a real one. `openOptionsPage`
+ * is the WebExtension API for exactly that, and the options page already mounts this tree.
+ */
+export function OpenFullPage() {
+  return (
+    <button
+      type="button"
+      data-slot="open-full-page"
+      style={{ marginLeft: "auto" }}
+      onClick={() => browser.runtime.openOptionsPage()}
+    >
+      Open full page
+    </button>
+  );
+}
+
 export function mount(children: ReactNode): void {
   bridgeFetch();
   createRoot(document.getElementById("root") as HTMLElement).render(children);

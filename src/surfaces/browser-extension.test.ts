@@ -94,6 +94,15 @@ describe("browser-extension", () => {
 
     // The popup is the `web` surface's tree, imported; without it, only the pairing form ships.
     expect(content(files[`${HOST_DIR}/entrypoints/popup/main.tsx`])).toContain('from "@web/App"');
+    // Launching the web app here means popping the same tree out of the 540px popup into a tab;
+    // the options page is already that tab, so it gets no button.
+    expect(content(files[`${HOST_DIR}/entrypoints/popup/main.tsx`])).toContain("<OpenFullPage />");
+    expect(content(files[`${HOST_DIR}/entrypoints/options/main.tsx`])).not.toContain(
+      "OpenFullPage",
+    );
+    expect(content(files[`${HOST_DIR}/utils/page.tsx`])).toContain(
+      "browser.runtime.openOptionsPage()",
+    );
     const alone = planned(fixture({ surfaces: ["mcp", "browser-extension"] }));
     expect(content(alone[`${HOST_DIR}/entrypoints/popup/main.tsx`])).not.toContain("@web/App");
     expect(alone[`${HOST_DIR}/utils/page.css`]).toBeUndefined();

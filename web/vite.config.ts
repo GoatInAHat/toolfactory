@@ -10,9 +10,11 @@ const mcp = new URL(process.env.VITE_MCP_URL ?? "http://localhost:3000/mcp")
 
 // https://vite.dev/config/
 export default defineConfig({
-  // A GitHub Pages project page is not served from the domain root; the release workflow sets
-  // PAGES_BASE=/<repo>/ for that build only, so `npm run dev` and every other build stay at "/".
-  base: process.env.PAGES_BASE ?? "/",
+  // Relative, so the one build is served the same wherever it is mounted: at "/" by
+  // `mcp --http`, under a plugin route's prefix in the OpenClaw Control UI, and under
+  // /<repo>/ on GitHub Pages. PAGES_BASE stays an override for a deployment that needs an
+  // absolute one; the dev server is always "/".
+  base: process.env.PAGES_BASE ?? "./",
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {

@@ -114,6 +114,11 @@ describe("readme", () => {
     expect(body).toContain("`npx -y hello mcp --http --pair`");
   });
 
+  it("names the one command that opens the web app, and only when that surface is selected", () => {
+    expect(region(project(["mcp", "web"]))).toContain("`npx -y hello mcp --http --open`");
+    expect(region(project(["mcp"]))).not.toContain("--http --open");
+  });
+
   it("carries pypi's mcp-name region beside its own, in one README the plan merges", () => {
     const surfaces: SurfaceId[] = ["pypi", "mcp-registry"];
     const python = project(surfaces, {

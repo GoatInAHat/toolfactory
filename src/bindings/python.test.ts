@@ -118,10 +118,13 @@ describe("python binding", () => {
   it("emits opt-in --http and --pair flags, defaulting to stdio, on the mcp module and the cli", () => {
     const files = [...kernel(project(["mcp", "cli"])), ...cliFiles(project(["mcp", "cli"]))];
     const mcp = text(files, "src/hello_py/toolfactory/mcp.py");
-    expect(mcp).toContain(
-      'def serve_http(host: str = "127.0.0.1", port: int = 3000, path: str = "/mcp", pair: bool = False)',
-    );
-    expect(mcp).toContain('server.run("streamable-http"');
+    expect(mcp).toContain("def serve_http(");
+    // One ASGI app on both paths: the SDK's own streamable-HTTP app, run by uvicorn over a
+    // socket bound first, so `--http 0` can report the port it actually got.
+    expect(mcp).toContain("app = server.streamable_http_app(");
+    expect(mcp).toContain("sock = config.bind_socket()");
+    expect(mcp).toContain("uvicorn.Server(config).run(sockets=[sock])");
+    expect(mcp).toContain("Serving MCP streamable HTTP on {base}{path}{suffix}");
     expect(mcp).toContain("stateless_http=True");
     // Stdio is still the default: the standalone entrypoint only switches transport when --http is present.
     expect(mcp).toContain("if args.http is None and not args.pair:");
@@ -137,6 +140,40 @@ describe("python binding", () => {
     expect(cli).toContain("from .mcp import serve_http");
     expect(cli).toContain("if options.http is not None or options.pair:");
     expect(cli).toContain('"--pair"');
+    // Without the `web` surface there is no page to serve, open or write secrets for.
+    expect(mcp).not.toContain("web_route()");
+    expect(mcp).not.toContain("SECRETS");
+    expect(paths(kernel(project(["mcp", "cli"])))).not.toContain("src/hello_py/toolfactory/web.py");
+  });
+
+  it("serves the page, opens it and takes a secret when the web surface is selected", () => {
+    const target = withCredential(["mcp", "cli", "web"]);
+    const files = [...kernel(target), ...cliFiles(target)];
+    const mcp = text(files, "src/hello_py/toolfactory/mcp.py");
+    // The static half: the wheel's own copy first, then this checkout's build output.
+    expect(mcp).toContain(
+      'for candidate in (package / "web", package.parent.parent / "web" / "dist")',
+    );
+    expect(mcp).toContain('Mount("/", app=StaticFiles(directory=directory, html=True))');
+    expect(mcp).toContain("run `npm -C web run build`");
+    // The token guards the API paths only — a browser cannot put a header on its own document.
+    expect(mcp).toContain('app = guard(app, token, {path, "/env"})');
+    expect(mcp).toContain('SECRETS = ["PASSKEY"]');
+    expect(mcp).toContain('return JSONResponse({"declared": SECRETS, "present": env_present()})');
+    expect(mcp).toContain("env_path().chmod(0o600)");
+    expect(mcp).toContain('print(f".env: set {name}", file=sys.stderr, flush=True)');
+    expect(mcp).toContain('webbrowser.open(f"{base}/#{token}")');
+    expect(mcp).toContain("mint_token() if open_browser else None");
+
+    // The `web` operation: a detached child holds the socket, never this process.
+    const web = text(files, "src/hello_py/toolfactory/web.py");
+    expect(web).toContain('[sys.executable, "-m", f"{__package__}.mcp", "--http", "0", "--open"]');
+    expect(web).toContain("start_new_session=True");
+    expect(web).toContain('SERVING = re.compile(r"Serving MCP streamable HTTP on (\\S+)")');
+    expect(mcp).toContain("OPERATIONS = [*AUTHORED_OPERATIONS, WEB_OPERATION]");
+    expect(text(files, "src/hello_py/toolfactory/cli.py")).toContain(
+      "OPERATIONS = [*AUTHORED_OPERATIONS, WEB_OPERATION]",
+    );
   });
 
   it("projects identity into pyproject.toml only when it is not the identity file", () => {

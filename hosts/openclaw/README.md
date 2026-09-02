@@ -59,3 +59,4 @@ result comes back carrying what its output schema promises.
 - `unadopt` — Return an adopted file to toolfactory and regenerate it. (native)
 - `unpublish` — Retract what a deselected surface used to publish. Git is the ledger: the previous tag's dev.toolfactory/tool.json says what was selected then, and every registry row that lost its surface is checked for the version that tag published and then retracted with the registry's own CLI — or reported with the exact page, where there is no API. (native)
 - `validate` — Run each selected surface's own upstream validator (agentskills, claude plugin validate, MCP Inspector, openclaw, hermes, npm pack, uv build). (native)
+- `web` — Open this tool's web app: serves the operations page and the MCP endpoint on a free local port, opens a browser there, and returns the URL. (native)

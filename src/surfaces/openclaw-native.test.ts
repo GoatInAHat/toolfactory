@@ -115,6 +115,45 @@ describe("openclaw-native", () => {
     expect(files[`${HOST_DIR}/src/index.ts`]).toContain("dataDir: dataDir(),");
   });
 
+  it("serves the web app as a gateway route and a Control UI tab, in process, only in TypeScript", () => {
+    const withWeb = project({
+      tool: { ...project().tool, surfaces: ["openclaw-native", "mcp", "web", "npm"] },
+    });
+    const files = emitted(withWeb);
+    const index = files[`${HOST_DIR}/src/index.ts`] ?? "";
+    // The route hands requests to the core's own router, so `<prefix>/mcp` needs no second
+    // listener and `/env` stays off — the gateway's working directory is not the author's.
+    expect(index).toContain('import { handler } from "hello/dist/toolfactory/mcp.js";');
+    expect(index).toContain('const WEB_PATH = "/plugins/hello/web";');
+    expect(index).toContain('auth: "gateway"');
+    expect(index).toContain("handler({ path: `${WEB_PATH}/mcp`, prefix: WEB_PATH, env: false })");
+    expect(index).toContain('surface: "tab" as const');
+    expect(index).toContain("api.registerControlUiDescriptor(descriptor)");
+    // Neither registrar is a manifest contract key; both are what the inspector expects to see.
+    expect(JSON.parse(files[`${HOST_DIR}/openclaw.plugin.json`] ?? "{}").contracts).toEqual({
+      tools: ["echo"],
+    });
+    expect(
+      JSON.parse(files[`${HOST_DIR}/package.json`] ?? "{}").pluginInspector.plugin.expect
+        .registrations,
+    ).toEqual(["registerHttpRoute", "registerControlUiDescriptor"]);
+    expect(files[`${HOST_DIR}/src/index.test.ts`]).toContain(
+      "serves the web app as a Control UI tab",
+    );
+
+    // A Python core's plugin is an out-of-process shim: there is no handler to mount.
+    const python = emitted(
+      project({
+        tool: {
+          ...withWeb.tool,
+          binding: "python",
+          surfaces: ["openclaw-native", "mcp", "web", "pypi"],
+        },
+      }),
+    );
+    expect(python[`${HOST_DIR}/src/index.ts`]).not.toContain("registerHttpRoute");
+  });
+
   it("degrades a non-TypeScript core to an out-of-process shim", () => {
     const python = project({
       tool: { ...project().tool, binding: "python" },

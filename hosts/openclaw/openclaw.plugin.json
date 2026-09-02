@@ -27,7 +27,8 @@
       "secrets",
       "unadopt",
       "unpublish",
-      "validate"
+      "validate",
+      "web"
     ]
   }
 }
