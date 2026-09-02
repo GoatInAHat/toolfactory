@@ -37,6 +37,7 @@ export function buildPlan(
   surfaces: Surface[] = selectedSurfaces(project.tool.surfaces),
 ): PlannedFile[] {
   // Workflows are always generated: ci.yml for every project, release.yml when a registry is selected.
+  // COVERAGE.md is always generated too: a one-surface table is still the record of what is excluded.
   const withWorkflows = surfaces.some((s) => s.id === "workflows")
     ? surfaces
     : [...surfaces, getSurface("workflows")];
@@ -47,17 +48,15 @@ export function buildPlan(
   files.push({ kind: "file", path: TOOL_SCHEMA_PATH, content: json(toolJsonSchema()) });
   const coverage = computeCoverage(project, surfaces);
   files.push({ kind: "file", path: COVERAGE_PATH, content: json(coverage) });
-  if (surfaces.length >= 2) {
-    const lock = readLock(project.root);
-    const manual = Object.entries(lock?.files ?? {})
-      .filter(([, entry]) => entry.state === "manual")
-      .map(([path]) => path);
-    const total = Object.keys(lock?.files ?? {}).length || files.length;
-    files.push({
-      kind: "file",
-      path: "COVERAGE.md",
-      content: renderCoverageMarkdown(coverage, manual, total),
-    });
-  }
+  const lock = readLock(project.root);
+  const manual = Object.entries(lock?.files ?? {})
+    .filter(([, entry]) => entry.state === "manual")
+    .map(([path]) => path);
+  const total = Object.keys(lock?.files ?? {}).length || files.length;
+  files.push({
+    kind: "file",
+    path: "COVERAGE.md",
+    content: renderCoverageMarkdown(coverage, manual, total),
+  });
   return dedupe(files);
 }
