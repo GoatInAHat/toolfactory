@@ -398,7 +398,7 @@ export function scaffold(project: Project): PlannedFile[] {
     description: project.identity.description,
     license: project.identity.license,
     type: "module",
-    engines: { node: ">=22" },
+    engines: { node: ">=22.12" },
     scripts: {
       build: "tsc -p tsconfig.json",
       test: "vitest run --passWithNoTests",
