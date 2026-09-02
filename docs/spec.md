@@ -120,8 +120,10 @@ running `build`; `check` never rewrites anything.
 
 ### 2.4 Layout law
 
-- **L1.** A file exists iff a selected surface owns it. `build` deletes orphans left by removing a
-  surface from `tool.json`; `check` reports them.
+- **L1.** A file exists iff a selected surface owns it, with one always-on owner besides
+  `workflows`: the binding's kernel (`types`, `config`, `mcp`) is generated for every tool because
+  the author's operation module imports it and `introspect` spawns it, even for a tool with zero
+  operations. `build` deletes orphans left by removing a surface from `tool.json`; `check` reports them.
 - **L2.** The repo root belongs to the binding's package (`package.json` or `pyproject.toml`).
   Host-native packages nest under `hosts/<id>/`.
 - **L3.** The portable bundle (`plugin.json`, `mcp.json`, `skills/`) sits at the repo root iff a
@@ -149,8 +151,8 @@ toolfactory owns exactly the keys in its patch).
 | `claude` | `.claude-plugin/plugin.json` (`userConfig` from `config`, inline `mcpServers` using `${CLAUDE_PLUGIN_ROOT}` and `${user_config.K}`) | `claude plugin validate .` | as `mcp` |
 | `codex` | `.codex-plugin/plugin.json` with the required `interface` block and inline `mcpServers` | schema-shaped; loader not exercised | `degraded:loader-unverified` |
 | `cursor` | `.cursor-plugin/plugin.json` with `variables` from `config`, pointing at `./mcp.json` | schema-shaped; loader not exercised | `degraded:loader-unverified` |
-| `mcp` | the binding's kernel MCP files (stdio by default; `mcp --http [port]` serves the same server over streamable HTTP at `/mcp`), `dev.toolfactory/inspector.json` | MCP Inspector `--cli --method tools/list` | portable → `native`; else `excluded:mcp-no-host-capabilities` |
-| `cli` | the binding's kernel CLI files | `<cli> --help` | as `mcp` |
+| `mcp` | ships the kernel MCP server (stdio by default; `mcp --http [port]` serves the same server over streamable HTTP at `/mcp`): `dev.toolfactory/inspector.json`, `mcp.json` references | MCP Inspector `--cli --method tools/list` | portable → `native`; else `excluded:mcp-no-host-capabilities` |
+| `cli` | the binding's CLI file, one subcommand per operation | `<cli> --help` | portable or `user-input` → `native` (a CLI has a human at the terminal); else `excluded:cli-no-host-capabilities` |
 | `mcp-registry` | `server.json` (name `io.github.<owner>/<N>`, package entry, `environmentVariables` with `isSecret`) | schema-shaped; published by `mcp-publisher` | metadata only |
 | `npm` | merge into `package.json`: identity, `type`, `bin`, `files`, `mcpName` | `npm pack --dry-run` | library |
 | `pypi` | merge into `pyproject.toml`: identity, `[project.scripts]`, registry marker | `uv build` | library |
@@ -212,7 +214,10 @@ An operation is **portable iff `requires ⊆ {net, fs, shell, secret}`**.
 Per operation × surface, `coverage` computes one of `native`, `bridged`, `degraded`, `excluded`,
 with a machine-readable reason (`excluded:mcp-no-host-capabilities`, `degraded:out-of-process`,
 …). An excluded operation is **omitted from that surface's tool list entirely**; degradation is
-omission plus an explanation, never a stub that fails at call time. Verdicts are written to
+omission plus an explanation, never a stub that fails at call time. The generated kernels enforce
+this at registration from each operation's own `requires` (the MCP server registers portable
+operations, the CLI also `user-input` ones), so the surface and `COVERAGE.md` agree by
+construction; `introspect` sets `TOOLFACTORY_INTROSPECT=1` so the snapshot still sees everything. Verdicts are written to
 `coverage.json`, `COVERAGE.md`, and each skill's operations block, so the agent sees at runtime
 only what works on its host.
 
@@ -222,8 +227,9 @@ Verified against the OpenClaw and Hermes sources: neither host exposes a browser
 channel as an in-process API to a third-party tool plugin. The bridges, in the order toolfactory
 applies them:
 
-1. **Agent-mediated** (every skills host, zero code): the operations block tells the agent to use
-   the host's own browser tools and feed the result into a pure operation. ⇒ `bridged`.
+1. **Agent-mediated** (every skills host, zero code): the operations block tells the agent, per
+   capability, what to do before calling the operation (drive the host's browser tools; do the
+   reasoning itself; ask the user). ⇒ `bridged`.
 2. **Endpoint-injected** (MCP, CLI, host-native): the operation takes the resource as an argument
    (`cdpUrl`, a provider key from `config`). ⇒ `bridged`.
 3. **Host-native escape hatch**: `hosts/<id>/`, scaffolded by the host's own generator. Portable

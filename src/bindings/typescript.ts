@@ -59,6 +59,16 @@ export function operation<Input extends z.ZodObject, Output extends z.ZodType>(
 ): Operation<Input, Output> {
   return definition;
 }
+
+/** Capabilities every surface can satisfy on its own. */
+export const PORTABLE: ReadonlySet<Capability> = new Set(["net", "fs", "shell", "secret"]);
+
+/** Whether a surface can run an operation: MCP needs a portable one; a CLI also has a human for user-input. */
+export function serves(operation: { requires?: Capability[] }, surface: "mcp" | "cli"): boolean {
+  return (operation.requires ?? []).every(
+    (capability) => PORTABLE.has(capability) || (surface === "cli" && capability === "user-input"),
+  );
+}
 `;
 }
 
@@ -93,11 +103,16 @@ import { createServer as createHttpServer } from "node:http";
 import { z } from "zod";
 import { operations } from "../ops.js";
 import { context } from "./config.js";
+import { serves } from "./types.js";
 
-/** Builds one server instance with every operation registered; called once for stdio, once per HTTP request. */
+/** toolfactory introspects with every operation visible; a served instance lists only what MCP can run. */
+const introspecting = Boolean(process.env.TOOLFACTORY_INTROSPECT);
+
+/** Builds one server instance with every servable operation registered; called once for stdio, once per HTTP request. */
 function createServer(): McpServer {
   const server = new McpServer({ name: ${JSON.stringify(project.identity.name)}, version: ${JSON.stringify(project.identity.version ?? "0.0.0")} });
   for (const op of operations) {
+    if (!introspecting && !serves(op, "mcp")) continue;
     server.registerTool(
       op.name,
       {
@@ -182,6 +197,7 @@ ${HEADER}import { Command } from "commander";
 import { z } from "zod";
 import { operations } from "../ops.js";
 import { context } from "./config.js";
+import { serves } from "./types.js";
 
 const program = new Command()
   .name(${JSON.stringify(project.identity.name)})
@@ -189,6 +205,7 @@ const program = new Command()
   .version(${JSON.stringify(project.identity.version ?? "0.0.0")});
 
 for (const op of operations) {
+  if (!serves(op, "cli")) continue;
   const command = program.command(op.name).description(op.description);
   command.option("--json <arguments>", "all arguments as one JSON object");
   const schema = z.toJSONSchema(op.input, { io: "input" }) as {
@@ -265,17 +282,18 @@ export const operations = [
 `;
 }
 
-/** Generated on every build. */
+/** The kernel, generated on every build for every tool: the contract, config, and the MCP server toolfactory introspects. */
 export function kernel(project: Project): PlannedFile[] {
-  const files: PlannedFile[] = [
+  return [
     { kind: "file", path: `${KERNEL_DIR}/types.ts`, content: typesTemplate() },
     { kind: "file", path: `${KERNEL_DIR}/config.ts`, content: configTemplate(project) },
+    { kind: "file", path: `${KERNEL_DIR}/mcp.ts`, content: mcpTemplate(project) },
   ];
-  if (has(project, "mcp"))
-    files.push({ kind: "file", path: `${KERNEL_DIR}/mcp.ts`, content: mcpTemplate(project) });
-  if (has(project, "cli"))
-    files.push({ kind: "file", path: `${KERNEL_DIR}/cli.ts`, content: cliTemplate(project) });
-  return files;
+}
+
+/** The CLI surface's file. */
+export function cli(project: Project): PlannedFile[] {
+  return [{ kind: "file", path: `${KERNEL_DIR}/cli.ts`, content: cliTemplate(project) }];
 }
 
 const GITIGNORE = ["node_modules/", "dist/", ".env", ".env.*", "!.env.example", ""].join("\n");

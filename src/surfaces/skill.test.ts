@@ -74,7 +74,7 @@ describe("skill surface", () => {
 
     expect(body).toContain("### screenshot");
     expect(body).toContain(
-      "This operation needs browser: use this host's own tools to obtain it, then pass the result as an argument.",
+      "This operation needs browser: drive this host's own browser tools and pass what they return as arguments.",
     );
 
     expect(body).not.toContain("### notify");

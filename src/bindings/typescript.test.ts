@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { FullFile, PlannedFile, Project, SurfaceId } from "../model.js";
 import { ToolConfigSchema } from "../model.js";
-import { cliCommand, kernel, kernelCommand, scaffold } from "./typescript.js";
+import { cliCommand, cli as cliFiles, kernel, kernelCommand, scaffold } from "./typescript.js";
 
 function project(surfaces: SurfaceId[], overrides: Partial<Project> = {}): Project {
   return {
@@ -43,13 +43,14 @@ describe("typescript binding", () => {
     const both = project(["mcp", "cli"]);
     expect(kernelCommand().args).toEqual(["--import", "tsx", "src/toolfactory/mcp.ts"]);
     expect(cliCommand().args.at(-1)).toBe("src/toolfactory/cli.ts");
-    expect(paths(kernel(both))).toEqual([
+    expect(paths([...kernel(both), ...cliFiles(both)])).toEqual([
       "src/toolfactory/types.ts",
       "src/toolfactory/config.ts",
       "src/toolfactory/mcp.ts",
       "src/toolfactory/cli.ts",
     ]);
     // A file exists iff a selected surface owns it, and config keys become environment reads.
+    // The kernel is the same for every surface set; only the cli surface adds cli.ts.
     expect(paths(kernel(project(["mcp"])))).not.toContain("src/toolfactory/cli.ts");
     expect(text(kernel(both), "src/toolfactory/config.ts")).toContain(
       '"apiKey": process.env["APIKEY"]',
@@ -57,7 +58,7 @@ describe("typescript binding", () => {
   });
 
   it("emits an opt-in --http flag, defaulting to stdio, on both the mcp module and the cli subcommand", () => {
-    const files = kernel(project(["mcp", "cli"]));
+    const files = [...kernel(project(["mcp", "cli"])), ...cliFiles(project(["mcp", "cli"]))];
     const mcp = text(files, "src/toolfactory/mcp.ts");
     expect(mcp).toContain(
       'import { createMcpHandler, McpServer } from "@modelcontextprotocol/server"',
@@ -66,7 +67,7 @@ describe("typescript binding", () => {
     expect(mcp).toContain('port = 3000, host = "127.0.0.1", path = "/mcp"');
     expect(mcp).toContain("toNodeHandler(createMcpHandler(createServer))");
     // The CLI's mcp subcommand exists only when the mcp surface does (the file it imports).
-    expect(text(kernel(project(["cli"])), "src/toolfactory/cli.ts")).not.toContain(
+    expect(text(cliFiles(project(["cli"])), "src/toolfactory/cli.ts")).not.toContain(
       'command("mcp")',
     );
     // Stdio is still the default: the standalone entrypoint only switches transport when --http is present.
@@ -154,7 +155,7 @@ describe.skipIf(!existsSync(repoNodeModules))("typescript kernel, really run ove
     const root = mkdtempSync(join(tmpdir(), "toolfactory-typescript-"));
     symlinkSync(repoNodeModules, join(root, "node_modules"), "dir");
     const real = project(["mcp", "cli"], { root, identity: { name: "probe", version: "0.1.0" } });
-    for (const file of [...scaffold(real), ...kernel(real)]) {
+    for (const file of [...scaffold(real), ...kernel(real), ...cliFiles(real)]) {
       const filePath = join(root, file.path);
       mkdirSync(dirname(filePath), { recursive: true });
       writeFileSync(filePath, (file as FullFile).content);

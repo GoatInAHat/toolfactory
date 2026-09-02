@@ -11,7 +11,13 @@ import type { Project } from "../model.js";
 import { OPS_PATH, type Ops, TOOLFACTORY_VERSION } from "../project/load.js";
 
 export async function listTools(root: string, command: string, args: string[]): Promise<Ops> {
-  const transport = new StdioClientTransport({ command, args, cwd: root, stderr: "pipe" });
+  const transport = new StdioClientTransport({
+    command,
+    args,
+    cwd: root,
+    stderr: "pipe",
+    env: { ...(process.env as Record<string, string>), TOOLFACTORY_INTROSPECT: "1" },
+  });
   const stderr: string[] = [];
   transport.stderr?.on("data", (chunk: Buffer) => stderr.push(String(chunk)));
   const client = new Client({ name: "toolfactory", version: TOOLFACTORY_VERSION });

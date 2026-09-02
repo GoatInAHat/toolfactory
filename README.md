@@ -66,7 +66,7 @@ toolfactory is built with toolfactory.
 | `agent-plugins` | root `plugin.json` + `mcp.json` (consumed by OpenClaw, Hermes, Copilot, Cursor, Codex) | Ajv against the 1.0.0 schemas |
 | `claude` | `.claude-plugin/plugin.json` | `claude plugin validate` |
 | `codex`, `cursor` | `.codex-plugin/`, `.cursor-plugin/` manifests | schema-shaped |
-| `mcp`, `cli` | the kernel: generated MCP server (stdio, or `--http`) and CLI over your operations | MCP Inspector, `--help` |
+| `mcp`, `cli` | the kernel MCP server (stdio, or `--http`) and a CLI over your operations; each lists only the operations it can run | MCP Inspector, `--help` |
 | `npm`, `pypi` | package metadata merged into `package.json` / `pyproject.toml` | `npm pack`, `uv build` |
 | `mcp-registry` | `server.json` | `mcp-publisher` |
 | `openclaw-native` | `hosts/openclaw/`, mirroring `openclaw plugins init --type tool` | `openclaw plugins build --check`, `validate`, plugin-inspector |

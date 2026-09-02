@@ -4,6 +4,7 @@ import { Command } from "commander";
 import { z } from "zod";
 import { operations } from "../ops.js";
 import { context } from "./config.js";
+import { serves } from "./types.js";
 
 const program = new Command()
   .name("toolfactory")
@@ -11,6 +12,7 @@ const program = new Command()
   .version("0.1.0");
 
 for (const op of operations) {
+  if (!serves(op, "cli")) continue;
   const command = program.command(op.name).description(op.description);
   command.option("--json <arguments>", "all arguments as one JSON object");
   const schema = z.toJSONSchema(op.input, { io: "input" }) as {

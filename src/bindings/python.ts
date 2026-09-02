@@ -77,6 +77,14 @@ class Operation:
     output: type[BaseModel] | None = None
     requires: tuple[Capability, ...] = ()
     annotations: dict[str, bool] = field(default_factory=dict)
+
+#: Capabilities every surface can satisfy on its own.
+PORTABLE: frozenset[str] = frozenset({"net", "fs", "shell", "secret"})
+
+
+def serves(operation: "Operation", surface: Literal["mcp", "cli"]) -> bool:
+    """Whether a surface can run an operation: MCP needs a portable one; a CLI also has a human for user-input."""
+    return all(c in PORTABLE or (surface == "cli" and c == "user-input") for c in operation.requires)
 `;
 }
 
@@ -116,13 +124,14 @@ same server over MCP streamable HTTP instead, via \`MCPServer.run(transport="str
 
 import argparse
 import inspect
+import os
 from typing import Annotated, Any
 
 from mcp.server.mcpserver import MCPServer
 
 from ..ops import OPERATIONS
 from .config import context
-from .types import Operation
+from .types import Operation, serves
 
 server = MCPServer(
     name=${JSON.stringify(project.identity.name)},
@@ -155,7 +164,12 @@ def bind(operation: Operation) -> Any:
     return call
 
 
+#: toolfactory introspects with every operation visible; a served instance lists only what MCP can run.
+INTROSPECTING = bool(os.environ.get("TOOLFACTORY_INTROSPECT"))
+
 for operation in OPERATIONS:
+    if not INTROSPECTING and not serves(operation, "mcp"):
+        continue
     server.add_tool(
         bind(operation),
         name=operation.name,
@@ -236,6 +250,7 @@ from typing import Any
 from pydantic import BaseModel
 
 from ..ops import OPERATIONS
+from .types import serves
 from .config import context
 
 
@@ -266,6 +281,8 @@ def parser() -> argparse.ArgumentParser:
     )
     subcommands = root.add_subparsers(dest="tf_command", required=True)
     for operation in OPERATIONS:
+        if not serves(operation, "cli"):
+            continue
         schema = operation.input.model_json_schema()
         command = subcommands.add_parser(operation.name, help=operation.description)
         command.add_argument(
@@ -349,11 +366,13 @@ export function kernel(project: Project): PlannedFile[] {
     { kind: "file", path: `${dir}/types.py`, content: typesTemplate() },
     { kind: "file", path: `${dir}/config.py`, content: configTemplate(project) },
   ];
-  if (has(project, "mcp"))
-    files.push({ kind: "file", path: `${dir}/mcp.py`, content: mcpTemplate(project) });
-  if (has(project, "cli"))
-    files.push({ kind: "file", path: `${dir}/cli.py`, content: cliTemplate(project) });
+  files.push({ kind: "file", path: `${dir}/mcp.py`, content: mcpTemplate(project) });
   return files;
+}
+
+/** The CLI surface's file. */
+export function cli(project: Project): PlannedFile[] {
+  return [{ kind: "file", path: `${kernelDir(project)}/cli.py`, content: cliTemplate(project) }];
 }
 
 /** The `[project]` table the scaffold and the pypi surface agree on. */

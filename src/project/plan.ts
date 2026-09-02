@@ -4,6 +4,7 @@
  * the derived coverage files and the published schema for tool.json.
  */
 import { z } from "zod";
+import { getBinding } from "../bindings/index.js";
 import type { PlannedFile, Project, Surface } from "../model.js";
 import { ToolConfigSchema } from "../model.js";
 import { computeCoverage, renderCoverageMarkdown } from "../report/coverage.js";
@@ -40,6 +41,9 @@ export function buildPlan(
     ? surfaces
     : [...surfaces, getSurface("workflows")];
   const files = withWorkflows.flatMap((surface) => surface.plan(project));
+  // The kernel exists for every tool: it is what the author's operation module imports and
+  // what `introspect` spawns, whether or not the mcp surface ships it.
+  files.push(...getBinding(project.tool.binding).kernel(project));
   files.push({ kind: "file", path: TOOL_SCHEMA_PATH, content: json(toolJsonSchema()) });
   const coverage = computeCoverage(project, surfaces);
   files.push({ kind: "file", path: COVERAGE_PATH, content: json(coverage) });

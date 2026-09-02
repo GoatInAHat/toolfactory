@@ -3,8 +3,10 @@ import * as python from "./python.js";
 import * as typescript from "./typescript.js";
 
 export interface BindingModule {
-  /** Files generated on every build for the kernel surfaces (mcp, cli). */
+  /** Files generated on every build for every tool: the contract, config, and the MCP server toolfactory introspects. */
   kernel(project: Project): PlannedFile[];
+  /** The `cli` surface's files. */
+  cli(project: Project): PlannedFile[];
   /** Files written once by `init` when absent, then owned by the author. */
   scaffold(project: Project): PlannedFile[];
   /** How to launch the kernel MCP server from the repo root without a build step. */
@@ -16,12 +18,14 @@ export interface BindingModule {
 const bindings: Partial<Record<Binding, BindingModule>> = {
   typescript: {
     kernel: typescript.kernel,
+    cli: typescript.cli,
     scaffold: typescript.scaffold,
     kernelCommand: () => typescript.kernelCommand(),
     cliCommand: () => typescript.cliCommand(),
   },
   python: {
     kernel: python.kernel,
+    cli: python.cli,
     scaffold: python.scaffold,
     kernelCommand: python.kernelCommand,
     cliCommand: python.cliCommand,
