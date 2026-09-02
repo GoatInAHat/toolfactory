@@ -29,6 +29,13 @@ export function registryName(project: { identity: { name: string; repository?: s
   return projectName.mcpRegistry(project.identity.name, owner);
 }
 
+/** The registry schema caps description at 100 characters; cut at a word boundary. */
+export function registryDescription(text: string): string {
+  if (text.length <= 100) return text;
+  const cut = text.slice(0, 100);
+  return cut.slice(0, Math.max(cut.lastIndexOf(" "), 1)).replace(/[\s,;:]+$/, "");
+}
+
 export const surface: Surface = {
   id: "mcp-registry",
   plan(project) {
@@ -59,8 +66,7 @@ export const surface: Surface = {
     const server = compact({
       $schema: SERVER_SCHEMA_ID,
       name: registryName(project),
-      // The registry schema caps description at 100 characters.
-      description: (identity.description ?? identity.name).slice(0, 100),
+      description: registryDescription(identity.description ?? identity.name),
       version,
       repository: identity.repository ? { url: identity.repository, source: "github" } : undefined,
       websiteUrl: identity.homepage,
