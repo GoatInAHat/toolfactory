@@ -1,5 +1,6 @@
 import type { Surface, SurfaceId } from "../model.js";
 import { surface as agentPlugins } from "./agent-plugins.js";
+import { surface as agents } from "./agents.js";
 import { surface as claude } from "./claude.js";
 import { surface as codex } from "./codex.js";
 import { surface as cursor } from "./cursor.js";
@@ -16,6 +17,7 @@ import { surface as workflows } from "./workflows.js";
 
 const registry: Partial<Record<SurfaceId, Surface>> = {
   "agent-plugins": agentPlugins,
+  agents,
   claude,
   codex,
   cursor,

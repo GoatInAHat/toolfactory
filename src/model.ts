@@ -43,6 +43,7 @@ export const SURFACE_IDS = [
   "web",
   "dsh",
   "workflows",
+  "agents",
 ] as const;
 export type SurfaceId = (typeof SURFACE_IDS)[number];
 

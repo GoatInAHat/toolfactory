@@ -41,7 +41,11 @@ export function buildPlan(
   const withWorkflows = surfaces.some((s) => s.id === "workflows")
     ? surfaces
     : [...surfaces, getSurface("workflows")];
-  const files = withWorkflows.flatMap((surface) => surface.plan(project));
+  // AGENTS.md is always generated too, so an agent developing the tool has it from the first build.
+  const withAgents = withWorkflows.some((s) => s.id === "agents")
+    ? withWorkflows
+    : [...withWorkflows, getSurface("agents")];
+  const files = withAgents.flatMap((surface) => surface.plan(project));
   // The kernel exists for every tool: it is what the author's operation module imports and
   // what `introspect` spawns, whether or not the mcp surface ships it.
   files.push(...getBinding(project.tool.binding).kernel(project));
