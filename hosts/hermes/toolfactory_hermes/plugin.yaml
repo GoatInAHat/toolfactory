@@ -24,4 +24,3 @@ optional_env:
     description: "Path to the toolfactory checkout the kernel CLI runs from
       (default: the plugin's own repository)."
     prompt: toolfactory checkout path
-    password: false

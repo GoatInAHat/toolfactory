@@ -58,7 +58,7 @@
       "state": "generated"
     },
     "hosts/hermes/toolfactory_hermes/plugin.yaml": {
-      "sha256": "9b313cdf8f16141203a70750942b0475f56be674beeaa302786fcac6a53b8b8c",
+      "sha256": "2b7e6af6d5f3821a5e0f7f2176afc34ca22aa2f6322ad11b72211c97b201be15",
       "state": "generated"
     },
     "hosts/openclaw/openclaw.plugin.json": {

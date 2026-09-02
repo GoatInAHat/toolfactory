@@ -108,7 +108,8 @@ export function envDeclarations(project: Project): { required: EnvEntry[]; optio
         name: envName(key),
         description,
         prompt: description,
-        password: isSensitive(property),
+        // `hermes plugins install` masks the prompt on `secret`; config.py accepts either key.
+        secret: isSensitive(property) || undefined,
         url: meta.url,
       }) as EnvEntry,
     };
@@ -150,7 +151,6 @@ function manifest(project: Project, operations: Operation[]): string {
       name: rootEnvName(project),
       description: `Path to the ${identity.name} checkout the kernel CLI runs from (default: the plugin's own repository).`,
       prompt: `${identity.name} checkout path`,
-      password: false,
     });
   }
   const core = project.tool.binding === "python" ? pinnedCore(project) : undefined;
