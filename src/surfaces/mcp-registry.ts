@@ -33,7 +33,7 @@ export function registryName(project: { identity: { name: string; repository?: s
 export function registryDescription(text: string): string {
   if (text.length <= 100) return text;
   const cut = text.slice(0, 100);
-  return cut.slice(0, Math.max(cut.lastIndexOf(" "), 1)).replace(/[\s,;:]+$/, "");
+  return cut.slice(0, Math.max(cut.lastIndexOf(" "), 1)).replace(/[\s,;:/-]+$/, "");
 }
 
 export const surface: Surface = {
