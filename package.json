@@ -16,6 +16,11 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@modelcontextprotocol/client": "^2.0.0",
+    "@modelcontextprotocol/server": "^2.0.0",
+    "ajv": "^8.20.0",
+    "commander": "^15.0.0",
+    "smol-toml": "^1.8.0",
     "yaml": "^2.9.0",
     "zod": "^4.5.4"
   },
@@ -25,5 +30,17 @@
     "tsx": "^4.23.13",
     "typescript": "^6.0.3",
     "vitest": "^4.1.11"
+  },
+  "bin": {
+    "toolfactory": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "schemas",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": "./dist/index.js"
   }
 }
