@@ -270,7 +270,8 @@ describe("workflows", () => {
     const gateRuns = (release.jobs.gate.steps as { run?: string }[])
       .map((s) => s.run)
       .filter(Boolean);
-    expect(gateRuns[0]).toBe(
+    // After the commit is resolved (a dispatched tag may not exist yet), before anything else.
+    expect(gateRuns[1]).toBe(
       'test "v$(node -p "require(\'./package.json\').version")" = "$RELEASE_TAG"',
     );
     // The gate is the same check sequence as ci.yml: build precedes `toolfactory validate`,

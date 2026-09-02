@@ -747,7 +747,8 @@ function releaseDocument(
       workflow_dispatch: {
         inputs: {
           tag: {
-            description: "The v* tag to release: an existing one to publish again (e.g. after adding a secret), or a new one to cut at this branch's head",
+            description:
+              "The v* tag to release: an existing one to publish again (e.g. after adding a secret), or a new one to cut at this branch's head",
             required: true,
             type: "string",
           },
