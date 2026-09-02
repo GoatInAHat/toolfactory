@@ -3,6 +3,7 @@ import { surface as agentPlugins } from "./agent-plugins.js";
 import { surface as claude } from "./claude.js";
 import { surface as codex } from "./codex.js";
 import { surface as cursor } from "./cursor.js";
+import { clawhub, dsh } from "./external.js";
 import { surface as hermesNative } from "./hermes-native.js";
 import { cli, mcp } from "./kernel.js";
 import { surface as mcpRegistry } from "./mcp-registry.js";
@@ -18,6 +19,8 @@ const registry: Partial<Record<SurfaceId, Surface>> = {
   claude,
   codex,
   cursor,
+  clawhub,
+  dsh,
   cli,
   mcp,
   "mcp-registry": mcpRegistry,

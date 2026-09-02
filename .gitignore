@@ -73,3 +73,6 @@ Thumbs.db
 *.sqlite
 *.sqlite3
 *.db
+
+# npm writes this when the OpenClaw plugin is validated; its only dependency on this repo is file:../..
+hosts/*/package-lock.json

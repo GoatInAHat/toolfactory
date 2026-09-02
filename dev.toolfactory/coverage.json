@@ -8,7 +8,9 @@
     "mcp",
     "cli",
     "npm",
-    "mcp-registry"
+    "mcp-registry",
+    "openclaw-native",
+    "hermes-native"
   ],
   "rows": [
     {
@@ -42,6 +44,13 @@
         },
         "mcp-registry": {
           "kind": "native"
+        },
+        "openclaw-native": {
+          "kind": "native"
+        },
+        "hermes-native": {
+          "kind": "degraded",
+          "reason": "degraded:out-of-process"
         }
       }
     },
@@ -76,6 +85,13 @@
         },
         "mcp-registry": {
           "kind": "native"
+        },
+        "openclaw-native": {
+          "kind": "native"
+        },
+        "hermes-native": {
+          "kind": "degraded",
+          "reason": "degraded:out-of-process"
         }
       }
     },
@@ -110,6 +126,13 @@
         },
         "mcp-registry": {
           "kind": "native"
+        },
+        "openclaw-native": {
+          "kind": "native"
+        },
+        "hermes-native": {
+          "kind": "degraded",
+          "reason": "degraded:out-of-process"
         }
       }
     },
@@ -144,6 +167,13 @@
         },
         "mcp-registry": {
           "kind": "native"
+        },
+        "openclaw-native": {
+          "kind": "native"
+        },
+        "hermes-native": {
+          "kind": "degraded",
+          "reason": "degraded:out-of-process"
         }
       }
     },
@@ -178,6 +208,13 @@
         },
         "mcp-registry": {
           "kind": "native"
+        },
+        "openclaw-native": {
+          "kind": "native"
+        },
+        "hermes-native": {
+          "kind": "degraded",
+          "reason": "degraded:out-of-process"
         }
       }
     },
@@ -212,6 +249,13 @@
         },
         "mcp-registry": {
           "kind": "native"
+        },
+        "openclaw-native": {
+          "kind": "native"
+        },
+        "hermes-native": {
+          "kind": "degraded",
+          "reason": "degraded:out-of-process"
         }
       }
     },
@@ -246,6 +290,13 @@
         },
         "mcp-registry": {
           "kind": "native"
+        },
+        "openclaw-native": {
+          "kind": "native"
+        },
+        "hermes-native": {
+          "kind": "degraded",
+          "reason": "degraded:out-of-process"
         }
       }
     },
@@ -280,6 +331,13 @@
         },
         "mcp-registry": {
           "kind": "native"
+        },
+        "openclaw-native": {
+          "kind": "native"
+        },
+        "hermes-native": {
+          "kind": "degraded",
+          "reason": "degraded:out-of-process"
         }
       }
     },
@@ -314,6 +372,13 @@
         },
         "mcp-registry": {
           "kind": "native"
+        },
+        "openclaw-native": {
+          "kind": "native"
+        },
+        "hermes-native": {
+          "kind": "degraded",
+          "reason": "degraded:out-of-process"
         }
       }
     },
@@ -348,6 +413,13 @@
         },
         "mcp-registry": {
           "kind": "native"
+        },
+        "openclaw-native": {
+          "kind": "native"
+        },
+        "hermes-native": {
+          "kind": "degraded",
+          "reason": "degraded:out-of-process"
         }
       }
     }

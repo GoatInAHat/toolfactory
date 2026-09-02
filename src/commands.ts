@@ -8,11 +8,11 @@ import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { getBinding } from "./bindings/index.js";
 import { assertValidName } from "./identity/name.js";
-import { introspect as runIntrospect } from "./introspect/index.js";
+import { introspect as runIntrospect, snapshot } from "./introspect/index.js";
 import type { Binding, Command, Identity, PlannedFile, Project, SurfaceId } from "./model.js";
 import { SURFACE_IDS, ToolConfigSchema } from "./model.js";
 import { apply, check as checkPlan, type Drift, setState } from "./project/apply.js";
-import { loadProject, TOOL_PATH, TOOLFACTORY_VERSION } from "./project/load.js";
+import { loadProject, OPS_PATH, TOOL_PATH, TOOLFACTORY_VERSION } from "./project/load.js";
 import { readLock } from "./project/lock.js";
 import { buildPlan, TOOL_SCHEMA_PATH } from "./project/plan.js";
 import { type Coverage, computeCoverage } from "./report/coverage.js";
@@ -105,12 +105,15 @@ export function build(root = ".") {
 }
 
 /** Throws when any generated file drifted, so CLI and MCP callers see a failure. */
-export function check(root = "."): { project: Project; drift: Drift[] } {
+/** The drift gate: the operation snapshot and every generated file must match the code. */
+export async function check(root = "."): Promise<{ project: Project; drift: Drift[] }> {
   const project = loadProject(root);
   const drift = checkPlan(project.root, buildPlan(project), TOOLFACTORY_VERSION);
+  const ops = await snapshot(project);
+  if (ops.changed) drift.unshift({ kind: "changed", path: OPS_PATH });
   if (drift.length) {
     throw new Error(
-      `${drift.length} generated file(s) out of date; run \`toolfactory build\`:\n${drift.map((d) => `  ${d.kind}: ${d.path}`).join("\n")}`,
+      `${drift.length} generated file(s) out of date; run \`toolfactory ${ops.changed ? "introspect" : "build"}\`:\n${drift.map((d) => `  ${d.kind}: ${d.path}`).join("\n")}`,
     );
   }
   return { project, drift };

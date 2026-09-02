@@ -42,7 +42,8 @@
     "LICENSE"
   ],
   "exports": {
-    ".": "./dist/index.js"
+    ".": "./dist/index.js",
+    "./dist/*": "./dist/*"
   },
   "homepage": "https://github.com/GoatInAHat/toolfactory",
   "keywords": [

@@ -74,7 +74,8 @@ function fromGeneric(record: Record<string, unknown>, nameKey = "name"): Identit
       ? record.keywords.filter((k): k is string => typeof k === "string")
       : undefined,
   };
-  return { identity, extra: split(record, [...IDENTITY_KEYS, nameKey]), format: "json" };
+  const owned = [...IDENTITY_KEYS.filter((key) => key !== "name"), nameKey];
+  return { identity, extra: split(record, owned), format: "json" };
 }
 
 function fromPyproject(text: string): IdentityFile {

@@ -28,7 +28,10 @@
       "!.cursor-plugin",
       "!mcp.json",
       "!server.json",
-      "!COVERAGE.md"
+      "!COVERAGE.md",
+      "!hosts",
+      "!web",
+      "!renovate.json"
     ]
   }
 }

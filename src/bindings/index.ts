@@ -9,6 +9,8 @@ export interface BindingModule {
   scaffold(project: Project): PlannedFile[];
   /** How to launch the kernel MCP server from the repo root without a build step. */
   kernelCommand(project: Project): { command: string; args: string[] };
+  /** The kernel CLI counterpart of `kernelCommand`, for the `cli` surface's smoke check. */
+  cliCommand(project: Project): { command: string; args: string[] };
 }
 
 const bindings: Partial<Record<Binding, BindingModule>> = {
@@ -16,11 +18,13 @@ const bindings: Partial<Record<Binding, BindingModule>> = {
     kernel: typescript.kernel,
     scaffold: typescript.scaffold,
     kernelCommand: () => typescript.kernelCommand(),
+    cliCommand: () => typescript.cliCommand(),
   },
   python: {
     kernel: python.kernel,
     scaffold: python.scaffold,
     kernelCommand: python.kernelCommand,
+    cliCommand: python.cliCommand,
   },
 };
 

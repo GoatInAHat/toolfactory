@@ -3,5 +3,17 @@
   "schemaVersion": 1,
   "identity": "plugin.json",
   "binding": "typescript",
-  "surfaces": ["skill", "agent-plugins", "claude", "codex", "cursor", "mcp", "cli", "npm", "mcp-registry"]
+  "surfaces": [
+    "skill",
+    "agent-plugins",
+    "claude",
+    "codex",
+    "cursor",
+    "mcp",
+    "cli",
+    "npm",
+    "mcp-registry",
+    "openclaw-native",
+    "hermes-native"
+  ]
 }
