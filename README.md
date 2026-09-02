@@ -74,6 +74,19 @@ toolfactory is built with toolfactory.
 | `web` | `web/`, a shadcn/ui (Vite, React, Tailwind) app with a form per operation | `vite build`, Playwright |
 | workflows (always) | `ci.yml`, `release.yml`, `compose.toolfactory.yaml`, `.env.example`, `renovate.json` | the workflow itself |
 
+## Driving toolfactory from an agent
+
+Every command is an MCP tool, so a host can drive the whole loop without a shell. Register once:
+
+```json
+{ "mcpServers": { "toolfactory": { "command": "npx", "args": ["toolfactory", "mcp"] } } }
+```
+
+`root` is an argument of every tool, so one registration serves every generated repository on the
+machine. Inside OpenClaw, install the tool you are building with
+`openclaw plugins install --link <repo>/hosts/openclaw --force`; inside Hermes, commit and run
+`hermes plugins install file://<repo>#hosts/hermes/<pkg>` then `hermes gateway restart`.
+
 ## The boundary
 
 Core logic is a pure function of JSON arguments, environment/config and the filesystem. An

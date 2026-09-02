@@ -149,7 +149,7 @@ toolfactory owns exactly the keys in its patch).
 | `skill` | `skills/<N>/SKILL.md` (frontmatter + operations block; body authored) | `uvx --from skills-ref agentskills validate` | portable → `bridged:agent-mediated`; `channel` → `excluded:no-channel-bridge` |
 | `agent-plugins` | `mcp.json`; requires identity in `plugin.json` | Ajv 2020 against the vendored 1.0.0 schemas (`schemas/agent-plugins/`) | as `mcp` |
 | `claude` | `.claude-plugin/plugin.json` (`userConfig` from `config`, inline `mcpServers` using `${CLAUDE_PLUGIN_ROOT}` and `${user_config.K}`) | `claude plugin validate .` | as `mcp` |
-| `codex` | `.codex-plugin/plugin.json` with the required `interface` block and inline `mcpServers` | schema-shaped; loader not exercised | `degraded:loader-unverified` |
+| `codex` | `.codex-plugin/plugin.json` with the required `interface` block and inline `mcpServers` (Agent Plugins placeholders; data-directory and secret conventions unverified against OpenAI's docs) | schema-shaped; loader not exercised | `degraded:loader-unverified` |
 | `cursor` | `.cursor-plugin/plugin.json` with `variables` from `config`, pointing at `./mcp.json` | schema-shaped; loader not exercised | `degraded:loader-unverified` |
 | `mcp` | ships the kernel MCP server (stdio by default; `mcp --http [port]` serves the same server over streamable HTTP at `/mcp`): `dev.toolfactory/inspector.json`, `mcp.json` references | MCP Inspector `--cli --method tools/list` | portable → `native`; else `excluded:mcp-no-host-capabilities` |
 | `cli` | the binding's CLI file, one subcommand per operation | `<cli> --help` | portable or `user-input` → `native` (a CLI has a human at the terminal); else `excluded:cli-no-host-capabilities` |
@@ -242,6 +242,27 @@ A browser-needing tool is two operations: `analyze_page({html, url})` declares n
 on every surface; `analyze_url({url})` declares `requires: ["browser"]` and exists only where a
 browser does. The capability is satisfied before the call and arrives as an ordinary argument.
 
+The same pattern covers a human in the loop. A setup flow that must wait for a verification code
+or a passkey ceremony is `setup_begin` (starts the flow, returns what the user must do) and
+`setup_complete({answer})` (finishes it); both are portable and exist on every surface. An
+operation that declares `user-input` instead exists only where a human is reachable: the CLI
+(native, the author prompts on stdin), a skill (bridged: the agent asks the user), and nowhere
+else. MCP elicitation exists in the 2026-07-28 SDKs, but no generated kernel can know what to
+ask, so it is not a toolfactory mechanism; OpenClaw's public plugin SDK has no ask-user primitive
+(`excluded:no-user-input-bridge`); on Hermes the author may import `tools.clarify_tool` in the
+host-native shim.
+
+### 4.6 Secrets a tool obtains at runtime
+
+A setup flow that produces a secret returns it; where it is kept is the host's business, and
+toolfactory documents the per-surface policy rather than generating one: OpenClaw and Hermes can
+be written by the tool (`openclaw config set`; Hermes's env file through `hermes config`),
+Claude Code cannot (return the value and point the user at the plugin's configuration UI), and
+the data directory (§6.1) is the fallback for caches such as sessions. Only OpenClaw's
+`configSchema` carries schema composition keywords (`anyOf`, `oneOf`); every other host enforces
+the flat `required` list, so a cross-field rule such as "VUnetID or email" is validated in the
+kernel's own config code.
+
 ## 5. Language agnosticism
 
 toolfactory is TypeScript. The tool it builds is not. A **binding** is the whole language-specific
@@ -272,6 +293,27 @@ CLI, and `COVERAGE.md` says `degraded:out-of-process`.
 | T1 contract | every selected surface's upstream validator, offline | `toolfactory validate` |
 | T2 surface smoke | kernel `tools/list` via MCP Inspector; CLI `--help` | `toolfactory validate` |
 | T3 host e2e | the generated `compose.toolfactory.yaml`: install into the real host image, assert the tools appear | `docker compose -f compose.toolfactory.yaml up` |
+| T4 live | credential-gated tests against a real account: `tests/live.test.ts` / `tests/test_live.py`, generated with a skip guard on the config keys that are both required and sensitive, the body the author's; a `live` job in `ci.yml` bound to the `live-tests` GitHub Environment created by `toolfactory bootstrap-repo` | `npm run test:live` (loads `.env`), the CI job |
+
+Live-test pass or skip state is the test runner's own report; `coverage.json` and `COVERAGE.md`
+stay projection verdicts.
+
+### 6.1 The data directory
+
+Every kernel exposes `context.dataDir`: `<N>_DATA_DIR` when the host sets it, otherwise an
+XDG-style default under the user's data directory. Surfaces pass the host's own location (Agent
+Plugins `${PLUGIN_DATA}`, OpenClaw's plugin state directory, Hermes's plugin data directory); the
+CLI uses the default. Session caches and similar durable state live there; operations touching it
+declare `fs`.
+
+### 6.2 T3 without Docker
+
+An agent developing inside the host it targets (OpenClaw or Hermes on a VPS, where there is no
+Docker daemon and, on some images, no git) runs the same commands the compose file carries,
+against the live host: OpenClaw `openclaw plugins install --link <abs path>/hosts/openclaw --force`
+then `openclaw plugins inspect <N> --runtime --json`; Hermes `hermes plugins doctor <path>/hosts/hermes/<pkg> --ci`
+for the structural check and `hermes plugins install file://<repo>#hosts/hermes/<pkg>` (after
+committing) followed by `hermes gateway restart` to load it.
 
 Every tier is a real upstream invocation; toolfactory owns no validator. The only schemas it vendors
 are the two Agent Plugins 1.0.0 schemas (the spec forbids fetching at load time). The generated CI
@@ -336,8 +378,7 @@ in §9 plus `mcp`.
 
 **Not in v0** (each is a documented gap, not an implied feature): yarn and bun workflows (the
 loader rejects other `packageManager` values with a message); a release ledger and
-`release --dry-run`; a `bootstrap-repo` command for protected environments; generated T4 live-test
-skeletons with skip guards; nightly golden tests of generators against upstream `latest` and
+`release --dry-run`; nightly golden tests of generators against upstream `latest` and
 `@beta`; GUI (Tauri), MCPB and GitHub Releases binaries; Go and Rust bindings; a native DSH
 generator (gated on DSH's first non-alpha tag); A2A, WebMCP, UTCP.
 
