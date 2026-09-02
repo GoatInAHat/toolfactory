@@ -4,6 +4,7 @@
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { getBinding } from "./bindings/index.js";
 import { assertValidName } from "./identity/name.js";
@@ -231,12 +232,23 @@ export function doctor(): DoctorReport {
     hermes: ["hermes", ["--version"]],
     uvx: ["uvx", ["--version"]],
     agentskills: ["uvx", ["--from", "skills-ref", "agentskills", "--help"]],
-    "mcp-inspector": ["npx", ["--no-install", "@modelcontextprotocol/inspector", "--help"]],
     docker: ["docker", ["--version"]],
   };
   const tools: Record<string, string> = {};
+  // Never spawn npx from here: under an npx-launched MCP host that deadlocks on npm's cache lock.
+  try {
+    const inspector = createRequire(import.meta.url)(
+      "@modelcontextprotocol/inspector/package.json",
+    ) as {
+      version: string;
+    };
+    tools["mcp-inspector"] = `${inspector.version} (npx @modelcontextprotocol/inspector)`;
+  } catch {
+    tools["mcp-inspector"] =
+      "missing (npx --yes @modelcontextprotocol/inspector installs it on demand)";
+  }
   for (const [name, [command, args]] of Object.entries(probes)) {
-    const result = spawnSync(command, args, { encoding: "utf8", timeout: 60_000 });
+    const result = spawnSync(command, args, { encoding: "utf8", timeout: 10_000 });
     tools[name] =
       result.status === 0
         ? ((result.stdout || result.stderr).trim().split("\n")[0] ?? "ok")
