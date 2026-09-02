@@ -326,7 +326,8 @@ its own CI. Its operations (`init`, `introspect`, `build`, `check`, `validate`, 
 `adopt`, `unadopt`, `eject`, `doctor`) are declared once in `src/ops.ts`; the CLI and the MCP
 server are generated from them exactly as for any other tool. Its selected surfaces include the
 OpenClaw-native and Hermes-native shims, because those generators track the fastest-moving hosts
-and must be exercised by toolfactory's own release.
+and must be exercised by toolfactory's own release, and the web surface, whose scaffold is
+mirrored from upstream generators that move just as fast.
 
 ## 10. Scope
 
