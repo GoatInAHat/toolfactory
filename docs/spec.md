@@ -461,9 +461,12 @@ reusable-workflow legs cannot be gated inside a `run:`. Every leg carries
 `if: needs.gate.outputs.<id> == 'true'`, and `release` runs unless something failed
 (`!cancelled() && needs.package.result == 'success' && !contains(needs.*.result, 'failure')`), so
 skipped legs never skip the Release: gate, package, the Release with its assets, and whatever
-else applies. `workflow_dispatch` with a `tag` input is the re-run after adding a secret — every
-checkout, the assert, the image tag and the Release read `inputs.tag || github.ref` — and never
-`gh run rerun`, which replays the original run's secret snapshot.
+else applies. `workflow_dispatch` with a `tag` input is the re-run after adding a secret, and also how a tag
+is cut without a local `git tag` (from the Actions UI, or wherever tag pushes are not allowed):
+`gate` resolves the commit once — the tag's if it exists, else the dispatched branch's head — as
+`outputs.sha`, every other checkout, the assert, the image tag and the Release read it, and the
+Release creates a missing tag at that commit. Never `gh run rerun`, which replays the original
+run's secret snapshot.
 
 **Git is the release ledger.** Before the Release, `release` runs `toolfactory unpublish`
 (checkout with the full history): it diffs `dev.toolfactory/tool.json` at

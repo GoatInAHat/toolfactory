@@ -73,13 +73,14 @@ function yml(document: unknown): string {
 
 /**
  * The tag `release.yml` is releasing. On `push: tags` it is the pushed tag; on `workflow_dispatch`
- * it is the `tag` input — the operator's re-run after minting a missing secret, which `gh run
- * rerun` cannot be because a re-run replays the original run's secret snapshot. Every checkout,
- * every assert, the image tag and the Release all read the same expression, so a dispatched run
- * releases the tag and never the branch it was dispatched from.
+ * it is the `tag` input — either an existing tag (the operator's re-run after minting a missing
+ * secret, which `gh run rerun` cannot be because a re-run replays the original run's secret
+ * snapshot) or a new one, cut at the dispatched branch's head by the Release itself. `gate`
+ * resolves the commit once (`outputs.sha`); every other checkout, the assert, the image tag and
+ * the Release read it, so a dispatched run releases that commit and never the branch's later head.
  */
-const TAG_REF = "${{ inputs.tag || github.ref }}";
 const TAG_NAME = "${{ inputs.tag || github.ref_name }}";
+const RELEASE_SHA = "${{ needs.gate.outputs.sha }}";
 
 /** `actions/checkout`, pinned to the released tag inside `release.yml` and to the event elsewhere. */
 function checkoutStep(ref?: string, extra?: Record<string, unknown>): Step {
@@ -301,7 +302,7 @@ function browserExtPublishJob(project: Project, rows: Registry[]): Record<string
       ),
     },
     steps: [
-      ...toolchainSteps(project, "24", TAG_REF),
+      ...toolchainSteps(project, "24", RELEASE_SHA),
       // Only the `wxt`/`publish-browser-extension` binary is needed — the zips it submits are the
       // `package` job's own, downloaded below, not rebuilt.
       { run: `npm --prefix ${BROWSER_HOST_DIR} install` },
@@ -339,7 +340,7 @@ function browserExtSafariJob(project: Project, safari: Registry): Record<string,
     permissions: { contents: "read" },
     env: Object.fromEntries(safari.secrets.map((name) => [name, `\${{ secrets.${name} }}`])),
     steps: [
-      ...toolchainSteps(project, "24", TAG_REF),
+      ...toolchainSteps(project, "24", RELEASE_SHA),
       { run: `npm --prefix ${BROWSER_HOST_DIR} install` },
       // `npm exec` never changes the working directory, so `wxt` needs its root passed
       // explicitly (verified live against `wxt zip`, the same CLI).
@@ -430,9 +431,17 @@ function releaseDocument(
       "runs-on": "ubuntu-latest",
       permissions: compact({ contents: "read", pages: has(project, "web") ? "read" : undefined }),
       env: { RELEASE_TAG: TAG_NAME },
-      outputs: presenceOutputs(rows),
+      outputs: { sha: "${{ steps.tag.outputs.sha }}", ...presenceOutputs(rows) },
       steps: [
-        ...toolchainSteps(project, "24", TAG_REF),
+        // The whole history: the tag may exist (a re-run) or not yet (a dispatch cuts it), and
+        // `unpublish` reads tool.json at the previous tag.
+        checkoutStep(undefined, { "fetch-depth": 0 }),
+        ...toolchainSteps(project, "24").slice(1),
+        {
+          id: "tag",
+          name: "the commit this tag releases",
+          run: 'sha=$(git rev-parse -q --verify "refs/tags/$RELEASE_TAG^{commit}" 2>/dev/null || git rev-parse HEAD) && git checkout -q "$sha" && echo "sha=$sha" >> "$GITHUB_OUTPUT"',
+        },
         ...(assert ? [actionStep(assert, false)] : []),
         ...hermesSteps(project),
         ...gateSteps(project).map((step) => actionStep(step, false)),
@@ -452,7 +461,7 @@ function releaseDocument(
           }
         : undefined,
       steps: [
-        ...toolchainSteps(project, "24", TAG_REF),
+        ...toolchainSteps(project, "24", RELEASE_SHA),
         ...packageSteps(project).map((step) => actionStep(step, false)),
         {
           uses: "actions/upload-artifact@v7",
@@ -471,7 +480,7 @@ function releaseDocument(
       permissions: { "id-token": "write", contents: "read" },
       env: { NPM_TOKEN: "${{ secrets.NPM_TOKEN }}" },
       steps: [
-        checkoutStep(TAG_REF),
+        checkoutStep(RELEASE_SHA),
         ...SETUP_ACTIONS[project.packageManager ?? "npm"],
         {
           uses: "actions/setup-node@v7",
@@ -498,7 +507,7 @@ function releaseDocument(
       environment: "pypi",
       permissions: { "id-token": "write" },
       steps: [
-        checkoutStep(TAG_REF),
+        checkoutStep(RELEASE_SHA),
         { uses: "astral-sh/setup-uv@v6" },
         { run: "uv build" },
         {
@@ -526,7 +535,7 @@ function releaseDocument(
         "id-token": "write",
       },
       steps: [
-        checkoutStep(TAG_REF),
+        checkoutStep(RELEASE_SHA),
         {
           uses: "docker/login-action@v4",
           with: {
@@ -568,7 +577,7 @@ function releaseDocument(
       "runs-on": "ubuntu-latest",
       permissions: { "id-token": "write", contents: "read" },
       steps: [
-        checkoutStep(TAG_REF),
+        checkoutStep(RELEASE_SHA),
         { run: MCP_PUBLISHER_FETCH },
         { run: "./mcp-publisher login github-oidc && ./mcp-publisher publish" },
       ],
@@ -669,8 +678,8 @@ function releaseDocument(
     },
     steps: [
       // The whole history: `unpublish` reads tool.json at the previous tag.
-      checkoutStep(TAG_REF, { "fetch-depth": 0 }),
-      ...toolchainSteps(project, "24", TAG_REF).slice(1),
+      checkoutStep(RELEASE_SHA, { "fetch-depth": 0 }),
+      ...toolchainSteps(project, "24", RELEASE_SHA).slice(1),
       ...bootstrapSteps(project).map((step) => actionStep(step, false)),
       actionStep(unpublishStep(project), false),
       {
@@ -681,6 +690,8 @@ function releaseDocument(
         uses: "softprops/action-gh-release@v3",
         with: {
           tag_name: TAG_NAME,
+          // A tag the dispatch is cutting does not exist yet: the Release creates it here.
+          target_commitish: RELEASE_SHA,
           generate_release_notes: true,
           files: `${RELEASE_ARTIFACT}/*`,
           fail_on_unmatched_files: true,
@@ -696,7 +707,7 @@ function releaseDocument(
       "runs-on": "ubuntu-latest",
       permissions: { contents: "read" },
       steps: [
-        ...toolchainSteps(project, "24", TAG_REF),
+        ...toolchainSteps(project, "24", RELEASE_SHA),
         ...[...bootstrapSteps(project), outputsStep(project)].map((step) =>
           actionStep(step, false),
         ),
@@ -736,7 +747,7 @@ function releaseDocument(
       workflow_dispatch: {
         inputs: {
           tag: {
-            description: "The v* tag to publish again, e.g. after adding a secret",
+            description: "The v* tag to release: an existing one to publish again (e.g. after adding a secret), or a new one to cut at this branch's head",
             required: true,
             type: "string",
           },

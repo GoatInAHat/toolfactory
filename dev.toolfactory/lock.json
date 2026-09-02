@@ -93,7 +93,7 @@
       "state": "generated"
     },
     ".github/workflows/release.yml": {
-      "sha256": "8a42ef820205becd00380e6bf237f57723a53c76ad7aedfaa08e27d3b5bf7c6a",
+      "sha256": "042ccc91d868a03cb1d39b1210acb454d6c389f58ec07bc31da77a0e9ab4232b",
       "state": "generated"
     },
     ".gitignore": {

@@ -23,7 +23,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: The v* tag to publish again, e.g. after adding a secret
+        description: "The v* tag to release: an existing one to publish again (e.g. after adding a secret), or a new one to cut at this branch's head"
         required: true
         type: string
 permissions:
@@ -37,6 +37,7 @@ jobs:
     env:
       RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
     outputs:
+      sha: ${{ steps.tag.outputs.sha }}
       npm: ${{ steps.presence.outputs.npm }}
       oci: ${{ steps.presence.outputs.oci }}
       mcp_registry: ${{ steps.presence.outputs.mcp_registry }}
@@ -47,13 +48,16 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
           cache: pnpm
       - uses: astral-sh/setup-uv@v6
+      - id: tag
+        name: the commit this tag releases
+        run: sha=$(git rev-parse -q --verify "refs/tags/$RELEASE_TAG^{commit}" 2>/dev/null || git rev-parse HEAD) && git checkout -q "$sha" && echo "sha=$sha" >> "$GITHUB_OUTPUT"
       - name: tag matches plugin.json
         run: test "v$(node -p "require('./plugin.json').version")" = "$RELEASE_TAG"
       - name: Restore Hermes
@@ -128,7 +132,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ needs.gate.outputs.sha }}
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v7
         with:
@@ -179,7 +183,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ needs.gate.outputs.sha }}
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v7
         with:
@@ -200,7 +204,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ needs.gate.outputs.sha }}
       - uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -230,7 +234,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ needs.gate.outputs.sha }}
       - run: curl -sL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
       - run: ./mcp-publisher login github-oidc && ./mcp-publisher publish
   publish-browser-ext:
@@ -256,7 +260,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ needs.gate.outputs.sha }}
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v7
         with:
@@ -319,7 +323,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ needs.gate.outputs.sha }}
           fetch-depth: 0
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v7
@@ -340,6 +344,7 @@ jobs:
       - uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ inputs.tag || github.ref_name }}
+          target_commitish: ${{ needs.gate.outputs.sha }}
           generate_release_notes: true
           files: release-assets/*
           fail_on_unmatched_files: true
@@ -352,7 +357,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ needs.gate.outputs.sha }}
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v7
         with:

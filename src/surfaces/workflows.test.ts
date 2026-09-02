@@ -81,7 +81,7 @@ describe("workflows", () => {
     // No registry surface: the tag still gets its gate, its assets and its Release, no legs.
     const bare = yamlParse(files[".github/workflows/release.yml"]);
     expect(Object.keys(bare.jobs)).toEqual(["gate", "package", "release"]);
-    expect(bare.jobs.gate.outputs).toBeUndefined();
+    expect(bare.jobs.gate.outputs).toEqual({ sha: "${{ steps.tag.outputs.sha }}" });
     expectAllYamlAndJsonParse(files);
 
     const ci = yamlParse(files[".github/workflows/ci.yml"]);
@@ -155,6 +155,7 @@ describe("workflows", () => {
     });
     // Presence is decided once, in the gate, and every leg obeys it at job level.
     expect(Object.keys(release.jobs.gate.outputs)).toEqual([
+      "sha",
       "npm",
       "oci",
       "mcp_registry",
@@ -183,11 +184,24 @@ describe("workflows", () => {
       with?: Record<string, unknown>;
     }[];
     expect(releaseSteps[0].with).toEqual({
-      ref: "${{ inputs.tag || github.ref }}",
+      ref: "${{ needs.gate.outputs.sha }}",
       "fetch-depth": 0,
     });
     expect(releaseSteps.some((s) => s.run === "npx toolfactory unpublish")).toBe(true);
-    expect(releaseSteps.at(-1)?.with?.tag_name).toBe("${{ inputs.tag || github.ref_name }}");
+    expect(releaseSteps.at(-1)?.with).toMatchObject({
+      tag_name: "${{ inputs.tag || github.ref_name }}",
+      target_commitish: "${{ needs.gate.outputs.sha }}",
+    });
+    // Cutting a tag from the Actions UI: gate resolves the commit, the Release creates the tag.
+    const gateSteps_ = release.jobs.gate.steps as {
+      id?: string;
+      run?: string;
+      with?: Record<string, unknown>;
+    }[];
+    expect(gateSteps_[0].with).toEqual({ "fetch-depth": 0 });
+    expect(gateSteps_.find((s) => s.id === "tag")?.run).toContain(
+      'git rev-parse -q --verify "refs/tags/$RELEASE_TAG^{commit}"',
+    );
     expect(Object.keys(release.jobs)).toEqual([
       "gate",
       "package",
