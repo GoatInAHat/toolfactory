@@ -31,7 +31,9 @@ npm / PyPI packages, and the CI and release workflows for all of them.
 
 ## Workflow
 
-1. New tool: `toolfactory init --name <n> --binding typescript|python --surfaces <a,b,c> --repository <url>`,
+1. New tool: `toolfactory init --name <n> --binding typescript|python [--surfaces <a,b,c>] --repository <url>`
+   (no `--surfaces` = skills first: skill, agent-plugins, mcp, cli and the package registry; add a
+   host plugin only when that host needs what a skill and an MCP server cannot give it),
    then install dependencies (`pnpm install` or `uv sync`).
 2. Add or change operations in the ops module, then `toolfactory introspect` and `toolfactory build`.
 3. `toolfactory check` is the CI drift gate; `toolfactory validate` runs each surface's own upstream

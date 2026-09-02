@@ -13,6 +13,7 @@ import * as commands from "./commands.js";
 import { createRepo } from "./hosts/github.js";
 import {
   assertNoSensitiveArgument,
+  defaultSurfaces,
   type Operation,
   type Project,
   type SurfaceId,
@@ -122,6 +123,8 @@ describe("init", () => {
     // `keywords` defaults to `[name]` — Kiro Powers and Agent Plugins key activation off it —
     // and lands in the scaffolded identity file (`package.json`, here) like the rest of identity.
     expect(JSON.parse(readFileSync(join(dir, "package.json"), "utf8")).keywords).toEqual(["probe"]);
+    // Asked for nothing, init selects the skills-first minimum; host plugins are opt-in.
+    expect(defaultSurfaces("python")).toEqual(["skill", "agent-plugins", "mcp", "cli", "pypi"]);
   });
 });
 

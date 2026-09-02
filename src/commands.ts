@@ -78,7 +78,8 @@ export interface InitOptions {
   name: string;
   description?: string;
   binding: Binding;
-  surfaces: SurfaceId[];
+  /** Default: `defaultSurfaces(binding)`, the skills-first minimum. */
+  surfaces?: SurfaceId[];
   license?: string;
   repository?: string;
   author?: string;

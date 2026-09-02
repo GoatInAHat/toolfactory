@@ -105,6 +105,12 @@ toolfactory is built with toolfactory.
 
 ## Surfaces
 
+Skills first. `init` selects the minimum that already serves every harness — `skill`,
+`agent-plugins`, `mcp`, `cli` and the binding's package registry — because everywhere that
+takes a plugin also takes a skill plus an MCP server, and a skill is one file with no upstream to
+track. Every host-specific plugin below is opt-in: add it only when that host needs what a skill
+and an MCP server cannot give it (a gateway tab, browser capability, a store listing).
+
 | Surface | Emits | Validated by |
 |---|---|---|
 | `skill` | `skills/<name>/SKILL.md` (frontmatter + operations block; body is yours), plus `.agents/skills/<name>`, a symlink to it, so Copilot, Codex, Hermes, DSH and `.agents/sync.py` see the same one skill | `agentskills validate` |

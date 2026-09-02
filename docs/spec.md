@@ -164,6 +164,13 @@ running `build`; `check` never rewrites anything.
 
 ## 3. Surfaces
 
+**Skills first.** `init` defaults to `skill`, `agent-plugins`, `mcp`, `cli` and the binding's
+package registry (`defaultSurfaces`, `src/model.ts`): a skill installs into every harness with
+`npx skills add`, the bundle and the MCP server cover every host that reads them, and nothing
+host-specific is generated until an author selects it. Host-native surfaces exist for what a
+skill and a server cannot express — OpenClaw's gateway tab, a browser's capability, a store
+listing — and each one is an upstream to track, so the default carries none.
+
 Every surface is one pure projector, `plan(project) → PlannedFile[]`, plus optional `validate`
 (upstream commands) and `verdict` (§4.3). Three file kinds exist: whole files, region files
 (author-owned with marker-delimited generated regions) and merge files (JSON/TOML where
