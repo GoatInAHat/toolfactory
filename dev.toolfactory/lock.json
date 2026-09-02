@@ -71,7 +71,7 @@
       "state": "generated"
     },
     ".github/workflows/ci.yml": {
-      "sha256": "693ae92522b21f7c18389f1826c0d97be5a9c3af3ad8ff0b14704a23ebc0e9ad",
+      "sha256": "153886fc9babfde51d9fdd314ce3044d52a8c5881523d4c74510fadb379b75c0",
       "state": "generated"
     },
     ".github/workflows/copilot-setup-steps.yml": {
@@ -79,7 +79,7 @@
       "state": "generated"
     },
     ".github/workflows/release.yml": {
-      "sha256": "9b303647090392263638855c86320639957c1a989b097b99e52279c5e4c13bcf",
+      "sha256": "09d9f2c6a8d6e096c9b2fad378ddb17799c6d9f319e6a36feb3277c00d9edb8c",
       "state": "generated"
     },
     ".gitignore": {
@@ -87,7 +87,7 @@
       "state": "generated"
     },
     "AGENTS.md": {
-      "sha256": "c4e51c3db24cb6418aef0c2e6c415cc067154efd3d039a098c96309e64f33a9d",
+      "sha256": "75f3844d41e0ea917458cad23a3bc254a5a00a627524cdb8f6d3b85859941e0f",
       "state": "generated"
     },
     "compose.toolfactory.yaml": {
@@ -95,11 +95,11 @@
       "state": "generated"
     },
     "COVERAGE.md": {
-      "sha256": "5be8e5689d987331df3e40da93a6c2560581531b6ef4a48f03fe82034567b433",
+      "sha256": "2a8ed728a7dfa096b0046d1c2c3355599ddc29fadb62880e985a2514fd3a144c",
       "state": "generated"
     },
     "dev.toolfactory/coverage.json": {
-      "sha256": "d60e2b702a00abb737cb706fa566e1e415c3c05dfdb74fb12485c5b60ac28e08",
+      "sha256": "d5079f094aeaa609d4efbe21e7da001f9000701afa54b8a42e9779bc6b048f60",
       "state": "generated"
     },
     "dev.toolfactory/inspector.json": {
@@ -112,6 +112,18 @@
     },
     "Dockerfile": {
       "sha256": "c579b48ab6b3f21e5389a67b60da5b42ccce6d832488016efd58205b7fabae8c",
+      "state": "generated"
+    },
+    "hosts/dsh/cordis.local.patch.yml": {
+      "sha256": "1dc11e67d58aea8a0b5f3c90cceb2a90f319a41463abb20970cb6b5f96083fab",
+      "state": "generated"
+    },
+    "hosts/dsh/cordis.patch.yml": {
+      "sha256": "63e8b34528f2f650a64af37013184419d663c39934e97a2dcbf6b1d159abc1f9",
+      "state": "generated"
+    },
+    "hosts/dsh/package.json": {
+      "sha256": "cd2b955a6d42e1c4cd1a264644009605113abc3adb50daa4c17c3051131b7c9f",
       "state": "generated"
     },
     "hosts/hermes/pyproject.toml": {
@@ -201,18 +213,17 @@
       ]
     },
     "README.md": {
-      "sha256": "16b07b4c63f67e4853cd3d9b78507e4ceb712ac822793944357e654928a43d62",
+      "sha256": "e6e48fe8bca542fc99c198c5906d25eb3dc59e93a9ef4d28dcc97a5d021b69fb",
       "state": "generated"
     },
     "renovate.json": {
-      "sha256": "02cc7a21703ded55f03de23dc475b511de0512acfd94370a30c2129bd3157c8c",
+      "sha256": "f708debb8452ad31dfcdcfb3c82d1519fe50363d614528143becd90ab55af1b9",
       "state": "generated",
       "keys": [
         "$schema",
         "extends",
         "minimumReleaseAge",
-        "ignorePaths",
-        "packageRules"
+        "ignorePaths"
       ]
     },
     "server.json": {

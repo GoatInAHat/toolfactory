@@ -1,17 +1,10 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:recommended"
+    "config:recommended",
+    "group:all"
   ],
   "minimumReleaseAge": "7 days",
-  "packageRules": [
-    {
-      "groupName": "all dependencies",
-      "matchPackageNames": [
-        "*"
-      ]
-    }
-  ],
   "customManagers": [
     {
       "customType": "regex",
@@ -24,11 +17,47 @@
       ],
       "datasourceTemplate": "github-tags",
       "versioningTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "description": "DSH_PIN, the @deepseek-ai/dsh release the dsh surface's validator boots",
+      "managerFilePatterns": [
+        "/^src/surfaces/dsh\\.ts$/"
+      ],
+      "matchStrings": [
+        "DSH_PIN = \"(?<currentValue>[^\"]+)\""
+      ],
+      "depNameTemplate": "@deepseek-ai/dsh",
+      "datasourceTemplate": "npm",
+      "versioningTemplate": "npm"
+    },
+    {
+      "customType": "regex",
+      "description": "HERMES_PIN.commit, the hermes-agent commit the hermes surface installs in CI",
+      "managerFilePatterns": [
+        "/^src/surfaces/hermes-native\\.ts$/"
+      ],
+      "matchStrings": [
+        "commit: \"(?<currentDigest>[a-f0-9]{40})\""
+      ],
+      "depNameTemplate": "https://github.com/NousResearch/hermes-agent",
+      "currentValueTemplate": "main",
+      "datasourceTemplate": "git-refs"
     }
   ],
   "ignorePaths": [
     ".github/workflows/**",
     "hosts/*/package.json",
     "web/package.json"
+  ],
+  "packageRules": [
+    {
+      "description": "DSH publishes no stable release: its alpha line is the only thing to track, and npm's latest tag lags it.",
+      "matchPackageNames": [
+        "@deepseek-ai/dsh"
+      ],
+      "ignoreUnstable": false,
+      "respectLatest": false
+    }
   ]
 }

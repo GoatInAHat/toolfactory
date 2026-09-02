@@ -1,0 +1,12 @@
+- insert:
+    - id: mcp-toolfactory
+      name: "@deepseek-ai/dsh-mcp-client"
+      config:
+        serverName: toolfactory
+        transport: stdio
+        command: node
+        args:
+          - --import
+          - tsx
+          - src/toolfactory/mcp.ts
+        failOnStartupError: true

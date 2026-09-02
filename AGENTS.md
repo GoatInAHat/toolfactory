@@ -153,6 +153,14 @@ the operations it is writing; register nothing by hand.
   (a `file://` URL installs, with a security warning at install time). Every `hermes` run is a
   fresh process, so nothing needs restarting; `hermes gateway restart` is only for the
   messaging gateway daemon.
+- **DSH** (experimental): `dsh plugin --profile headless add ./hosts/dsh` installs the
+  bundle (`dsh plugin` forwards to pnpm, so pnpm must be on `PATH`); the operations reach the
+  model as `mcp__toolfactory__<operation>`, and `dsh --profile headless --dump-config` shows
+  the composed `id: mcp-toolfactory` row. Bundle patches are read once per boot and never watched,
+  so restart DSH after editing `hosts/dsh/cordis.patch.yml` or reinstalling. Boot with
+  `--patch hosts/dsh/cordis.local.patch.yml` and no bundle installed to drive this checkout
+  instead. Every config variable is restated in the row's `env:` because DSH scrubs
+  KEY/PASSWORD/SECRET/TOKEN names before spawning an MCP server.
 
 Codex and Cursor read this file as is; Claude Code and Gemini read `CLAUDE.md` / `GEMINI.md`,
 each of which `.agents/sync.py` renders as the one line `@AGENTS.md`.

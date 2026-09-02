@@ -48,6 +48,8 @@ jobs:
         run: pnpm run --if-present build
       - name: toolfactory check
         run: npx toolfactory check
+      - name: toolfactory build (output files)
+        run: npx toolfactory build
       - name: Install Claude Code CLI
         run: npm i -g @anthropic-ai/claude-code
       - name: Install Chromium dependencies

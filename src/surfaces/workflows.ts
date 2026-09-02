@@ -25,6 +25,7 @@ import {
   type GateStep,
   gateSteps,
   openclawTarball,
+  outputsStep,
   PACKAGE_MANAGER_COMMANDS,
   packageSteps,
   RELEASE_DIR,
@@ -424,7 +425,9 @@ function releaseDocument(
       permissions: { contents: "read" },
       steps: [
         ...toolchainSteps(project, "24"),
-        ...bootstrapSteps(project).map((step) => actionStep(step, false)),
+        ...[...bootstrapSteps(project), outputsStep(project)].map((step) =>
+          actionStep(step, false),
+        ),
         { uses: "actions/configure-pages@v5" },
         {
           name: "web build",
@@ -542,14 +545,15 @@ function envExample(project: Project): string {
 function renovatePatch(): Record<string, unknown> {
   return {
     $schema: "https://docs.renovatebot.com/renovate-schema.json",
-    extends: ["config:recommended"],
-    // Mirrors OpenClaw's own minimumReleaseAge; one PR per run rather than per dependency.
+    // `group:all` is Renovate's own preset for one PR per run rather than one per dependency;
+    // writing the rule out by hand would only own a key the author needs for their own pins.
+    extends: ["config:recommended", "group:all"],
+    // Mirrors OpenClaw's own minimumReleaseAge.
     minimumReleaseAge: "7 days",
     // These files are projections of dev.toolfactory/tool.json and are SHA-locked: a Renovate PR
     // editing one makes `toolfactory check` fail and the next `toolfactory build` reverts it.
     // Upgrading what they pin is a toolfactory version bump (§8 C6).
     ignorePaths: [".github/workflows/**", "hosts/*/package.json", "web/package.json"],
-    packageRules: [{ groupName: "all dependencies", matchPackageNames: ["*"] }],
   };
 }
 
@@ -595,7 +599,7 @@ export const surface: Surface = {
       path: "renovate.json",
       format: "json",
       patch: renovatePatch(),
-      owned: ["extends", "ignorePaths", "packageRules"],
+      owned: ["extends", "ignorePaths"],
     });
 
     return files;

@@ -24,6 +24,9 @@ export const projectName = {
   openclawPackage: (name: string): string => `openclaw-plugin-${name}`,
   mcpRegistry: (name: string, owner: string): string => `io.github.${owner}/${name}`,
   hermesToolset: (name: string): string => name.replace(/[.-]/g, "_"),
+  dshPackage: (name: string): string => `${name}-dsh`,
+  /** DSH `serverName`: `[A-Za-z0-9_-]{1,32}`, validated at boot, and wire-visible as `mcp__<it>__<tool>`. */
+  dshServer: (name: string): string => name.replace(/\./g, "-").slice(0, 32),
 };
 
 /** `owner` from a GitHub repository URL, for the MCP Registry namespace. */

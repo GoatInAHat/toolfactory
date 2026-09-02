@@ -17,6 +17,14 @@ import { DRIFT_ENTRY } from "../hosts/template.js";
 import { projectName } from "../identity/name.js";
 import type { PlannedFile, Project, Surface } from "../model.js";
 import { TEMPLATE_FILES } from "./agents.template.js";
+import {
+  HOST_DIR as DSH_HOST_DIR,
+  PROFILE as DSH_PROFILE,
+  rowId as dshRowId,
+  toolName as dshToolName,
+  LOCAL_PATCH_FILE,
+  PATCH_FILE,
+} from "./dsh.js";
 import { pluginDir as hermesPluginDir } from "./hermes-native.js";
 import { INSPECTOR_CONFIG_PATH } from "./kernel.js";
 import { HOST_DIR as OPENCLAW_HOST_DIR } from "./openclaw-native.js";
@@ -159,7 +167,7 @@ function layoutSection(project: Project): string[] {
     "  never hand-edit (`toolfactory adopt <path>` first if you must).",
     "- `.agents/` — the agent-config canon: `skills/`, `mcp/servers.json`, `setup`, `sync.py`.",
   ];
-  if (has(project, "openclaw-native") || has(project, "hermes-native")) {
+  if (has(project, "openclaw-native") || has(project, "hermes-native") || has(project, "dsh")) {
     lines.push(
       "- `hosts/<id>/` — the host-native escape hatch for a selected host; nothing else creates it.",
     );
@@ -222,9 +230,21 @@ function installSection(project: Project): string[] {
       "  messaging gateway daemon.",
     );
   }
-  if (!openclaw && !hermes) {
+  if (has(project, "dsh")) {
     lines.push(
-      "_No host-native surface (`openclaw-native`, `hermes-native`) is selected; nothing installs",
+      `- **DSH** (experimental): \`dsh plugin --profile ${DSH_PROFILE} add ./${DSH_HOST_DIR}\` installs the`,
+      "  bundle (`dsh plugin` forwards to pnpm, so pnpm must be on `PATH`); the operations reach the",
+      `  model as \`${dshToolName(project, "<operation>")}\`, and \`dsh --profile ${DSH_PROFILE} --dump-config\` shows`,
+      `  the composed \`id: ${dshRowId(project)}\` row. Bundle patches are read once per boot and never watched,`,
+      `  so restart DSH after editing \`${DSH_HOST_DIR}/${PATCH_FILE}\` or reinstalling. Boot with`,
+      `  \`--patch ${DSH_HOST_DIR}/${LOCAL_PATCH_FILE}\` and no bundle installed to drive this checkout`,
+      "  instead. Every config variable is restated in the row's `env:` because DSH scrubs",
+      "  KEY/PASSWORD/SECRET/TOKEN names before spawning an MCP server.",
+    );
+  }
+  if (!openclaw && !hermes && !has(project, "dsh")) {
+    lines.push(
+      "_No host-native surface (`openclaw-native`, `hermes-native`, `dsh`) is selected; nothing installs",
       "into a running host._",
     );
   }

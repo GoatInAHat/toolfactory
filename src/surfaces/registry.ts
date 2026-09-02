@@ -4,7 +4,8 @@ import { surface as agents } from "./agents.js";
 import { surface as claude } from "./claude.js";
 import { surface as codex } from "./codex.js";
 import { surface as cursor } from "./cursor.js";
-import { clawhub, dsh } from "./external.js";
+import { surface as dsh } from "./dsh.js";
+import { clawhub } from "./external.js";
 import { surface as hermesNative } from "./hermes-native.js";
 import { cli, mcp } from "./kernel.js";
 import { surface as mcpRegistry } from "./mcp-registry.js";
@@ -25,7 +26,8 @@ const registry: Partial<Record<SurfaceId, Surface>> = {
   // selection without it would ship an artifact referencing nothing. Refused at plan time.
   cursor: { ...cursor, requires: ["agent-plugins"] },
   clawhub,
-  dsh,
+  // Reaches the kernel only through DSH's own MCP client, so the bundle is inert without it.
+  dsh: { ...dsh, requires: ["mcp"] },
   cli,
   mcp,
   "mcp-registry": mcpRegistry,

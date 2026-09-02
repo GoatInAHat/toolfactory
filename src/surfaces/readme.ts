@@ -12,6 +12,7 @@
 import { githubSlug } from "../hosts/github.js";
 import { projectName } from "../identity/name.js";
 import type { Project, Surface } from "../model.js";
+import { HOST_DIR as DSH_HOST_DIR, dshTarball } from "./dsh.js";
 import { pluginDir as hermesPluginDir } from "./hermes-native.js";
 import { HOST_DIR as OPENCLAW_HOST_DIR } from "./openclaw-native.js";
 import { has, npmName, pypiName } from "./shared.js";
@@ -19,8 +20,6 @@ import { has, npmName, pypiName } from "./shared.js";
 export const README_PATH = "README.md";
 export const INSTALL_BEGIN = "<!-- tf:install -->";
 export const INSTALL_END = "<!-- /tf:install -->";
-/** Where the `dsh` surface's Cordis bundle lives; DSH installs a plugin from a path. */
-const DSH_HOST_DIR = "hosts/dsh";
 
 /** The kernel MCP server as a one-shot command: the same launch `mcp.json` carries, unpinned. */
 function mcpCommand(project: Project): string {
@@ -66,8 +65,9 @@ function installLines(project: Project): string[] {
     );
   }
   if (has(project, "dsh")) {
+    // `dsh plugin` is a pnpm forwarder: it installs a path, a tarball or a registry spec.
     lines.push(
-      `- **DSH plugin** (experimental) — \`dsh plugin --profile <profile> add ./${DSH_HOST_DIR}\``,
+      `- **DSH plugin** (experimental) — \`dsh plugin --profile <profile> add ./${DSH_HOST_DIR}\` from a checkout, or the release tarball \`${dshTarball(project)}\``,
     );
   }
   if (has(project, "npm")) lines.push(`- **npm package** — \`npm install ${npmName(project)}\``);

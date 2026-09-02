@@ -53,6 +53,8 @@ jobs:
         run: pnpm run --if-present build
       - name: toolfactory check
         run: npx toolfactory check
+      - name: toolfactory build (output files)
+        run: npx toolfactory build
       - name: Install Claude Code CLI
         run: npm i -g @anthropic-ai/claude-code
       - name: Install Chromium dependencies
@@ -84,10 +86,14 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: build
         run: pnpm run --if-present build
+      - name: toolfactory build (output files)
+        run: npx toolfactory build
       - name: npm tarball
         run: npm pack --pack-destination dist/release
       - name: OpenClaw plugin tarball
         run: npm --prefix hosts/openclaw install && npm --prefix hosts/openclaw run build && npm pack ./hosts/openclaw --pack-destination dist/release
+      - name: DSH bundle tarball
+        run: npm pack ./hosts/dsh --pack-destination dist/release
       - name: plugin bundle
         run: zip -qr dist/release/toolfactory-plugin.zip plugin.json mcp.json skills .claude-plugin .codex-plugin .cursor-plugin
       - name: web build
@@ -189,6 +195,8 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: build
         run: pnpm run --if-present build
+      - name: toolfactory build (output files)
+        run: npx toolfactory build
       - uses: actions/configure-pages@v5
       - name: web build
         env:

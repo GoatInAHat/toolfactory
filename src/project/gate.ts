@@ -11,6 +11,7 @@
  */
 import { projectName } from "../identity/name.js";
 import type { PackageManager, Project } from "../model.js";
+import { HOST_DIR as DSH_HOST_DIR } from "../surfaces/dsh.js";
 import { HOST_DIR as OPENCLAW_HOST_DIR } from "../surfaces/openclaw-native.js";
 import { has } from "../surfaces/shared.js";
 
@@ -65,6 +66,15 @@ function commands(project: Project) {
  * Dependencies and, for TypeScript, the build — everything both the gate and the packaging run
  * need before any command that imports the project's own code.
  */
+/**
+ * Output files (§2.2 S4) are build products, not tracked: a fresh checkout has none, and the
+ * validators and the web build read them. On a tree `check` has just proved current, `build`
+ * writes exactly those.
+ */
+export function outputsStep(project: Project): GateStep {
+  return { name: "toolfactory build (output files)", run: `${toolfactoryCli(project)} build` };
+}
+
 export function bootstrapSteps(project: Project): GateStep[] {
   const pm = commands(project);
   return project.tool.binding === "typescript"
@@ -90,6 +100,7 @@ export function gateSteps(project: Project): GateStep[] {
   const steps: GateStep[] = [
     ...bootstrapSteps(project),
     { name: "toolfactory check", run: `${cli} check` },
+    outputsStep(project),
   ];
   if (has(project, "claude")) {
     steps.push({
@@ -172,6 +183,7 @@ export function packageSteps(project: Project): GateStep[] {
   const steps: GateStep[] = [
     { name: "release directory", run: `rm -rf ${RELEASE_DIR} && mkdir -p ${RELEASE_DIR}` },
     ...bootstrapSteps(project),
+    outputsStep(project),
   ];
   if (has(project, "npm")) {
     steps.push({ name: "npm tarball", run: `npm pack --pack-destination ${RELEASE_DIR}` });
@@ -189,6 +201,13 @@ export function packageSteps(project: Project): GateStep[] {
         `npm --prefix ${OPENCLAW_HOST_DIR} run build`,
         `npm pack ./${OPENCLAW_HOST_DIR} --pack-destination ${RELEASE_DIR}`,
       ].join(" && "),
+    });
+  }
+  if (has(project, "dsh")) {
+    // Two files and no code: nothing to build, and `dsh plugin add` takes a tarball directly.
+    steps.push({
+      name: "DSH bundle tarball",
+      run: `npm pack ./${DSH_HOST_DIR} --pack-destination ${RELEASE_DIR}`,
     });
   }
   const bundle = bundlePaths(project);

@@ -15,7 +15,8 @@
     "mcp-registry",
     "openclaw-native",
     "hermes-native",
-    "web"
+    "web",
+    "dsh"
   ],
   "tests": {
     "examples": {

@@ -90,7 +90,7 @@ describe("workflows", () => {
     expect(steps.find((s) => s.run === "npx toolfactory validate")?.if).toBeUndefined();
 
     const renovate = JSON.parse(files["renovate.json"]);
-    expect(renovate.extends).toEqual(["config:recommended"]);
+    expect(renovate.extends).toEqual(["config:recommended", "group:all"]);
     expect(renovate.minimumReleaseAge).toBe("7 days");
     // The generated workflows are SHA-locked projections: a Renovate PR editing one would make
     // `toolfactory check` fail and the next `toolfactory build` revert it.
@@ -376,6 +376,7 @@ describe("gate", () => {
       "install",
       "build",
       "toolfactory check",
+      "toolfactory build (output files)",
       "Install Claude Code CLI",
       "toolfactory validate",
       "author checks",
