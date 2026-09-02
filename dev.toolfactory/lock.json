@@ -18,11 +18,11 @@
       "state": "generated"
     },
     ".github/workflows/ci.yml": {
-      "sha256": "c598969fd315a09d9d0bba1f6f433ff46cb2183a03d8e6f5f5585beb83a24d8e",
+      "sha256": "18c5328c2ba365550b01276956876849d666973de7fc40ab39fde46ea81e4cd6",
       "state": "generated"
     },
     ".github/workflows/release.yml": {
-      "sha256": "421ad048eb1f5d1b7a6e2233ac3f3478ed7adb13f4d86e7a282126c38f4dc653",
+      "sha256": "2219f2226d24c8904dcabbc674946516b63c324081b81ff0f012d595c2281bff",
       "state": "generated"
     },
     "AGENTS.md": {

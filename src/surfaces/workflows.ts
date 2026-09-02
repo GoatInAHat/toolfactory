@@ -17,7 +17,7 @@
 import { stringify as yamlStringify } from "yaml";
 import { LIVE_TEST_COMMAND } from "../bindings/python.js";
 import type { PackageManager, PlannedFile, Project, Surface } from "../model.js";
-import { hermesInstall, pluginDir as hermesPluginDir } from "./hermes-native.js";
+import { HERMES_PIN, hermesInstall, pluginDir as hermesPluginDir } from "./hermes-native.js";
 import {
   compact,
   configProperties,
@@ -120,10 +120,32 @@ function checkSteps(project: Project, node: string, matrix: boolean): Step[] {
     });
   }
   if (has(project, "hermes-native")) {
-    steps.push({
-      name: "Install Hermes",
-      run: `${hermesInstall()}\necho "$HOME/.local/bin" >> "$GITHUB_PATH"`,
-    });
+    // One install per pin: the checkout, its venv and the launcher come back from the cache,
+    // so the installer only runs when the pin moves. GitHub throttles anonymous clones from
+    // shared runner addresses (the failure mode the installer's own fallbacks exist for), so
+    // that one run clones with the job's token.
+    steps.push(
+      {
+        name: "Restore Hermes",
+        id: "hermes",
+        uses: "actions/cache@v4",
+        with: {
+          path: ["~/.hermes", "~/.local/bin/hermes*", "~/.local/share/uv/python"].join("\n"),
+          key: `hermes-\${{ runner.os }}-${HERMES_PIN.commit}`,
+        },
+      },
+      {
+        name: "Install Hermes",
+        if: "steps.hermes.outputs.cache-hit != 'true'",
+        env: {
+          GIT_CONFIG_COUNT: "1",
+          GIT_CONFIG_KEY_0: "url.https://x-access-token:${{ github.token }}@github.com/.insteadOf",
+          GIT_CONFIG_VALUE_0: "https://github.com/",
+        },
+        run: hermesInstall(),
+      },
+      { name: "Hermes on PATH", run: 'echo "$HOME/.local/bin" >> "$GITHUB_PATH"' },
+    );
   }
   steps.push(
     compact({

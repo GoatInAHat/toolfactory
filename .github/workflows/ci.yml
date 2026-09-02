@@ -32,10 +32,24 @@ jobs:
         run: npm i -g @anthropic-ai/claude-code
       - name: Install Chromium dependencies
         run: npx --yes playwright install-deps chromium
+      - name: Restore Hermes
+        id: hermes
+        uses: actions/cache@v4
+        with:
+          path: |-
+            ~/.hermes
+            ~/.local/bin/hermes*
+            ~/.local/share/uv/python
+          key: hermes-${{ runner.os }}-180291162ff4df0d42b5dc4fecd08005cf7cebf9
       - name: Install Hermes
-        run: |-
-          curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash -s -- --commit 180291162ff4df0d42b5dc4fecd08005cf7cebf9 --skip-setup --skip-browser --skip-computer-use --non-interactive --no-skills
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        if: steps.hermes.outputs.cache-hit != 'true'
+        env:
+          GIT_CONFIG_COUNT: "1"
+          GIT_CONFIG_KEY_0: url.https://x-access-token:${{ github.token }}@github.com/.insteadOf
+          GIT_CONFIG_VALUE_0: https://github.com/
+        run: curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash -s -- --commit 180291162ff4df0d42b5dc4fecd08005cf7cebf9 --skip-setup --skip-browser --skip-computer-use --non-interactive --no-skills
+      - name: Hermes on PATH
+        run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: toolfactory validate
         run: npx toolfactory validate
         if: matrix.node-version == '24'

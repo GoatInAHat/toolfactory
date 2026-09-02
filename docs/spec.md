@@ -326,7 +326,7 @@ committing) followed by `hermes gateway restart` to load it.
 Every tier is a real upstream invocation; toolfactory owns no validator. The only schemas it vendors
 are the two Agent Plugins 1.0.0 schemas (the spec forbids fetching at load time). The generated CI
 installs the validator CLIs the selected surfaces need: uv for `agentskills`, Claude Code, and
-Hermes through its own installer pinned to a commit (Hermes refuses wheel builds from git and
+Hermes through its own installer pinned to a commit, cached per pin so it runs only when the pin moves, cloning with the job's token because GitHub throttles anonymous clones (Hermes refuses wheel builds from git and
 the PyPI release predates `plugins doctor`); the OpenClaw chain runs the generated package's own
 pinned `openclaw` devDependency, so no global install is assumed.
 
