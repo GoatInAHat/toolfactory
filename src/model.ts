@@ -98,7 +98,36 @@ export const ToolConfigSchema = z
     npm: z.object({ scope: z.string().optional() }).optional(),
     codex: z.object({ interface: jsonObject.optional() }).optional(),
     hermes: z.object({ toolset: z.string().optional() }).optional(),
-    openclaw: z.object({ profiles: z.array(z.string()).optional() }).optional(),
+    openclaw: z
+      .object({
+        type: z
+          .enum(["tool", "provider"])
+          .default("tool")
+          .describe("Which `openclaw plugins init --type` scaffold hosts/openclaw mirrors."),
+        registrations: z
+          .array(z.string())
+          .optional()
+          .describe(
+            "Host registrations the plugin makes beyond tools (e.g. registerRealtimeVoiceProvider); asserted by the generated test and the plugin inspector.",
+          ),
+        contracts: z
+          .record(z.string(), z.array(z.string()))
+          .optional()
+          .describe(
+            'Extra openclaw.plugin.json contracts (e.g. realtimeVoiceProviders: ["codex"]).',
+          ),
+        activation: jsonObject
+          .optional()
+          .describe("openclaw.plugin.json activation; default onStartup."),
+        pluginApi: z
+          .string()
+          .optional()
+          .describe("Plugin API range for compat.pluginApi and the openclaw peer dependency."),
+        dependencies: z.record(z.string(), z.string()).optional(),
+        peerDependencies: z.record(z.string(), z.string()).optional(),
+        devDependencies: z.record(z.string(), z.string()).optional(),
+      })
+      .optional(),
   })
   .strict();
 export type ToolConfig = z.infer<typeof ToolConfigSchema>;

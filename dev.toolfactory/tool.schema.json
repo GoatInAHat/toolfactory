@@ -145,9 +145,71 @@
     "openclaw": {
       "type": "object",
       "properties": {
-        "profiles": {
+        "type": {
+          "default": "tool",
+          "description": "Which `openclaw plugins init --type` scaffold hosts/openclaw mirrors.",
+          "type": "string",
+          "enum": [
+            "tool",
+            "provider"
+          ]
+        },
+        "registrations": {
+          "description": "Host registrations the plugin makes beyond tools (e.g. registerRealtimeVoiceProvider); asserted by the generated test and the plugin inspector.",
           "type": "array",
           "items": {
+            "type": "string"
+          }
+        },
+        "contracts": {
+          "description": "Extra openclaw.plugin.json contracts (e.g. realtimeVoiceProviders: [\"codex\"]).",
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "activation": {
+          "description": "openclaw.plugin.json activation; default onStartup.",
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {}
+        },
+        "pluginApi": {
+          "description": "Plugin API range for compat.pluginApi and the openclaw peer dependency.",
+          "type": "string"
+        },
+        "dependencies": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "peerDependencies": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "devDependencies": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
             "type": "string"
           }
         }
