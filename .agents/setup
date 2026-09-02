@@ -142,5 +142,6 @@ if command -v pnpm >/dev/null 2>&1; then
     pnpm install --frozen-lockfile --prefer-offline >/dev/null 2>&1 ||
         pnpm install --frozen-lockfile
 else
-    echo "pnpm not found; install Node >= 22 with corepack, then run: pnpm install" >&2
+    echo "pnpm not found: install Node >= 22.12 (corepack provides pnpm), then rerun .agents/setup" >&2
+    exit 1
 fi
