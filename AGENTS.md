@@ -40,6 +40,14 @@ one identity file plus `dev.toolfactory/tool.json` and the operation snapshot
   on the upstream SDKs. Schema direction is native → JSON Schema only.
 - Adding a surface: projector + optional `validate`/`verdict`, a row in
   `SURFACE_IDS`, `registry.ts`, `docs/spec.md` §3 and the README table.
+- Rely on first-party agent skills and MCP servers for the platforms we cover
+  and for our stack; they are wired in `.agents/` (skills: `shadcn`,
+  `skill-creator`, `mcp-builder`; MCP: `shadcn`, `playwright`, `github`,
+  `openai-docs`). Hermes, Cursor, Gemini, TypeScript, Biome, Vitest, Zod,
+  Vite, Tailwind and uv publish nothing first-party: use their CLIs directly
+  and never substitute a community package.
+- Frontend is shadcn/ui (Vite, React, Tailwind v4, Base UI); follow the
+  `shadcn` skill's rules and add components with its CLI, never by hand.
 
 ## Defaults
 

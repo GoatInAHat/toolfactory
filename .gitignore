@@ -22,6 +22,7 @@ CLAUDE.local.md
 /.codex/config.toml
 /.vscode/mcp.json
 /.factory/mcp.json
+/.factory/skills/
 /.amp/settings.json
 /opencode.json
 /kilo.jsonc

@@ -149,14 +149,14 @@ toolfactory owns exactly the keys in its patch).
 | `claude` | `.claude-plugin/plugin.json` (`userConfig` from `config`, inline `mcpServers` using `${CLAUDE_PLUGIN_ROOT}` and `${user_config.K}`) | `claude plugin validate .` | as `mcp` |
 | `codex` | `.codex-plugin/plugin.json` with the required `interface` block and inline `mcpServers` | schema-shaped; loader not exercised | `degraded:loader-unverified` |
 | `cursor` | `.cursor-plugin/plugin.json` with `variables` from `config`, pointing at `./mcp.json` | schema-shaped; loader not exercised | `degraded:loader-unverified` |
-| `mcp` | the binding's kernel MCP files, `dev.toolfactory/inspector.json` | MCP Inspector `--cli --method tools/list` | portable → `native`; else `excluded:mcp-no-host-capabilities` |
+| `mcp` | the binding's kernel MCP files (stdio by default; `mcp --http [port]` serves the same server over streamable HTTP at `/mcp`), `dev.toolfactory/inspector.json` | MCP Inspector `--cli --method tools/list` | portable → `native`; else `excluded:mcp-no-host-capabilities` |
 | `cli` | the binding's kernel CLI files | `<cli> --help` | as `mcp` |
 | `mcp-registry` | `server.json` (name `io.github.<owner>/<N>`, package entry, `environmentVariables` with `isSecret`) | schema-shaped; published by `mcp-publisher` | metadata only |
 | `npm` | merge into `package.json`: identity, `type`, `bin`, `files`, `mcpName` | `npm pack --dry-run` | library |
 | `pypi` | merge into `pyproject.toml`: identity, `[project.scripts]`, registry marker | `uv build` | library |
 | `openclaw-native` | `hosts/openclaw/` mirroring `openclaw plugins init --type tool`: `package.json` with `openclaw{}`, `openclaw.plugin.json` (`configSchema` from `config`), `src/index.ts` (`defineToolPlugin`, TypeBox `Type.Unsafe` over each operation's JSON Schema) | `npm install`, `npm run build`, `openclaw plugins build --check`, `openclaw plugins validate`, `@openclaw/plugin-inspector`, and a scaffold diff against a fresh `openclaw plugins init` | TypeScript + portable → `native`; Python + portable → `degraded:out-of-process`; else `excluded:implement-in-hosts` |
 | `hermes-native` | `hosts/hermes/{pyproject.toml, README.md, <pkg>/{plugin.yaml, __init__.py}}`: manifest v2 (`requires_env` = sensitive or required config, `optional_env` the rest, each `{name, description, prompt, password, url}`), `register(ctx)` → `ctx.register_tool(...)`, handlers always return JSON and `{"error": ...}` instead of raising, the `hermes_agent.plugins` entry point; the shim reads `<N>_ROOT` to find the kernel when installed outside its checkout | `hermes plugins doctor hosts/hermes/<pkg> --ci` | Python + portable → `native`; TypeScript + portable → `degraded:out-of-process`; else `excluded:implement-in-hosts` |
-| `web` | `web/index.html`: one static page, react-jsonschema-form over the embedded snapshot, CLI and MCP previews, optional `tools/call` against a streamable-HTTP endpoint | Playwright smoke (author-run) | as `mcp` |
+| `web` | `web/`: a Vite + React + Tailwind v4 + shadcn/ui project mirrored from `npm create vite` and `shadcn init`; one form per operation over shadcn's Field composition, CLI and MCP `tools/call` previews, a live call to the kernel through the dev server's `/mcp` proxy; the shadcn component files are vendor code the shadcn CLI copies into the author's tree | `npm install`, `shadcn add`, scaffold drift against a fresh init, `vite build`, Playwright smoke | as `mcp` |
 | `workflows` (always on) | `.github/workflows/ci.yml`; `release.yml` when a registry surface is selected; `compose.toolfactory.yaml` when a host-native surface is selected; `.env.example`; `renovate.json`. One check sequence (install, build, `toolfactory check`, the validator CLIs the selected surfaces need, `toolfactory validate`, the author's `check` and `test` scripts) is shared by `ci.yml` and the release gate; the package manager is read from `package.json` `packageManager` (npm or pnpm) | YAML parse; the workflow runs in CI | — |
 | `clawhub` | nothing new; a `release.yml` leg publishing `hosts/openclaw/` | `clawhub package publish --wait` | — |
 | `dsh` | nothing native: DSH (DeepSeek Harness) reaches the kernel through its own MCP client | — | `degraded:mcp-tools-only` |
@@ -302,6 +302,16 @@ itself. Registering each trusted publisher in the registry's web UI is a one-tim
   regeneration is opt-in per version bump.
 
 ## 9. toolfactory itself
+
+### 9.1 First-party tooling
+
+toolfactory's own agent configuration (`.agents/`) relies on the skills and MCP servers the
+covered platforms and its stack publish themselves, installed through their own mechanisms
+(`npx skills add <owner/repo>@<skill>`, the vendor's `mcpServers` snippet): the `shadcn`,
+`skill-creator` and `mcp-builder` skills, and the `shadcn`, `playwright`, `github` and
+`openai-docs` MCP servers. Projects that publish nothing first-party (Hermes, Cursor, Gemini,
+TypeScript, Biome, Vitest, Zod, Vite, Tailwind, uv) get no substitute: agents use their CLIs.
+
 
 toolfactory is described by its own `dev.toolfactory/tool.json` and every generated artifact in
 its repo is produced by `toolfactory build`. `toolfactory check` and `toolfactory validate` run in
