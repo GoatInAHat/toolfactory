@@ -86,7 +86,7 @@ interface EnvEntry {
   name: string;
   description: string;
   prompt: string;
-  password: boolean;
+  secret?: boolean;
   url?: string;
 }
 
