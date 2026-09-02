@@ -1,10 +1,13 @@
-import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
-import { createRequire } from "node:module";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { run } from "../commands.js";
+import { DRIFT_ENTRY } from "../hosts/web.js";
 import type { Operation, Project } from "../model.js";
-import { surface, WEB_PATH } from "./web.js";
+import { json } from "./shared.js";
+import { surface, WEB_DIR, WEB_SCAFFOLD } from "./web.js";
 
 const echo: Operation = {
   name: "echo",
@@ -19,7 +22,7 @@ const echo: Operation = {
 };
 const shoot: Operation = {
   name: "shoot",
-  description: "Take a screenshot <of the current tab>.",
+  description: "Take a screenshot of the current tab.",
   inputSchema: { type: "object" },
   requires: ["browser"],
 };
@@ -43,152 +46,134 @@ function project(overrides: Partial<Project> = {}): Project {
   };
 }
 
-function embeddedData(html: string): Record<string, unknown> {
-  const match = html.match(/<script id="tf-data" type="application\/json">([\s\S]*?)<\/script>/);
-  if (!match) throw new Error("tf-data script tag not found");
-  return JSON.parse(match[1]);
+function planned(from: Project = project()): Map<string, string> {
+  return new Map(
+    surface.plan(from).map((file) => {
+      if (file.kind !== "file") throw new Error(`${file.path} is not a whole file`);
+      return [file.path, file.content];
+    }),
+  );
+}
+
+function opsJson(from: Project = project()): Record<string, unknown> {
+  return JSON.parse(planned(from).get(`${WEB_DIR}/src/ops.json`) ?? "");
 }
 
 describe("web", () => {
-  it("plans exactly one static file, self-contained enough to open from file://", () => {
-    const files = surface.plan(project());
-    expect(files).toHaveLength(1);
-    expect(files[0]).toMatchObject({ kind: "file", path: WEB_PATH });
+  it("plans the vite + shadcn project and leaves src/components/ui to the shadcn CLI", () => {
+    expect([...planned().keys()]).toEqual([
+      "web/.oxlintrc.json",
+      "web/components.json",
+      "web/index.html",
+      "web/package.json",
+      "web/smoke.mjs",
+      "web/src/App.tsx",
+      "web/src/index.css",
+      "web/src/lib/utils.ts",
+      "web/src/main.tsx",
+      "web/src/ops.json",
+      "web/src/schema-form.tsx",
+      "web/tsconfig.app.json",
+      "web/tsconfig.json",
+      "web/tsconfig.node.json",
+      "web/vite.config.ts",
+    ]);
   });
 
-  it("embeds the portable operations and omits mcp-excluded ones with a reason", () => {
-    const html = (surface.plan(project())[0] as { content: string }).content;
-    const data = embeddedData(html);
-
+  it("snapshots the operations this surface carries and says why the others are missing", () => {
+    const data = opsJson();
     expect(data.tool).toEqual({ name: "hello", version: "0.1.0", description: "Say hello" });
-    expect(data.cliAvailable).toBe(true);
     expect(data.mcpProtocolVersion).toBe("2026-07-28");
+    expect(data.defaultEndpoint).toBe("/mcp");
 
-    const operations = data.operations as Array<{ name: string; inputSchema: unknown }>;
-    expect(operations.map((o) => o.name)).toEqual(["echo"]);
-    expect(operations[0].inputSchema).toEqual(echo.inputSchema);
-
-    const excluded = data.excluded as Array<{ name: string; reason?: string }>;
-    expect(excluded).toEqual([{ name: "shoot", reason: "excluded:mcp-no-host-capabilities" }]);
-    // The page must say *why* an operation is missing, not just drop it silently.
-    expect(html).toContain("not reachable over MCP");
-  });
-
-  it("shares the excluded/native verdict with every other MCP-only surface", () => {
-    expect(surface.verdict?.(echo, project())).toEqual({ kind: "native" });
+    const operations = data.operations as { name: string; inputSchema: unknown }[];
+    expect(operations.map((operation) => operation.name)).toEqual(["echo"]);
+    expect(operations[0]?.inputSchema).toEqual(echo.inputSchema);
+    expect(data.excluded).toEqual([{ name: "shoot", reason: "excluded:mcp-no-host-capabilities" }]);
     expect(surface.verdict?.(shoot, project())).toEqual({
       kind: "excluded",
       reason: "excluded:mcp-no-host-capabilities",
     });
   });
 
-  it("escapes '<' in embedded JSON so a description can't close the inline <script> tag early", () => {
-    const html = (surface.plan(project())[0] as { content: string }).content;
-    expect(html).not.toContain("</of the current tab>");
-    // Round-trips back through JSON.parse to the original text.
-    const excluded = embeddedData(html).excluded as Array<{ name: string }>;
-    expect(excluded).toEqual([{ name: "shoot", reason: "excluded:mcp-no-host-capabilities" }]);
-  });
-
-  it("pins React consistently between the page's own import and the CDN bundles it imports", () => {
-    const html = (surface.plan(project())[0] as { content: string }).content;
-    // jsDelivr's `+esm` output re-exposes each package's own deps as further
-    // /npm/<pkg>@<version>/+esm imports; RJSF's bundle resolves React to a version fixed at
-    // that combination's build time. If this page's own React/ReactDOM import ever drifts
-    // from that pinned version, two React copies load and RJSF's hooks break at runtime
-    // ("Invalid hook call") — a failure Playwright would catch but a unit test can catch for
-    // free by asserting the two import statements agree.
-    const reactImport = html.match(/cdn\.jsdelivr\.net\/npm\/react@([\d.]+)\/\+esm/);
-    const reactDomImport = html.match(/cdn\.jsdelivr\.net\/npm\/react-dom@([\d.]+)\/client\/\+esm/);
-    expect(reactImport).not.toBeNull();
-    expect(reactDomImport?.[1]).toBe(reactImport?.[1]);
-    expect(html).toContain(`@rjsf/core@`);
-    expect(html).toContain(`@rjsf/validator-ajv8@`);
-  });
-
-  it("says there are no operations yet instead of shipping an empty shell silently", () => {
-    const html = (surface.plan(project({ operations: [] }))[0] as { content: string }).content;
-    const data = embeddedData(html);
-    expect(data.operations).toEqual([]);
-    expect(html).toContain("No operations reach the web UI yet");
-  });
-
   it("previews the CLI only when the cli surface is also selected", () => {
-    const html = (
-      surface.plan(project({ tool: { ...project().tool, surfaces: ["web", "mcp"] } }))[0] as {
-        content: string;
+    expect(opsJson().cliAvailable).toBe(true);
+    const without = project({ tool: { ...project().tool, surfaces: ["web", "mcp"] } });
+    expect(opsJson(without).cliAvailable).toBe(false);
+  });
+
+  it("emits the pinned scaffold verbatim, so the drift check speaks for plan()", () => {
+    const files = planned();
+    expect(files.get("web/src/index.css")).toBe(WEB_SCAFFOLD.indexCss);
+    expect(files.get("web/src/lib/utils.ts")).toBe(WEB_SCAFFOLD.utils);
+    for (const [path, content] of Object.entries(WEB_SCAFFOLD.vite)) {
+      // The two tsconfigs gain the `@/*` alias; the rest travel unchanged.
+      const emitted = files.get(`web/${path}`) ?? "";
+      if (path === "tsconfig.json" || path === "tsconfig.app.json") {
+        expect(emitted).toContain('"@/*": ["./src/*"]');
+      } else if (path !== "vite.config.ts") {
+        expect(emitted).toBe(content);
       }
-    ).content;
-    expect(embeddedData(html).cliAvailable).toBe(false);
+    }
+    expect(JSON.parse(files.get("web/components.json") ?? "")).toEqual(WEB_SCAFFOLD.componentsJson);
+
+    const packageJson = JSON.parse(files.get("web/package.json") ?? "");
+    expect(packageJson.dependencies).toEqual(WEB_SCAFFOLD.packageJson.dependencies);
+    expect(packageJson.devDependencies).toMatchObject(WEB_SCAFFOLD.packageJson.devDependencies);
+    expect(packageJson.devDependencies.playwright).toBe(WEB_SCAFFOLD.playwright);
+
+    // Every component the page imports is one `validate()` asks the shadcn CLI for.
+    const sources = `${files.get("web/src/App.tsx")}${files.get("web/src/schema-form.tsx")}`;
+    const imported = [...sources.matchAll(/@\/components\/ui\/([a-z-]+)/g)].map(
+      (match) => match[1],
+    );
+    expect(imported.length).toBeGreaterThan(0);
+    expect(WEB_SCAFFOLD.components).toEqual(expect.arrayContaining(imported));
   });
 });
 
-/** Whether a real browser can be driven from this checkout: `playwright` is not a toolfactory
- * dependency (this surface is pure HTML/JS with no build step), so this only runs where a
- * developer or CI job has installed it locally. */
-function hasPlaywright(): boolean {
-  try {
-    createRequire(import.meta.url).resolve("playwright");
-    return true;
-  } catch {
-    return false;
-  }
+/**
+ * The whole validator chain, run the way `toolfactory validate --surface web` runs it. Needs
+ * npm (every step installs from the registry) and a Playwright browser download for the smoke,
+ * so it self-skips where neither the author nor CI has one.
+ */
+function browserAvailable(): boolean {
+  const browsers = process.env.PLAYWRIGHT_BROWSERS_PATH ?? join(homedir(), ".cache/ms-playwright");
+  return existsSync(browsers) && spawnSync("npm", ["--version"]).status === 0;
 }
 
-describe.skipIf(!hasPlaywright())("rendered in a real browser", () => {
-  it("renders the echo form and previews the CLI invocation after submit", async () => {
-    // A plain `require`, not a statically-typed `import`: `playwright` has no type
-    // declarations reachable from this project (it is intentionally not a toolfactory
-    // dependency), and a dynamic `import()` specifier is resolved by tsc even when the
-    // branch that reaches it is skipped at runtime.
-    // biome-ignore lint/suspicious/noExplicitAny: playwright is loaded only when present, untyped here on purpose
-    const { chromium } = createRequire(import.meta.url)("playwright") as any;
-    const executablePath = chromium.executablePath();
-    if (!existsSync(executablePath)) {
-      // playwright resolves but `npx playwright install` was never run here.
-      return;
+describe.skipIf(!browserAvailable())("validated the way an author runs it", () => {
+  it("installs, adds the components, proves the scaffold, builds and smokes the page", () => {
+    const root = mkdtempSync(join(tmpdir(), "toolfactory-web-"));
+    const fixture = project({ root });
+    for (const [path, content] of planned(fixture)) {
+      mkdirSync(dirname(join(root, path)), { recursive: true });
+      writeFileSync(join(root, path), content);
     }
-    const dir = mkdtempSync(join(tmpdir(), "toolfactory-web-"));
-    const htmlPath = join(dir, "index.html");
-    writeFileSync(htmlPath, (surface.plan(project())[0] as { content: string }).content);
+    // What `loadProject` needs, so the drift script can re-plan from the same project.
+    mkdirSync(join(root, "dev.toolfactory"), { recursive: true });
+    writeFileSync(join(root, "dev.toolfactory/tool.json"), json(fixture.tool));
+    writeFileSync(
+      join(root, "dev.toolfactory/ops.json"),
+      json({
+        tools: [echo, shoot].map(({ requires, ...tool }) => ({
+          ...tool,
+          _meta: { "dev.toolfactory": { requires } },
+        })),
+      }),
+    );
+    writeFileSync(join(root, "package.json"), json(fixture.identity));
 
-    const browser = await chromium.launch();
-    try {
-      const page = await browser.newPage();
-      // Serve each jsDelivr module through Node's own fetch instead of the browser's network
-      // stack: functionally identical bytes, but avoids depending on whatever the sandbox's
-      // outbound network policy does with ~25 small parallel CDN requests.
-      const cache = new Map<string, { body: Buffer; contentType: string }>();
-      // biome-ignore lint/suspicious/noExplicitAny: playwright's Route type isn't available here
-      await page.route("https://cdn.jsdelivr.net/**", async (route: any) => {
-        const url = route.request().url();
-        if (!cache.has(url)) {
-          const response = await fetch(url);
-          cache.set(url, {
-            body: Buffer.from(await response.arrayBuffer()),
-            contentType: response.headers.get("content-type") ?? "application/javascript",
-          });
-        }
-        const cached = cache.get(url);
-        if (!cached) throw new Error(`unreachable: ${url}`);
-        await route.fulfill({ status: 200, contentType: cached.contentType, body: cached.body });
-      });
-
-      await page.goto(`file://${htmlPath}`);
-      await page.waitForSelector('nav button:has-text("echo")', { timeout: 20_000 });
-
-      const input = page.locator('input[id$="_text"]').first();
-      await input.waitFor({ state: "visible", timeout: 20_000 });
-      await input.fill("hello from vitest");
-      await page.locator('button[type="submit"]').first().click();
-
-      const cliPreview = page.locator(".preview pre").first();
-      await cliPreview.waitFor({ state: "visible", timeout: 20_000 });
-      expect(await cliPreview.textContent()).toBe(
-        `hello echo --json '${JSON.stringify({ text: "hello from vitest" })}'`,
+    for (const command of surface.validate?.(fixture) ?? []) {
+      // Vitest runs this file from source, so the drift entry is still TypeScript: give node
+      // the loader from this checkout, where `tsx` is installed.
+      const outcome = run(
+        command.args.includes(DRIFT_ENTRY)
+          ? { ...command, args: ["--import", "tsx", DRIFT_ENTRY, root], cwd: process.cwd() }
+          : command,
       );
-    } finally {
-      await browser.close();
+      expect(outcome.ok, `${outcome.label}: ${outcome.output}`).toBe(true);
+      if (outcome.label.includes("smoke")) expect(outcome.output).toContain("PASS cli preview");
     }
-  }, 30_000);
+  }, 900_000);
 });
