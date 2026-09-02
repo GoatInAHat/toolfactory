@@ -10,6 +10,11 @@
     "lineWidth": 100
   },
   "linter": {
-    "enabled": true
+    "enabled": true,
+    "rules": {
+      "suspicious": {
+        "noTemplateCurlyInString": "off"
+      }
+    }
   }
 }
