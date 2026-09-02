@@ -39,6 +39,7 @@
   "files": [
     "dist",
     "src",
+    "schemas",
     "README.md",
     "LICENSE"
   ],

@@ -89,7 +89,10 @@ that S8 requires. It writes them and asks the upstream validator for an exit cod
 
 **S8: Preserve the unknown.** Region files keep everything outside their markers. Merge files
 (`package.json`, `pyproject.toml`) own only the keys in their patch and leave every other key
-alone. The identity file's unrecognised top-level keys are preserved on rewrite.
+alone; a file that already carries the patch is not rewritten at all, so a rebuild keeps the
+author's formatting and TOML comments (a patch that does change a value reserializes the file,
+which drops TOML comments). A nested key toolfactory once wrote and no longer emits is not
+removed. The identity file's unrecognised top-level keys are preserved on rewrite.
 
 **S9: Schema direction is native → JSON only.** Zod or Pydantic produce JSON Schema 2020-12 for the
 wire and for generated manifests. toolfactory never converts JSON Schema back into a native schema;
