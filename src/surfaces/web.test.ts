@@ -1,13 +1,14 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { run } from "../commands.js";
 import { DRIFT_ENTRY } from "../hosts/web.js";
 import type { Operation, Project } from "../model.js";
+import { apply, deepMerge, replaceRegions } from "../project/apply.js";
 import { json } from "./shared.js";
-import { surface, WEB_DIR, WEB_SCAFFOLD } from "./web.js";
+import { APP_BEGIN, APP_END, surface, WEB_DIR, WEB_SCAFFOLD } from "./web.js";
 
 const echo: Operation = {
   name: "echo",
@@ -46,11 +47,14 @@ function project(overrides: Partial<Project> = {}): Project {
   };
 }
 
+/** Every planned file as text, region files rendered fresh (as `apply()` writes them the first time). */
 function planned(from: Project = project()): Map<string, string> {
   return new Map(
     surface.plan(from).map((file) => {
-      if (file.kind !== "file") throw new Error(`${file.path} is not a whole file`);
-      return [file.path, file.content];
+      if (file.kind === "file") return [file.path, file.content];
+      if (file.kind === "region")
+        return [file.path, replaceRegions(file.template, file) ?? file.template];
+      return [file.path, json(deepMerge({}, file.patch))];
     }),
   );
 }
@@ -78,6 +82,66 @@ describe("web", () => {
       "web/tsconfig.node.json",
       "web/vite.config.ts",
     ]);
+  });
+
+  it("App.tsx is a region file: the operations page is generated, the pages array and shell are the author's and survive a rebuild", () => {
+    const target = project();
+    const file = surface
+      .plan(target)
+      .find((candidate) => candidate.path === `${WEB_DIR}/src/App.tsx`);
+    if (file?.kind !== "region") throw new Error("web/src/App.tsx is no longer a region file");
+    expect(file.regions).toHaveLength(1);
+    expect(file.regions[0].begin).toBe(APP_BEGIN);
+    expect(file.regions[0].end).toBe(APP_END);
+    expect(file.regions[0].content).toContain("export function OperationsPage()");
+    expect(file.template).toContain(
+      "export const pages: { id: string; title: string; element: ReactNode }[]",
+    );
+    expect(file.template).toContain(
+      '{ id: "operations", title: "Operations", element: <OperationsPage /> }',
+    );
+    expect(file.template).toContain("export default function App()");
+
+    // Round-trip through the real writer: scaffold, let the author add a page below the
+    // marker (as vutoolkit adds its d3 degree-planner graph), then run a second `toolfactory
+    // build` (a changed operation set, same as a real `introspect` picking up new tools) and
+    // check the added page is still there.
+    const root = mkdtempSync(join(tmpdir(), "toolfactory-web-app-"));
+    apply(root, surface.plan(target), "0.1.0");
+    const appPath = join(root, WEB_DIR, "src/App.tsx");
+    const authored = readFileSync(appPath, "utf8").replace(
+      '{ id: "operations", title: "Operations", element: <OperationsPage /> },',
+      '{ id: "operations", title: "Operations", element: <OperationsPage /> },\n  { id: "planner", title: "Degree planner", element: <div>planner</div> },',
+    );
+    writeFileSync(appPath, authored);
+
+    const rebuilt = project({ operations: [echo] });
+    apply(root, surface.plan(rebuilt), "0.1.0");
+    const after = readFileSync(appPath, "utf8");
+    expect(after).toContain(
+      '{ id: "planner", title: "Degree planner", element: <div>planner</div> },',
+    );
+    expect(after).toContain("export function OperationsPage()");
+  });
+
+  it("web/package.json is a merge file, so an author-added dependency (e.g. `npm --prefix web install d3` for a page) survives a rebuild", () => {
+    const target = project();
+    const file = surface
+      .plan(target)
+      .find((candidate) => candidate.path === `${WEB_DIR}/package.json`);
+    if (file?.kind !== "merge") throw new Error("web/package.json is no longer a merge file");
+
+    const root = mkdtempSync(join(tmpdir(), "toolfactory-web-pkg-"));
+    apply(root, surface.plan(target), "0.1.0");
+    const pkgPath = join(root, WEB_DIR, "package.json");
+    const authored = JSON.parse(readFileSync(pkgPath, "utf8"));
+    authored.dependencies.d3 = "^7.9.0";
+    writeFileSync(pkgPath, json(authored));
+
+    apply(root, surface.plan(project({ operations: [echo] })), "0.1.0");
+    const after = JSON.parse(readFileSync(pkgPath, "utf8"));
+    expect(after.dependencies.d3).toBe("^7.9.0");
+    expect(after.dependencies.react).toBe(WEB_SCAFFOLD.packageJson.dependencies.react);
   });
 
   it("snapshots the operations this surface carries and says why the others are missing", () => {
