@@ -82,7 +82,7 @@ describe("hermes-native", () => {
         name: "APIKEY",
         description: "Acme key",
         prompt: "Acme key",
-        password: true,
+        secret: true,
         url: "https://a",
       },
     ]);
