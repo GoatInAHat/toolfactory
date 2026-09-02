@@ -8,7 +8,7 @@ import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import { getBinding } from "../bindings/index.js";
 import type { Project } from "../model.js";
-import { OPS_PATH, type Ops, TOOLFACTORY_VERSION } from "../project/load.js";
+import { OPS_PATH, type Ops, TOOLFACTORY_VERSION, toOperation } from "../project/load.js";
 
 export async function listTools(root: string, command: string, args: string[]): Promise<Ops> {
   const transport = new StdioClientTransport({
@@ -52,6 +52,7 @@ export async function snapshot(
 ): Promise<{ ops: Ops; next: string; changed: boolean }> {
   const kernel = project.tool.kernel ?? getBinding(project.tool.binding).kernelCommand(project);
   const ops = await listTools(project.root, kernel.command, kernel.args);
+  for (const tool of ops.tools) toOperation(tool); // rejects a capability outside the closed set
   const next = serializeOps(ops);
   const path = join(project.root, OPS_PATH);
   const changed = !existsSync(path) || readFileSync(path, "utf8") !== next;

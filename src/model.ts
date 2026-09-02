@@ -88,6 +88,17 @@ export const ToolConfigSchema = z
       ),
     config: jsonObject
       .optional()
+      .refine(
+        (schema) =>
+          Object.values(
+            (schema?.properties ?? {}) as Record<string, Record<string, unknown>>,
+          ).every(
+            (property) =>
+              !(property["x-toolfactory"] as { sensitive?: boolean } | undefined)?.sensitive ||
+              property.default === undefined,
+          ),
+        "A sensitive config property must not declare a default: it would be committed into every manifest.",
+      )
       .describe(
         "JSON Schema 2020-12 object for the tool's configuration; mark secrets with x-toolfactory.sensitive.",
       ),
@@ -104,17 +115,21 @@ export const ToolConfigSchema = z
           .enum(["tool", "provider"])
           .default("tool")
           .describe("Which `openclaw plugins init --type` scaffold hosts/openclaw mirrors."),
-        registrations: z
-          .array(z.string())
+        registers: z
+          .array(
+            z.object({
+              api: z
+                .string()
+                .describe("OpenClawPluginApi method, e.g. registerRealtimeVoiceProvider"),
+              contract: z
+                .string()
+                .describe("openclaw.plugin.json contracts key, e.g. realtimeVoiceProviders"),
+              ids: z.array(z.string()).default([]).describe("Ids registered under that contract"),
+            }),
+          )
           .optional()
           .describe(
-            "Host registrations the plugin makes beyond tools (e.g. registerRealtimeVoiceProvider); asserted by the generated test and the plugin inspector.",
-          ),
-        contracts: z
-          .record(z.string(), z.array(z.string()))
-          .optional()
-          .describe(
-            'Extra openclaw.plugin.json contracts (e.g. realtimeVoiceProviders: ["codex"]).',
+            "Host registrations the plugin makes beyond tools; one declaration drives the manifest contracts, the plugin inspector's expectations and the generated test.",
           ),
         activation: jsonObject
           .optional()

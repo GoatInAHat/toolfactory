@@ -30,11 +30,11 @@
       "state": "generated"
     },
     "COVERAGE.md": {
-      "sha256": "b6dd99cc3eb2ab25e52e534c3045d712f9e42beb95ebe479cc57f6c81acfd53e",
+      "sha256": "aa5ce0fd62a87bf1651b00ff1f78bd4a257a86b1748e5d7459ec801430e2290e",
       "state": "generated"
     },
     "dev.toolfactory/coverage.json": {
-      "sha256": "c3032030377b4608632f53e2272a4abf4ef648d4b2db6192a783eafa5aeba388",
+      "sha256": "3f6d376a3a0c2892efd819488369bb5c534eb2179c42f504d213e896383d05d5",
       "state": "generated"
     },
     "dev.toolfactory/inspector.json": {
@@ -42,7 +42,7 @@
       "state": "generated"
     },
     "dev.toolfactory/tool.schema.json": {
-      "sha256": "2b7734a429af7323d98bcd7ed0dac64699077e574771b8a560b0140d0dbcbd6e",
+      "sha256": "2ca7e6916330fd0e8c6e46d94b582261ddb74a4c89e03f72c2f4b12966cb8de6",
       "state": "generated"
     },
     "hosts/hermes/pyproject.toml": {
@@ -102,7 +102,7 @@
       "state": "generated"
     },
     "server.json": {
-      "sha256": "a7ada565178b1ef152daed81f73edcf652dab31ad51084ecf89a351cf2998c5f",
+      "sha256": "f941aa44b279a5a65fa98a8704703b23a418f86ed6eb08d209490e552784a623",
       "state": "generated"
     },
     "skills/toolfactory/SKILL.md": {

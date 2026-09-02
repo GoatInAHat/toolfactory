@@ -4,7 +4,15 @@
  */
 import { projectName } from "../identity/name.js";
 import type { Surface } from "../model.js";
-import { compact, configProperties, has, json, mcpVerdict, requiredConfig } from "./shared.js";
+import {
+  compact,
+  configProperties,
+  envName,
+  has,
+  json,
+  mcpVerdict,
+  requiredConfig,
+} from "./shared.js";
 
 export const surface: Surface = {
   id: "cursor",
@@ -16,7 +24,7 @@ export const surface: Surface = {
           type: "object",
           properties: Object.fromEntries(
             Object.entries(properties).map(([key, property]) => [
-              key.toUpperCase(),
+              envName(key),
               compact({
                 type: property.type ?? "string",
                 title: (property.title as string | undefined) ?? key,
@@ -25,7 +33,7 @@ export const surface: Surface = {
               }),
             ]),
           ),
-          required: requiredConfig(project).map((key) => key.toUpperCase()),
+          required: requiredConfig(project).map((key) => envName(key)),
         }
       : undefined;
     const manifest = compact({

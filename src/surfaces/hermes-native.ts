@@ -24,6 +24,7 @@ import { includedOperations } from "../report/coverage.js";
 import {
   compact,
   configProperties,
+  envName,
   isSensitive,
   pypiName,
   requiredConfig,
@@ -78,9 +79,6 @@ function verdict(operation: Operation, project: Project): Verdict {
 }
 
 /** Config keys reach the core as environment variables, upper-cased, as both bindings read them. */
-function envName(key: string): string {
-  return key.toUpperCase();
-}
 
 interface EnvEntry {
   name: string;

@@ -58,8 +58,8 @@ describe("computeCoverage across skill, mcp, codex", () => {
   const coverage = computeCoverage(project(), [skill, mcp, codex]);
   const verdicts = Object.fromEntries(coverage.rows.map((row) => [row.operation, row.verdicts]));
 
-  it("a portable operation is native on skill and mcp, degraded (loader-unverified) on codex", () => {
-    expect(verdicts.echo.skill).toEqual({ kind: "native" });
+  it("a portable operation is bridged on skill, native on mcp, degraded (loader-unverified) on codex", () => {
+    expect(verdicts.echo.skill).toEqual({ kind: "bridged", reason: "bridged:agent-mediated" });
     expect(verdicts.echo.mcp).toEqual({ kind: "native" });
     expect(verdicts.echo.codex).toEqual({ kind: "degraded", reason: "degraded:loader-unverified" });
   });

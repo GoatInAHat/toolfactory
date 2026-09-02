@@ -4,7 +4,7 @@
  * author's `src/ops.ts` is scaffolded once and then owned.
  */
 import type { PlannedFile, Project } from "../model.js";
-import { configProperties, has, npmName } from "../surfaces/shared.js";
+import { configProperties, envName, has, npmName } from "../surfaces/shared.js";
 
 export const KERNEL_DIR = "src/toolfactory";
 export const OPS_PATH = "src/ops.ts";
@@ -75,7 +75,7 @@ export function serves(operation: { requires?: Capability[] }, surface: "mcp" | 
 function configTemplate(project: Project): string {
   const keys = Object.keys(configProperties(project));
   const entries = keys.map(
-    (key) => `  ${JSON.stringify(key)}: process.env[${JSON.stringify(key.toUpperCase())}],`,
+    (key) => `  ${JSON.stringify(key)}: process.env[${JSON.stringify(envName(key))}],`,
   );
   return `${HEADER}import type { Context } from "./types.js";
 

@@ -6,6 +6,7 @@ import type { Surface } from "../model.js";
 import {
   compact,
   configProperties,
+  envName,
   has,
   isSensitive,
   json,
@@ -38,10 +39,7 @@ export const surface: Surface = {
     );
     const launch = kernelLaunch(project, "${CLAUDE_PLUGIN_ROOT}");
     const env = Object.fromEntries(
-      Object.keys(configProperties(project)).map((key) => [
-        key.toUpperCase(),
-        `\${user_config.${key}}`,
-      ]),
+      Object.keys(configProperties(project)).map((key) => [envName(key), `\${user_config.${key}}`]),
     );
     const manifest = compact({
       $schema: "https://json.schemastore.org/claude-code-plugin-manifest.json",
