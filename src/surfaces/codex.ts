@@ -3,6 +3,8 @@
  * loader has not been exercised against a generated bundle, so coverage carries a
  * `loader-unverified` note until someone does.
  */
+
+import { projectName } from "../identity/name.js";
 import type { Surface } from "../model.js";
 import { compact, has, json, kernelLaunch, mcpVerdict } from "./shared.js";
 
@@ -10,10 +12,7 @@ export const surface: Surface = {
   id: "codex",
   plan(project) {
     const { identity } = project;
-    const displayName = identity.name
-      .split(/[-.]/)
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-      .join(" ");
+    const displayName = projectName.display(identity.name);
     const manifest = compact({
       name: identity.name,
       version: identity.version ?? "0.1.0",
@@ -29,7 +28,7 @@ export const surface: Surface = {
       keywords: identity.keywords,
       skills: has(project, "skill") ? "./skills/" : undefined,
       mcpServers: has(project, "mcp")
-        ? { [identity.name]: kernelLaunch(project, "${CLAUDE_PLUGIN_ROOT}") }
+        ? { [identity.name]: kernelLaunch(project, "${PLUGIN_ROOT}") }
         : undefined,
       interface: {
         displayName,

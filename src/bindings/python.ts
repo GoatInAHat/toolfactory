@@ -7,7 +7,7 @@
 import { stringify as toml } from "smol-toml";
 import { projectName } from "../identity/name.js";
 import type { PlannedFile, Project } from "../model.js";
-import { compact, configProperties, has, pypiName } from "../surfaces/shared.js";
+import { compact, configProperties, envName, has, pypiName } from "../surfaces/shared.js";
 
 /** Import package: the canonical name with `.` and `-` folded to `_` (PEP 8 / PEP 503). */
 export function pythonPackage(project: Project): string {
@@ -100,7 +100,7 @@ __all__ = ["Capability", "Context", "Operation"]
 function configTemplate(project: Project): string {
   const entries = Object.keys(configProperties(project)).map(
     (key) =>
-      `            ${JSON.stringify(key)}: os.environ.get(${JSON.stringify(key.toUpperCase())}),\n`,
+      `            ${JSON.stringify(key)}: os.environ.get(${JSON.stringify(envName(key))}),\n`,
   );
   const body = entries.length ? `{\n${entries.join("")}        }` : "{}";
   return `${HEADER}"""Configuration is read from the environment; hosts inject it from their own settings UI."""

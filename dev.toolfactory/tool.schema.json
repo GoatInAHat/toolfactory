@@ -154,24 +154,33 @@
             "provider"
           ]
         },
-        "registrations": {
-          "description": "Host registrations the plugin makes beyond tools (e.g. registerRealtimeVoiceProvider); asserted by the generated test and the plugin inspector.",
+        "registers": {
+          "description": "Host registrations the plugin makes beyond tools; one declaration drives the manifest contracts, the plugin inspector's expectations and the generated test.",
           "type": "array",
           "items": {
-            "type": "string"
-          }
-        },
-        "contracts": {
-          "description": "Extra openclaw.plugin.json contracts (e.g. realtimeVoiceProviders: [\"codex\"]).",
-          "type": "object",
-          "propertyNames": {
-            "type": "string"
-          },
-          "additionalProperties": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": "object",
+            "properties": {
+              "api": {
+                "type": "string",
+                "description": "OpenClawPluginApi method, e.g. registerRealtimeVoiceProvider"
+              },
+              "contract": {
+                "type": "string",
+                "description": "openclaw.plugin.json contracts key, e.g. realtimeVoiceProviders"
+              },
+              "ids": {
+                "default": [],
+                "description": "Ids registered under that contract",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "api",
+              "contract"
+            ]
           }
         },
         "activation": {

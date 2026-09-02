@@ -13,7 +13,13 @@ export const projectName = {
   npm: (name: string, scope?: string): string =>
     scope ? `@${scope.replace(/^@/, "")}/${name}` : name,
   pypi: (name: string): string => name.replace(/\./g, "-"),
-  pythonPackage: (name: string): string => name.replace(/[.-]/g, "_"),
+  pythonPackage: (name: string): string => name.replace(/[.-]/g, "_").replace(/^(?=\d)/, "_"),
+  /** Human-facing name for manifests: words from the hyphens and dots, capitalised. */
+  display: (name: string): string =>
+    name
+      .split(/[-.]/)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" "),
   cursor: (name: string): string => name.replace(/\./g, "-"),
   openclawPackage: (name: string): string => `openclaw-plugin-${name}`,
   mcpRegistry: (name: string, owner: string): string => `io.github.${owner}/${name}`,

@@ -7,6 +7,7 @@ import type { Surface } from "../model.js";
 import {
   compact,
   configProperties,
+  envName,
   has,
   isSensitive,
   json,
@@ -35,7 +36,7 @@ export const surface: Surface = {
     const version = identity.version ?? "0.0.0";
     const environmentVariables = Object.entries(configProperties(project)).map(([key, property]) =>
       compact({
-        name: key.toUpperCase(),
+        name: envName(key),
         description: property.description,
         isRequired: requiredConfig(project).includes(key) || undefined,
         isSecret: isSensitive(property) || undefined,
@@ -58,7 +59,8 @@ export const surface: Surface = {
     const server = compact({
       $schema: SERVER_SCHEMA_ID,
       name: registryName(project),
-      description: identity.description ?? identity.name,
+      // The registry schema caps description at 100 characters.
+      description: (identity.description ?? identity.name).slice(0, 100),
       version,
       repository: identity.repository ? { url: identity.repository, source: "github" } : undefined,
       websiteUrl: identity.homepage,

@@ -50,8 +50,8 @@ export function renderOperations(project: Project): string {
       lines.push(`Arguments: ${required.map((k) => `\`${k}\``).join(", ")}.`, "");
     const how = invocation(project, operation);
     if (how) lines.push(how, "");
-    if (verdict.kind === "bridged") {
-      const needs = operation.requires.filter((capability) => GUIDANCE[capability]);
+    const needs = operation.requires.filter((capability) => GUIDANCE[capability]);
+    if (verdict.kind === "bridged" && needs.length) {
       lines.push(
         `This operation needs ${needs.join(", ")}: ${needs.map((capability) => GUIDANCE[capability]).join("; ")}.`,
         "",

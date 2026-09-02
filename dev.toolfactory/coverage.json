@@ -18,7 +18,8 @@
       "operation": "adopt",
       "verdicts": {
         "skill": {
-          "kind": "native"
+          "kind": "bridged",
+          "reason": "bridged:agent-mediated"
         },
         "agent-plugins": {
           "kind": "native"
@@ -62,7 +63,8 @@
       "operation": "build",
       "verdicts": {
         "skill": {
-          "kind": "native"
+          "kind": "bridged",
+          "reason": "bridged:agent-mediated"
         },
         "agent-plugins": {
           "kind": "native"
@@ -106,7 +108,8 @@
       "operation": "check",
       "verdicts": {
         "skill": {
-          "kind": "native"
+          "kind": "bridged",
+          "reason": "bridged:agent-mediated"
         },
         "agent-plugins": {
           "kind": "native"
@@ -150,7 +153,8 @@
       "operation": "coverage",
       "verdicts": {
         "skill": {
-          "kind": "native"
+          "kind": "bridged",
+          "reason": "bridged:agent-mediated"
         },
         "agent-plugins": {
           "kind": "native"
@@ -194,7 +198,8 @@
       "operation": "doctor",
       "verdicts": {
         "skill": {
-          "kind": "native"
+          "kind": "bridged",
+          "reason": "bridged:agent-mediated"
         },
         "agent-plugins": {
           "kind": "native"
@@ -238,7 +243,8 @@
       "operation": "eject",
       "verdicts": {
         "skill": {
-          "kind": "native"
+          "kind": "bridged",
+          "reason": "bridged:agent-mediated"
         },
         "agent-plugins": {
           "kind": "native"
@@ -282,7 +288,8 @@
       "operation": "init",
       "verdicts": {
         "skill": {
-          "kind": "native"
+          "kind": "bridged",
+          "reason": "bridged:agent-mediated"
         },
         "agent-plugins": {
           "kind": "native"
@@ -326,7 +333,8 @@
       "operation": "introspect",
       "verdicts": {
         "skill": {
-          "kind": "native"
+          "kind": "bridged",
+          "reason": "bridged:agent-mediated"
         },
         "agent-plugins": {
           "kind": "native"
@@ -370,7 +378,8 @@
       "operation": "unadopt",
       "verdicts": {
         "skill": {
-          "kind": "native"
+          "kind": "bridged",
+          "reason": "bridged:agent-mediated"
         },
         "agent-plugins": {
           "kind": "native"
@@ -414,7 +423,8 @@
       "operation": "validate",
       "verdicts": {
         "skill": {
-          "kind": "native"
+          "kind": "bridged",
+          "reason": "bridged:agent-mediated"
         },
         "agent-plugins": {
           "kind": "native"

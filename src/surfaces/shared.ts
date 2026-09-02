@@ -67,9 +67,8 @@ export function cliVerdict(operation: Operation): Verdict {
     : { kind: "excluded", reason: "excluded:cli-no-host-capabilities" };
 }
 
+/** A skill never executes: the agent drives the CLI or MCP server, so everything it can reach is bridged. */
 export function skillVerdict(operation: Operation): Verdict {
-  const verdict = defaultVerdict(operation);
-  if (verdict.kind !== "excluded") return verdict;
   if (operation.requires.includes("channel"))
     return { kind: "excluded", reason: "excluded:no-channel-bridge" };
   return { kind: "bridged", reason: "bridged:agent-mediated" };
@@ -90,6 +89,11 @@ export function isSensitive(property: Record<string, unknown>): boolean {
 export function requiredConfig(project: Project): string[] {
   const required = project.tool.config?.required;
   return Array.isArray(required) ? (required as string[]) : [];
+}
+
+/** The environment variable a config key is read from, on every surface and in every environment. */
+export function envName(key: string): string {
+  return key.toUpperCase().replace(/[^A-Z0-9]/g, "_");
 }
 
 /**
