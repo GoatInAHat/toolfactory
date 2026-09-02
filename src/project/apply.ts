@@ -151,7 +151,12 @@ function render(root: string, file: PlannedFile): string {
     }
     return replaceRegions(file.template, file) ?? file.template;
   }
-  const document = existsSync(path) ? parseDocument(readFileSync(path, "utf8"), file.format) : {};
+  if (!existsSync(path)) return serializeDocument(deepMerge({}, file.patch), file.format);
+  const text = readFileSync(path, "utf8");
+  const document = parseDocument(text, file.format);
+  // A document that already carries the patch is left byte-for-byte alone, so a rebuild never
+  // reserializes the author's file (and, for TOML, never drops their comments).
+  if (JSON.stringify(pickPatch(document, file.patch)) === JSON.stringify(file.patch)) return text;
   return serializeDocument(deepMerge(document, file.patch), file.format);
 }
 

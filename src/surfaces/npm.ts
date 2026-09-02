@@ -28,7 +28,7 @@ export const surface: Surface = {
         has(project, "cli") || has(project, "mcp")
           ? { [identity.name]: "./dist/toolfactory/cli.js" }
           : undefined,
-      files: ["dist", "src", "README.md", "LICENSE"],
+      files: ["dist", "src", "schemas", "README.md", "LICENSE"],
       mcpName: has(project, "mcp-registry") ? registryName(project) : undefined,
     });
     return [{ kind: "merge", path: "package.json", format: "json", patch }];
