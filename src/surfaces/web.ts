@@ -1057,6 +1057,14 @@ export const surface: Surface = {
         args: ["--prefix", WEB_DIR, "install"],
         ...at,
       },
+      // The smoke drives the Chromium the project's own playwright expects; `install` is a
+      // no-op once that revision is present, so this costs nothing on a warm machine.
+      {
+        label: "playwright install chromium (web)",
+        command: "npm",
+        args: ["--prefix", WEB_DIR, "exec", "--no", "--", "playwright", "install", "chromium"],
+        ...at,
+      },
       // The components under src/components/ui are the shadcn CLI's files, not toolfactory's;
       // run the shadcn the project pins rather than whatever is on PATH. `add` writes the ones
       // that are missing and leaves an unmodified copy of the others alone.
