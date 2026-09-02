@@ -72,7 +72,7 @@ toolfactory is built with toolfactory.
 | `mcp-registry` | `server.json` | `mcp-publisher` |
 | `openclaw-native` | `hosts/openclaw/`, mirroring `openclaw plugins init --type tool` | `openclaw plugins build --check`, `validate`, plugin-inspector |
 | `hermes-native` | `hosts/hermes/`, a manifest v2 plugin | `hermes plugins doctor --ci` |
-| `web` | `web/`, a shadcn/ui (Vite, React, Tailwind) app with a form per operation | `vite build`, Playwright |
+| `web` | `web/`, a shadcn/ui (Vite, React, Tailwind) app with a form per operation; your own pages sit beside it in `App.tsx` | `vite build`, Playwright |
 | workflows (always) | `ci.yml`, `release.yml`, `compose.toolfactory.yaml`, `.env.example`, `renovate.json` | the workflow itself |
 
 ## Driving toolfactory from an agent

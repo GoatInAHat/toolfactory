@@ -142,7 +142,7 @@
       "state": "generated"
     },
     "web/package.json": {
-      "sha256": "7afa1d27559e0cb92fada59ca1e73ec1ff0aaa7a683385d7c420f3598fd32b3f",
+      "sha256": "e5216399a44a6718ba0e337920c3ce33ee0da4d7366f6cf821524f04b68bc98d",
       "state": "generated"
     },
     "web/smoke.mjs": {
@@ -150,7 +150,7 @@
       "state": "generated"
     },
     "web/src/App.tsx": {
-      "sha256": "059031670e320a3954015efe0383137d52781d1201e6ecb2418ec7d58c873346",
+      "sha256": "d7887e5e9ee5e2ba7cfa88f58cea8fc9e0b43fbebe29568e64e461ec13e648d3",
       "state": "generated"
     },
     "web/src/index.css": {
