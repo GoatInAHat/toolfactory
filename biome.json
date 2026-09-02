@@ -33,7 +33,9 @@
       "!web",
       "!renovate.json",
       "!.agents/skills",
-      "!.agents/mcp/servers.json"
+      "!.agents/mcp/servers.json",
+      "!gemini-extension.json",
+      "!.agents/plugins"
     ]
   }
 }

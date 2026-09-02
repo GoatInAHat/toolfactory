@@ -1,0 +1,16 @@
+{
+  "name": "toolfactory",
+  "version": "0.1.0",
+  "description": "Build an agent tool once; ship it as Agent Skills, MCP servers, Agent Plugins / Claude / Codex / Cursor bundles, OpenClaw and Hermes plugins, CLIs, and packages, with the tests and releases to match.",
+  "mcpServers": {
+    "toolfactory": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "toolfactory@0.1.0",
+        "mcp"
+      ]
+    }
+  },
+  "contextFileName": "AGENTS.md"
+}

@@ -38,6 +38,11 @@ export interface InitOptions {
   license?: string;
   repository?: string;
   author?: string;
+  /**
+   * Activation triggers for hosts that key off them (Kiro Powers, Agent Plugins); defaults to
+   * `[name]`.
+   */
+  keywords?: string[];
   /** `git init` when the directory is not a repository yet. `.agents/setup` needs one. */
   git?: boolean;
   /** Run `.agents/setup`: harness adapters, the git hooks, the dependency install. */
@@ -152,6 +157,7 @@ export function init(options: InitOptions): InitResult {
     license: options.license,
     repository: options.repository,
     author: options.author ? { name: options.author } : undefined,
+    keywords: options.keywords?.length ? options.keywords : [options.name],
   }) as Identity;
   const written: string[] = [];
   if (usesBundle && !existsSync(join(root, "plugin.json"))) {

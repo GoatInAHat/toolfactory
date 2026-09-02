@@ -45,6 +45,8 @@ export const SURFACE_IDS = [
   "workflows",
   "agents",
   "readme",
+  "gemini",
+  "mcpb",
 ] as const;
 export type SurfaceId = (typeof SURFACE_IDS)[number];
 
@@ -110,6 +112,12 @@ export const ToolConfigSchema = z
       .describe("Example arguments per operation, used by the generated surface-smoke tests."),
     npm: z.object({ scope: z.string().optional() }).optional(),
     codex: z.object({ interface: jsonObject.optional() }).optional(),
+    mcpb: z
+      .object({ privacyPolicies: z.array(z.string()).optional() })
+      .optional()
+      .describe(
+        "Privacy-policy URLs of the services this tool talks to; Anthropic's Connectors Directory submission requires them in the MCPB manifest.",
+      ),
     hermes: z.object({ toolset: z.string().optional() }).optional(),
     openclaw: z
       .object({
@@ -192,6 +200,8 @@ export interface FullFile {
    * `check` does not report it missing (it is gitignored and rebuilt), only stale when present.
    */
   output?: true;
+  /** `content` is a link target, not file bytes: the file is a symbolic link (`.agents/skills/<N>`). */
+  symlink?: true;
 }
 
 export interface Region {

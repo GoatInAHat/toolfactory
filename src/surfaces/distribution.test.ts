@@ -78,16 +78,37 @@ describe("readme", () => {
       "[![skills.sh](https://skills.sh/b/GoatInAHat/Hello-Tool)](https://skills.sh/GoatInAHat/Hello-Tool)",
     );
     expect(body).toContain("`npx -y hello mcp`");
+    // The MCP line carries both first-party install badges once a package registry is selected,
+    // computed from the same unpinned `npx -y hello mcp` launch as the text line.
+    expect(body).toContain(
+      "https://vscode.dev/redirect/mcp/install?name=hello&config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22hello%22%2C%22mcp%22%5D%7D",
+    );
+    expect(body).toContain("https://cursor.com/en/install-mcp?name=hello&config=");
+    expect(body).toContain("https://cursor.com/deeplink/mcp-install-dark.svg");
     expect(body).toContain("`claude plugin marketplace add GoatInAHat/Hello-Tool`");
     expect(body).toContain("`claude plugin install hello@hello`");
     expect(body).toContain("`npm install hello`");
     expect(body).not.toContain("openclaw");
   });
 
+  it("adds the Codex, Gemini and MCPB install lines, and skips the badges without a registry", () => {
+    const body = region(project(["mcp", "codex", "gemini", "mcpb"]));
+    expect(body).not.toContain("vscode.dev/redirect/mcp/install");
+    expect(body).not.toContain("cursor.com/en/install-mcp");
+    expect(body).toContain("`codex plugin marketplace add GoatInAHat/Hello-Tool`");
+    expect(body).toContain("`codex plugin add hello@hello`");
+    expect(body).toContain("`gemini extensions install https://github.com/GoatInAHat/Hello-Tool`");
+    expect(body).toContain(
+      "download `hello.mcpb` from the GitHub Release and double-click to install",
+    );
+  });
+
   it("falls back to the local checkout when the identity carries no GitHub repository", () => {
     const surfaces: SurfaceId[] = [
       "skill",
       "claude",
+      "codex",
+      "gemini",
       "openclaw-native",
       "hermes-native",
       "clawhub",
@@ -103,6 +124,8 @@ describe("readme", () => {
     expect(local).not.toContain("skills.sh");
     expect(local).not.toContain("npx skills add");
     expect(local).toContain("`claude plugin marketplace add .`");
+    expect(local).toContain("`codex plugin marketplace add .`");
+    expect(local).toContain("`gemini extensions link .` from a checkout");
     expect(local).toContain("`hermes plugins install file://$PWD#hosts/hermes/hello_hermes`");
     expect(local).toContain("openclaw plugins install --link hosts/openclaw");
     expect(local).toContain("openclaw plugins install clawhub:openclaw-plugin-hello");

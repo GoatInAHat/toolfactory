@@ -1,0 +1,97 @@
+{
+  "manifest_version": "0.2",
+  "name": "toolfactory",
+  "display_name": "toolfactory",
+  "version": "0.1.0",
+  "description": "Build an agent tool once; ship it as Agent Skills, MCP servers, Agent Plugins / Claude / Codex / Cursor bundles, OpenClaw and Hermes plugins, CLIs, and packages, with the tests and releases to match.",
+  "author": {
+    "name": "GoatInAHat"
+  },
+  "homepage": "https://github.com/GoatInAHat/toolfactory",
+  "documentation": "https://github.com/GoatInAHat/toolfactory",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GoatInAHat/toolfactory"
+  },
+  "license": "MIT",
+  "keywords": [
+    "agent",
+    "mcp",
+    "skills",
+    "agent-plugins",
+    "openclaw",
+    "hermes",
+    "claude-code",
+    "codex",
+    "cursor"
+  ],
+  "server": {
+    "type": "node",
+    "entry_point": "dist/toolfactory/mcp.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/dist/toolfactory/mcp.js"
+      ]
+    }
+  },
+  "tools": [
+    {
+      "name": "adopt",
+      "description": "Stop regenerating one file; it becomes the author's (recorded as manual in the lock)."
+    },
+    {
+      "name": "bootstrap-repo",
+      "description": "Prepare the GitHub repository for the live-test tier: create the `live-tests` environment with required reviewers, then set every required sensitive config key as an environment secret from the local .env."
+    },
+    {
+      "name": "build",
+      "description": "Generate every selected surface in-tree from the identity file and the operation snapshot, and refresh the lock."
+    },
+    {
+      "name": "check",
+      "description": "Fail if the operation snapshot or any generated file drifted from the code (the CI drift gate)."
+    },
+    {
+      "name": "coverage",
+      "description": "The operation × surface verdict matrix: native, bridged, degraded, or excluded, with reasons."
+    },
+    {
+      "name": "doctor",
+      "description": "Report which upstream CLIs this machine can delegate to (git, gh, npm, uv, claude, openclaw, clawhub, hermes, uvx, agentskills, MCP Inspector, docker)."
+    },
+    {
+      "name": "eject",
+      "description": "Adopt every file a surface owns, so the author takes it over entirely."
+    },
+    {
+      "name": "gate",
+      "description": "Run the gate here, in order: build, the drift check, every selected surface's upstream validator, the author's checks and tests, and the credential-free host end-to-end. The same step list the generated ci.yml renders, so a project with no CI has the identical gate."
+    },
+    {
+      "name": "init",
+      "description": "Create a new tool: dev.toolfactory/tool.json, the authored identity file, the kernel scaffold for the chosen language, and the first build of every selected surface."
+    },
+    {
+      "name": "introspect",
+      "description": "Spawn the kernel MCP server, list its tools, and snapshot them to dev.toolfactory/ops.json."
+    },
+    {
+      "name": "package",
+      "description": "Build every release asset into dist/release/ — npm tarball, Python distributions, OpenClaw plugin tarball, plugin bundle zip, web build, coverage — by the same steps the release workflow's package job runs. Publishing stays a CI concern."
+    },
+    {
+      "name": "unadopt",
+      "description": "Return an adopted file to toolfactory and regenerate it."
+    },
+    {
+      "name": "validate",
+      "description": "Run each selected surface's own upstream validator (agentskills, claude plugin validate, MCP Inspector, openclaw, hermes, npm pack, uv build)."
+    }
+  ],
+  "compatibility": {
+    "runtimes": {
+      "node": ">=22.12"
+    }
+  }
+}

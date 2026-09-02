@@ -90,6 +90,8 @@ jobs:
         run: npx toolfactory build
       - name: npm tarball
         run: npm pack --pack-destination dist/release
+      - name: MCPB bundle
+        run: rm -rf dist/mcpb && mkdir -p dist/mcpb && tar -xzf dist/release/toolfactory-0.1.0.tgz -C dist/mcpb --strip-components=1 && npm --prefix dist/mcpb install --omit=dev --ignore-scripts && cp hosts/mcpb/manifest.json dist/mcpb/manifest.json && npx -y @anthropic-ai/mcpb@2.1.2 pack dist/mcpb dist/release/toolfactory.mcpb
       - name: OpenClaw plugin tarball
         run: npm --prefix hosts/openclaw install && npm --prefix hosts/openclaw run build && npm pack ./hosts/openclaw --pack-destination dist/release
       - name: DSH bundle tarball

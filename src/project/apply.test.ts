@@ -1,4 +1,13 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readlinkSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -65,6 +74,33 @@ describe("apply / check — full files", () => {
     const result = apply(root, planB, "0.1.0");
     expect(result.deleted).toEqual(["a.txt"]);
     expect(existsSync(join(root, "a.txt"))).toBe(false);
+  });
+
+  it("writes a symbolic link, restores one a real file replaced, and unlinks it as an orphan", () => {
+    const root = tmp();
+    mkdirSync(join(root, "skills/hello"), { recursive: true });
+    writeFileSync(join(root, "skills/hello/SKILL.md"), "---\n---\n");
+    const link: PlannedFile = {
+      kind: "file",
+      path: ".agents/skills/hello",
+      content: "../../skills/hello",
+      symlink: true,
+    };
+    apply(root, [link], "0.1.0");
+    expect(readlinkSync(join(root, ".agents/skills/hello"))).toBe("../../skills/hello");
+    expect(check(root, [link], "0.1.0")).toEqual([]);
+
+    rmSync(join(root, ".agents/skills/hello"));
+    writeFileSync(join(root, ".agents/skills/hello"), "not a link\n");
+    expect(check(root, [link], "0.1.0")).toEqual([
+      { path: ".agents/skills/hello", kind: "changed" },
+    ]);
+    apply(root, [link], "0.1.0");
+    expect(lstatSync(join(root, ".agents/skills/hello")).isSymbolicLink()).toBe(true);
+
+    expect(apply(root, [], "0.1.0").deleted).toEqual([".agents/skills/hello"]);
+    expect(existsSync(join(root, ".agents/skills/hello"))).toBe(false);
+    expect(existsSync(join(root, "skills/hello/SKILL.md"))).toBe(true);
   });
 });
 

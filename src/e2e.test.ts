@@ -9,6 +9,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  readlinkSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -67,13 +68,14 @@ describe.skipIf(!existsSync(repoNodeModules))(
   },
 );
 
-/** Every file in the tree except the test's own scaffolding, as path → content. */
+/** Every file in the tree except the test's own scaffolding, as path → content (a link's target). */
 function tree(root: string, dir = root): Record<string, string> {
   const files: Record<string, string> = {};
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (entry.name === "node_modules" || entry.name === ".git") continue;
     const path = join(dir, entry.name);
     if (entry.isDirectory()) Object.assign(files, tree(root, path));
+    else if (entry.isSymbolicLink()) files[relative(root, path)] = readlinkSync(path);
     else files[relative(root, path)] = readFileSync(path, "utf8");
   }
   return files;

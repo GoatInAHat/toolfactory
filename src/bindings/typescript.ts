@@ -388,6 +388,9 @@ export function cli(project: Project): PlannedFile[] {
   return [{ kind: "file", path: `${KERNEL_DIR}/cli.ts`, content: cliTemplate(project) }];
 }
 
+/** The Node floor every generated TypeScript project declares (vite 8 and the MCP SDK need it). */
+export const NODE_ENGINES = ">=22.12";
+
 /** Written by `init` only when absent; owned by the author afterwards. */
 export function scaffold(project: Project): PlannedFile[] {
   const packageJson = {
@@ -397,8 +400,9 @@ export function scaffold(project: Project): PlannedFile[] {
     license: project.identity.license,
     repository: project.identity.repository,
     homepage: project.identity.homepage,
+    keywords: project.identity.keywords,
     type: "module",
-    engines: { node: ">=22.12" },
+    engines: { node: NODE_ENGINES },
     scripts: {
       build: "tsc -p tsconfig.json",
       test: "vitest run --passWithNoTests",

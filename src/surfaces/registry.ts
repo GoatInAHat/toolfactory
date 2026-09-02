@@ -6,9 +6,11 @@ import { surface as codex } from "./codex.js";
 import { surface as cursor } from "./cursor.js";
 import { surface as dsh } from "./dsh.js";
 import { clawhub } from "./external.js";
+import { surface as gemini } from "./gemini.js";
 import { surface as hermesNative } from "./hermes-native.js";
 import { cli, mcp } from "./kernel.js";
 import { surface as mcpRegistry } from "./mcp-registry.js";
+import { surface as mcpb } from "./mcpb.js";
 import { surface as npm } from "./npm.js";
 import { surface as openclawNative } from "./openclaw-native.js";
 import { surface as pypi } from "./pypi.js";
@@ -28,9 +30,15 @@ const registry: Partial<Record<SurfaceId, Surface>> = {
   clawhub,
   // Reaches the kernel only through DSH's own MCP client, so the bundle is inert without it.
   dsh: { ...dsh, requires: ["mcp"] },
+  // The manifest's only payload is the kernel's launch row: an extension without it is a
+  // context file and nothing else.
+  gemini: { ...gemini, requires: ["mcp"] },
   cli,
   mcp,
   "mcp-registry": mcpRegistry,
+  // The bundle root is the npm tarball with its production dependencies installed into it, and
+  // its one row launches the kernel MCP server: without either surface there is nothing to pack.
+  mcpb: { ...mcpb, requires: ["mcp", "npm"] },
   npm,
   skill,
   "hermes-native": hermesNative,

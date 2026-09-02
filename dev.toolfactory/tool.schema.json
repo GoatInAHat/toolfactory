@@ -44,7 +44,9 @@
           "dsh",
           "workflows",
           "agents",
-          "readme"
+          "readme",
+          "gemini",
+          "mcpb"
         ]
       },
       "description": "Selected surfaces. A file exists iff a selected surface owns it."
@@ -133,6 +135,18 @@
             "type": "string"
           },
           "additionalProperties": {}
+        }
+      }
+    },
+    "mcpb": {
+      "description": "Privacy-policy URLs of the services this tool talks to; Anthropic's Connectors Directory submission requires them in the MCPB manifest.",
+      "type": "object",
+      "properties": {
+        "privacyPolicies": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },

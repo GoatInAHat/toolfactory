@@ -1,6 +1,9 @@
 /**
  * Agent Skills: one `skills/<N>/SKILL.md` per tool. toolfactory owns the frontmatter and
  * the `<!-- tf:operations -->` block; the body is the author's prose and is never generated.
+ * The bundle formats (Agent Plugins, Claude, Codex, Cursor) fix `skills/` at the bundle root,
+ * while Copilot, Codex, Hermes and DSH read a project's skills only from `.agents/skills/`
+ * (and `npx skills add` reads both): a symbolic link there is the one directory that serves all.
  */
 import { stringify as yaml } from "yaml";
 import type { Capability, Operation, Project, Surface, Verdict } from "../model.js";
@@ -11,6 +14,11 @@ export const OPERATIONS_END = "<!-- /tf:operations -->";
 
 export function skillPath(project: Project): string {
   return `skills/${project.identity.name}/SKILL.md`;
+}
+
+/** The `.agents/` canon's view of the same skill, which `.agents/sync.py` fans out to every harness. */
+function skillLinkPath(project: Project): string {
+  return `.agents/skills/${project.identity.name}`;
 }
 
 function invocation(project: Project, operation: Operation): string {
@@ -90,7 +98,15 @@ export const surface: Surface = {
       OPERATIONS_END,
       "",
     ].join("\n");
-    return [{ kind: "region", path, regions, template }];
+    return [
+      { kind: "region", path, regions, template },
+      {
+        kind: "file",
+        path: skillLinkPath(project),
+        content: `../../skills/${project.identity.name}`,
+        symlink: true,
+      },
+    ];
   },
   validate(project) {
     return [

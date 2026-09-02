@@ -15,8 +15,11 @@ generated and every surface still installs, builds and publishes.
 [![skills.sh](https://skills.sh/b/GoatInAHat/toolfactory)](https://skills.sh/GoatInAHat/toolfactory)
 
 - **Agent Skill** — `npx skills add GoatInAHat/toolfactory`
-- **MCP server** — `npx -y toolfactory mcp`
+- **MCP server** — `npx -y toolfactory mcp` [![Install in VS Code](https://img.shields.io/badge/VS_Code-Install_Server-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://vscode.dev/redirect/mcp/install?name=toolfactory&config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22toolfactory%22%2C%22mcp%22%5D%7D) [![Install in Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=toolfactory&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsInRvb2xmYWN0b3J5IiwibWNwIl19)
+- **Claude Desktop extension** — download `toolfactory.mcpb` from the GitHub Release and double-click to install
 - **Claude Code plugin** — `claude plugin marketplace add GoatInAHat/toolfactory`, then `claude plugin install toolfactory@toolfactory`
+- **Codex plugin** — `codex plugin marketplace add GoatInAHat/toolfactory`, then `codex plugin add toolfactory@toolfactory`
+- **Gemini CLI extension** — `gemini extensions install https://github.com/GoatInAHat/toolfactory`
 - **OpenClaw plugin** — `openclaw plugins install --link hosts/openclaw` from a checkout
 - **Hermes plugin** — `hermes plugins install https://github.com/GoatInAHat/toolfactory#hosts/hermes/toolfactory_hermes`
 - **DSH plugin** (experimental) — `dsh plugin --profile <profile> add ./hosts/dsh` from a checkout, or the release tarball `toolfactory-dsh-0.1.0.tgz`
@@ -75,7 +78,7 @@ toolfactory is built with toolfactory.
 
 | Command | Does |
 |---|---|
-| `init` | new tool: identity file, `tool.json`, kernel scaffold, first build, `git init` + first commit, `.agents/setup`; `--repo <owner>/<name>` creates the GitHub repository (private; `--public` opts out) and pushes it |
+| `init` | new tool: identity file (`keywords` defaults to `[name]`, the Kiro Powers/Agent Plugins activation trigger; `--keywords` overrides), `tool.json`, kernel scaffold, first build, `git init` + first commit, `.agents/setup`; `--repo <owner>/<name>` creates the GitHub repository (private; `--public` opts out) and pushes it |
 | `introspect` | snapshot the kernel's `tools/list` into `ops.json` |
 | `build` | regenerate every selected surface; delete orphans; write the lock |
 | `check` | fail if the operation snapshot or any generated file drifted from the code (the CI gate) |
@@ -91,13 +94,16 @@ toolfactory is built with toolfactory.
 
 | Surface | Emits | Validated by |
 |---|---|---|
-| `skill` | `skills/<name>/SKILL.md` (frontmatter + operations block; body is yours) | `agentskills validate` |
+| `skill` | `skills/<name>/SKILL.md` (frontmatter + operations block; body is yours), plus `.agents/skills/<name>`, a symlink to it, so Copilot, Codex, Hermes, DSH and `.agents/sync.py` see the same one skill | `agentskills validate` |
 | `agent-plugins` | root `plugin.json` + `mcp.json` (consumed by OpenClaw, Hermes, Copilot, Cursor, Codex) | Ajv against the 1.0.0 schemas |
 | `claude` | `.claude-plugin/plugin.json` | `claude plugin validate` |
-| `codex`, `cursor` | `.codex-plugin/`, `.cursor-plugin/` manifests | schema-shaped |
+| `codex` | `.codex-plugin/plugin.json` + `.agents/plugins/marketplace.json` (`codex plugin marketplace add <owner>/<repo>`) | real Codex CLI: marketplace add, plugin add, plugin list |
+| `cursor` | `.cursor-plugin/` manifest | schema-shaped |
+| `gemini` | root `gemini-extension.json` — a Gemini CLI extension installable straight from the repo, reading your `AGENTS.md` and `skills/` | `gemini extensions validate` |
 | `mcp`, `cli` | the kernel MCP server (stdio, or `--http`) and a CLI over your operations; each lists only the operations it can run | MCP Inspector, `--help` |
 | `npm`, `pypi` | package metadata merged into `package.json` / `pyproject.toml` | `npm pack`, `uv build` |
 | `mcp-registry` | `server.json` | `mcp-publisher` |
+| `mcpb` | `hosts/mcpb/manifest.json` and a `.mcpb` release asset packed from the npm tarball — the one-click install Claude Desktop takes | `mcpb validate` |
 | `openclaw-native` | `hosts/openclaw/`, mirroring `openclaw plugins init --type tool` | `openclaw plugins build --check`, `validate`, plugin-inspector |
 | `hermes-native` | `hosts/hermes/`, a manifest v2 plugin | `hermes plugins doctor --ci` |
 | `web` | `web/`, a shadcn/ui (Vite, React, Tailwind) app with a form per operation; your own pages sit beside it in `App.tsx` | `vite build`, Playwright |

@@ -92,7 +92,7 @@ export const RELOAD: Reload[] = [
     harness: "Gemini CLI",
     env: [],
     mcp: "`/mcp reload`",
-    instructions: "`/memory refresh`",
+    instructions: "`/memory refresh`; `/skills reload` for skills",
   },
   {
     harness: "Codex",
@@ -214,6 +214,13 @@ function installSection(project: Project): string[] {
   const lines = ["## Installing into the host you are developing in", ""];
   const openclaw = has(project, "openclaw-native");
   const hermes = has(project, "hermes-native");
+  const gemini = has(project, "gemini");
+  if (gemini) {
+    lines.push(
+      "- **Gemini CLI**: `gemini extensions link .` links the checkout in place; a new `gemini`",
+      "  session picks it up (there is no reload command — start a fresh session).",
+    );
+  }
   if (openclaw) {
     lines.push(
       `- **OpenClaw**: \`openclaw plugins install --link ${OPENCLAW_HOST_DIR} --force\` links the`,
@@ -242,10 +249,10 @@ function installSection(project: Project): string[] {
       "  KEY/PASSWORD/SECRET/TOKEN names before spawning an MCP server.",
     );
   }
-  if (!openclaw && !hermes && !has(project, "dsh")) {
+  if (!gemini && !openclaw && !hermes && !has(project, "dsh")) {
     lines.push(
-      "_No host-native surface (`openclaw-native`, `hermes-native`, `dsh`) is selected; nothing installs",
-      "into a running host._",
+      "_No host-native surface (`openclaw-native`, `hermes-native`, `dsh`) or `gemini` extension is",
+      "selected; nothing installs into a running host._",
     );
   }
   lines.push(
@@ -255,6 +262,50 @@ function installSection(project: Project): string[] {
     "",
   );
   return lines;
+}
+
+/**
+ * The curated directories and marketplaces that *list* a tool rather than merely install it —
+ * each a one-time portal submission or PR, reviewed by humans on the other end, so none of them
+ * is (or should be) automated. One line per directory, gated on the surface that makes the tool
+ * a fit for it; a project selecting none of those surfaces gets no section at all.
+ */
+function listingSection(project: Project): string[] {
+  const items: string[] = [];
+  if (has(project, "mcp")) {
+    items.push(
+      `- **Docker MCP Catalog** — PR to \`docker/mcp-registry\` adding \`servers/${project.identity.name}/server.yaml\` (\`--image ghcr.io/<owner>/${project.identity.name}\`): https://github.com/docker/mcp-registry`,
+      "- **GitHub MCP registry** — manual curation, not automated by publishing to the official registry: https://github.com/github/github-mcp-server/discussions/1257",
+      "- **Cline marketplace** — issue on https://github.com/cline/mcp-marketplace",
+      "- **mcp.so** — issue on https://github.com/chatmcp/mcpso",
+      "- **awesome-mcp-servers** — PR to https://github.com/punkpeye/awesome-mcp-servers",
+    );
+  }
+  if (has(project, "claude")) {
+    items.push("- **Anthropic plugin directory** — https://claude.com/docs/plugins/submit");
+  }
+  if (has(project, "agent-plugins")) {
+    items.push(
+      "- **Kiro Powers** — https://kiro.dev/powers/submit (needs `keywords` in the manifest and a privacy-policy link in the README)",
+    );
+  }
+  if (has(project, "codex")) {
+    items.push(
+      "- **OpenAI plugin directory** — https://developers.openai.com/plugins/deploy/submission (needs a hosted HTTPS MCP server; a repo-only `codex plugin marketplace add` install, above, does not qualify)",
+    );
+  }
+  if (!items.length) return [];
+  return [
+    "## Listing",
+    "",
+    "Every install line above already works from this repository alone; these are the curated",
+    "directories and marketplaces that additionally *list* it. Each is a one-time human-reviewed",
+    "portal step or pull request, run at the author's discretion — never generated, never",
+    "automated.",
+    "",
+    ...items,
+    "",
+  ];
 }
 
 function reloadSection(): string[] {
@@ -297,6 +348,7 @@ export function agentsContent(project: Project): string {
     ...boundarySection(),
     ...agentConfigSection(project),
     ...installSection(project),
+    ...listingSection(project),
     ...reloadSection(),
     ...worktreesSection(),
   ];

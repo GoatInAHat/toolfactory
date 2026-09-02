@@ -10,6 +10,10 @@
         "playwright"
       ]
     },
+    ".agents/plugins/marketplace.json": {
+      "sha256": "d29cde7a122262d665c9e7e762df68078a6708082a1e2403c0899b104dacc5ff",
+      "state": "generated"
+    },
     ".agents/README.md": {
       "sha256": "617acad815520ca8ee30e928e5e7a890aa2953287d4f849bd98a7475d0d71359",
       "state": "generated"
@@ -20,6 +24,10 @@
     },
     ".agents/skills/.gitkeep": {
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "state": "generated"
+    },
+    ".agents/skills/toolfactory": {
+      "sha256": "75130aac9ad50ab6ec7e0f79a2821654a6a2cc304eb322fcf83c5bcfc88f83ed",
       "state": "generated"
     },
     ".agents/sync.py": {
@@ -79,7 +87,7 @@
       "state": "generated"
     },
     ".github/workflows/release.yml": {
-      "sha256": "09d9f2c6a8d6e096c9b2fad378ddb17799c6d9f319e6a36feb3277c00d9edb8c",
+      "sha256": "8ad4d53683c7dcf91cc53cd6a36cfc7bfeb0bec1cbb0757062d568f0a01f77cd",
       "state": "generated"
     },
     ".gitignore": {
@@ -87,7 +95,7 @@
       "state": "generated"
     },
     "AGENTS.md": {
-      "sha256": "75f3844d41e0ea917458cad23a3bc254a5a00a627524cdb8f6d3b85859941e0f",
+      "sha256": "53901073c0cdd6faebf20fbae9133593a9512dbee5b830e08d3d88bcf919bc80",
       "state": "generated"
     },
     "compose.toolfactory.yaml": {
@@ -95,11 +103,11 @@
       "state": "generated"
     },
     "COVERAGE.md": {
-      "sha256": "2a8ed728a7dfa096b0046d1c2c3355599ddc29fadb62880e985a2514fd3a144c",
+      "sha256": "d0113f935adda75573eb087dc450d5183a2a1b6b8667953be0c9f4ddee1c257f",
       "state": "generated"
     },
     "dev.toolfactory/coverage.json": {
-      "sha256": "d5079f094aeaa609d4efbe21e7da001f9000701afa54b8a42e9779bc6b048f60",
+      "sha256": "1d69933c96ed05db2d02d02d999c2783a6dad287ff7bb26be055a0fb396a6c10",
       "state": "generated"
     },
     "dev.toolfactory/inspector.json": {
@@ -107,11 +115,15 @@
       "state": "generated"
     },
     "dev.toolfactory/tool.schema.json": {
-      "sha256": "e244cbfb74e6c4cc884cc1a32ea4b0ccda194ddc1c5baf872153fe7b534dc1af",
+      "sha256": "6237de615d78d27a8ea567c486df6ce7520fdb3fc12552512685b782336bbbc7",
       "state": "generated"
     },
     "Dockerfile": {
       "sha256": "c579b48ab6b3f21e5389a67b60da5b42ccce6d832488016efd58205b7fabae8c",
+      "state": "generated"
+    },
+    "gemini-extension.json": {
+      "sha256": "df86748e6c0188bf8b070ebaffadd287023bdf5cafae5334b439b4e5c49b2c64",
       "state": "generated"
     },
     "hosts/dsh/cordis.local.patch.yml": {
@@ -139,11 +151,15 @@
       "state": "generated"
     },
     "hosts/hermes/toolfactory_hermes/__init__.py": {
-      "sha256": "ed8e501fc24ddb00c19bd1e908f25a4591b451e39380165a6625b77716e80888",
+      "sha256": "0690d8877544cf57ee0ddb3737a149bc1925082eef37edb6a4b7e833d7209ad4",
       "state": "generated"
     },
     "hosts/hermes/toolfactory_hermes/plugin.yaml": {
       "sha256": "90d3d69f96049c992ee1359c52358d1423dac370edb8e3d483f296b920158e87",
+      "state": "generated"
+    },
+    "hosts/mcpb/manifest.json": {
+      "sha256": "b5f2478673b425e2e0a69dda7f60a413bd2aad21153526bce38f8d2aead9e9ec",
       "state": "generated"
     },
     "hosts/openclaw/.npmrc": {
@@ -175,7 +191,7 @@
       "state": "generated"
     },
     "hosts/openclaw/src/index.ts": {
-      "sha256": "4c3ba77c07ab756b8077ea0266ec269e66d6a805a3bbcb14af2ad626ca6936fe",
+      "sha256": "3354a4766a445a8a406640bce0bf6d29bc682379e1e4cf8066f37dfdf3d4299f",
       "state": "generated"
     },
     "hosts/openclaw/tsconfig.json": {
@@ -213,7 +229,7 @@
       ]
     },
     "README.md": {
-      "sha256": "e6e48fe8bca542fc99c198c5906d25eb3dc59e93a9ef4d28dcc97a5d021b69fb",
+      "sha256": "401443e979d134e4ac5f8309c8c123a4cc634e3c5e6836a5480f4300835f85a1",
       "state": "generated"
     },
     "renovate.json": {
@@ -231,7 +247,7 @@
       "state": "generated"
     },
     "skills/toolfactory/SKILL.md": {
-      "sha256": "60fd12379c15bff61278013eedc7e643fc310f14ba843cb95c0a1f1d4b36ed66",
+      "sha256": "c8dbdd57321a77efe7f172ad2b46f66f35dfc843d029e029b36159dcef520f51",
       "state": "generated"
     },
     "src/toolfactory/cli.ts": {
@@ -318,7 +334,7 @@
       "state": "generated"
     },
     "web/src/ops.json": {
-      "sha256": "9b6d8c58e5a1af567419a0ccd2266b4379765db58169396849111867bfab5a86",
+      "sha256": "5474891823a13aed23c2aa5d4b9a3e39fb7c1ca12dc5dd94d9d31c657314d97b",
       "state": "generated"
     },
     "web/src/schema-form.tsx": {

@@ -114,7 +114,7 @@ Arguments: `root`.
 
 Create a new tool: dev.toolfactory/tool.json, the authored identity file, the kernel scaffold for the chosen language, and the first build of every selected surface.
 
-Arguments: `root`, `name`, `binding`, `surfaces`, `description`, `license`, `repository`, `author`, `git`, `setup`, `repo`, `public`, `dryRun`, `reviewers`.
+Arguments: `root`, `name`, `binding`, `surfaces`, `description`, `license`, `repository`, `author`, `keywords`, `git`, `setup`, `repo`, `public`, `dryRun`, `reviewers`.
 
 `toolfactory init --json '<arguments>'` prints a JSON result. MCP tool `init` on server `toolfactory` returns the same result as `structuredContent`.
 

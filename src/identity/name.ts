@@ -21,6 +21,8 @@ export const projectName = {
       .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
       .join(" "),
   cursor: (name: string): string => name.replace(/\./g, "-"),
+  /** Gemini CLI extension name: the directory name rule, the same shape as Cursor's. */
+  gemini: (name: string): string => name.replace(/\./g, "-"),
   openclawPackage: (name: string): string => `openclaw-plugin-${name}`,
   mcpRegistry: (name: string, owner: string): string => `io.github.${owner}/${name}`,
   hermesToolset: (name: string): string => name.replace(/[.-]/g, "_"),

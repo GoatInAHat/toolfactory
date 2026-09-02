@@ -146,7 +146,9 @@ TOOLS = json.loads(
             "dsh",
             "workflows",
             "agents",
-            "readme"
+            "readme",
+            "gemini",
+            "mcpb"
           ]
         }
       },
@@ -215,7 +217,9 @@ TOOLS = json.loads(
               "dsh",
               "workflows",
               "agents",
-              "readme"
+              "readme",
+              "gemini",
+              "mcpb"
             ]
           },
           "description": "Surfaces to generate"
@@ -235,6 +239,13 @@ TOOLS = json.loads(
         "author": {
           "description": "Author name",
           "type": "string"
+        },
+        "keywords": {
+          "description": "Activation triggers for hosts that key off them (Kiro Powers, Agent Plugins); defaults to [name]",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         },
         "git": {
           "default": true,
@@ -357,7 +368,9 @@ TOOLS = json.loads(
             "dsh",
             "workflows",
             "agents",
-            "readme"
+            "readme",
+            "gemini",
+            "mcpb"
           ]
         }
       }

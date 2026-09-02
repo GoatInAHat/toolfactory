@@ -5,7 +5,16 @@
  * orphans, and records SHAs in the lock file. Every kind carries its own inverse: a region file
  * its markers, a full file its path, a merge file the key paths recorded in the lock.
  */
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  readlinkSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
 import type { MergeFile, PlannedFile, Region, RegionFile } from "../model.js";
@@ -161,8 +170,18 @@ export function managedContent(file: PlannedFile): string {
   return JSON.stringify(file.patch);
 }
 
+/** A symbolic link's managed content is its target; every other kind's is what it holds. */
+function isLink(file: PlannedFile): boolean {
+  return file.kind === "file" && file.symlink === true;
+}
+
 function currentManagedContent(root: string, file: PlannedFile): string | undefined {
   const path = join(root, file.path);
+  if (isLink(file)) {
+    const entry = lstatSync(path, { throwIfNoEntry: false });
+    // A regular file or directory standing where the link belongs matches no target: it is drift.
+    return entry && (entry.isSymbolicLink() ? readlinkSync(path) : "");
+  }
   if (!existsSync(path)) return undefined;
   const text = readFileSync(path, "utf8");
   if (file.kind === "file") return text;
@@ -267,13 +286,25 @@ export function apply(root: string, plan: PlannedFile[], toolfactoryVersion: str
       continue;
     }
     const keys = file.kind === "merge" ? patchKeys(file.patch, file.owned) : undefined;
-    const next = render(root, file, staleKeys(previous, file.path, keys));
-    if (existsSync(path) && readFileSync(path, "utf8") === next) {
-      result.unchanged.push(file.path);
+    if (isLink(file)) {
+      if (currentManagedContent(root, file) === managedContent(file)) {
+        result.unchanged.push(file.path);
+      } else {
+        mkdirSync(dirname(path), { recursive: true });
+        // Whatever stands there — a stale link, or a real file or directory — makes way for the link.
+        rmSync(path, { recursive: true, force: true });
+        symlinkSync(managedContent(file), path);
+        result.written.push(file.path);
+      }
     } else {
-      mkdirSync(dirname(path), { recursive: true });
-      writeFileSync(path, next, { mode: file.kind === "file" ? file.mode : undefined });
-      result.written.push(file.path);
+      const next = render(root, file, staleKeys(previous, file.path, keys));
+      if (existsSync(path) && readFileSync(path, "utf8") === next) {
+        result.unchanged.push(file.path);
+      } else {
+        mkdirSync(dirname(path), { recursive: true });
+        writeFileSync(path, next, { mode: file.kind === "file" ? file.mode : undefined });
+        result.written.push(file.path);
+      }
     }
     lock.files[file.path] = { sha256: sha256(managedContent(file)), state: "generated", keys };
   }

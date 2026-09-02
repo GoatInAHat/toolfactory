@@ -151,6 +151,7 @@ describe("workflows", () => {
       "publish-oci",
       "publish-mcp-registry",
       "publish-clawhub",
+      "publish-clawhub-skill",
       "release",
       "pages-build",
       "pages-deploy",
@@ -171,7 +172,15 @@ describe("workflows", () => {
       package_artifact_path: "openclaw-plugin-hello-0.1.0.tgz",
     });
     expect(release.jobs["publish-clawhub"].secrets.clawhub_token).toContain("CLAWHUB_TOKEN");
-    expect(release.jobs.release.needs.at(-1)).toBe("publish-clawhub");
+    // ClawHub's skill catalog is a separate track: it needs only `gate` (no built tarball), and
+    // reuses ClawHub's own skill-publish.yml, which derives slug/version from SKILL.md itself.
+    expect(release.jobs["publish-clawhub-skill"]).toMatchObject({
+      needs: "gate",
+      uses: "openclaw/clawhub/.github/workflows/skill-publish.yml@main",
+      with: { skill_path: "skills/hello", dry_run: false },
+    });
+    expect(release.jobs["publish-clawhub-skill"].secrets.clawhub_token).toContain("CLAWHUB_TOKEN");
+    expect(release.jobs.release.needs.at(-1)).toBe("publish-clawhub-skill");
 
     // Every job that runs steps declares its own permissions; the workflow-call leg inherits the
     // file's `contents: read`.
@@ -180,7 +189,7 @@ describe("workflows", () => {
     )
       .filter(([, job]) => job.permissions === undefined)
       .map(([name]) => name);
-    expect(withoutPermissions).toEqual(["publish-clawhub"]);
+    expect(withoutPermissions).toEqual(["publish-clawhub", "publish-clawhub-skill"]);
     expect(release.permissions).toEqual({ contents: "read" });
     expect(release.jobs["publish-oci"].permissions).toEqual({
       contents: "read",
@@ -226,6 +235,14 @@ describe("workflows", () => {
   it("clawhub without openclaw-native publishes nothing (there is no host package to publish)", () => {
     const release = emitted(project(["clawhub", "npm"]))[".github/workflows/release.yml"];
     expect(yamlParse(release).jobs["publish-clawhub"]).toBeUndefined();
+  });
+
+  it("clawhub + skill without openclaw-native still publishes the skill catalog leg", () => {
+    const release = yamlParse(
+      emitted(project(["clawhub", "skill"]))[".github/workflows/release.yml"],
+    );
+    expect(release.jobs["publish-clawhub"]).toBeUndefined();
+    expect(release.jobs["publish-clawhub-skill"].needs).toBe("gate");
   });
 
   it("compose.toolfactory.yaml appears only for a host-native surface and picks the browser image variant", () => {

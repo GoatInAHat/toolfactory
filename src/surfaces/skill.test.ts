@@ -46,12 +46,13 @@ function project(overrides: Partial<Project> = {}): Project {
 }
 
 describe("skill surface", () => {
-  it("names the file after the tool and plans exactly one region file", () => {
+  it("names the file after the tool and links it into the .agents canon", () => {
     const target = project();
     expect(skillPath(target)).toBe("skills/hello/SKILL.md");
-    const plan = surface.plan(target);
-    expect(plan).toHaveLength(1);
-    expect(plan[0]).toMatchObject({ kind: "region", path: "skills/hello/SKILL.md" });
+    expect(surface.plan(target)).toMatchObject([
+      { kind: "region", path: "skills/hello/SKILL.md" },
+      { kind: "file", path: ".agents/skills/hello", content: "../../skills/hello", symlink: true },
+    ]);
   });
 
   it("frontmatter carries the 6 spec fields, falling back to a description", () => {

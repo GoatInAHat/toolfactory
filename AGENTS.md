@@ -145,6 +145,8 @@ the operations it is writing; register nothing by hand.
 
 ## Installing into the host you are developing in
 
+- **Gemini CLI**: `gemini extensions link .` links the checkout in place; a new `gemini`
+  session picks it up (there is no reload command — start a fresh session).
 - **OpenClaw**: `openclaw plugins install --link hosts/openclaw --force` links the
   checkout in place; `openclaw plugins inspect toolfactory --runtime --json` confirms it loaded.
   `openclaw plugins uninstall toolfactory --keep-files` removes the registration and leaves the checkout.
@@ -165,6 +167,22 @@ the operations it is writing; register nothing by hand.
 Codex and Cursor read this file as is; Claude Code and Gemini read `CLAUDE.md` / `GEMINI.md`,
 each of which `.agents/sync.py` renders as the one line `@AGENTS.md`.
 
+## Listing
+
+Every install line above already works from this repository alone; these are the curated
+directories and marketplaces that additionally *list* it. Each is a one-time human-reviewed
+portal step or pull request, run at the author's discretion — never generated, never
+automated.
+
+- **Docker MCP Catalog** — PR to `docker/mcp-registry` adding `servers/toolfactory/server.yaml` (`--image ghcr.io/<owner>/toolfactory`): https://github.com/docker/mcp-registry
+- **GitHub MCP registry** — manual curation, not automated by publishing to the official registry: https://github.com/github/github-mcp-server/discussions/1257
+- **Cline marketplace** — issue on https://github.com/cline/mcp-marketplace
+- **mcp.so** — issue on https://github.com/chatmcp/mcpso
+- **awesome-mcp-servers** — PR to https://github.com/punkpeye/awesome-mcp-servers
+- **Anthropic plugin directory** — https://claude.com/docs/plugins/submit
+- **Kiro Powers** — https://kiro.dev/powers/submit (needs `keywords` in the manifest and a privacy-policy link in the README)
+- **OpenAI plugin directory** — https://developers.openai.com/plugins/deploy/submission (needs a hosted HTTPS MCP server; a repo-only `codex plugin marketplace add` install, above, does not qualify)
+
 ## Reload
 
 Registration is automated; reload is not, and only some harnesses have one.
@@ -174,7 +192,7 @@ Registration is automated; reload is not, and only some harnesses have one.
 | Claude Code | Reconnect from `/mcp`, or start a new session: stdio servers are not reconnected automatically. A server's own `list_changed` refreshes its tool list without one. | `.claude/skills/`, symlinked by `sync.py`; no documented mid-session reload. |
 | OpenClaw | `openclaw gateway restart`: plugins and MCP config load at Gateway start, and `openclaw mcp reload` only refreshes the current CLI process. | Skills refresh mid-session; the watcher's list is picked up on the next agent turn. `AGENTS.md` is read at session start. |
 | Hermes | A new invocation: every run is a fresh process. `/reload-mcp` inside an open session; `hermes gateway restart` is the messaging gateway only. | `hermes skills trust` once in this repo, then a new conversation: the resolved skill directories are stable for a conversation. |
-| Gemini CLI | `/mcp reload` | `/memory refresh` |
+| Gemini CLI | `/mcp reload` | `/memory refresh`; `/skills reload` for skills |
 | Codex | Restart: `sync.py install-codex` writes the user-level `~/.codex/config.toml`, read at startup, because a project config applies only once the project is trusted. | Reads `AGENTS.md` and `.agents/skills/` natively. |
 | Factory (`droid`) | None: it reloads when `.factory/mcp.json` changes. | Reads `AGENTS.md` natively. |
 | VS Code | The per-server Restart control, or `chat.mcp.autostart` (experimental). | Reads `AGENTS.md` and `.agents/skills/` natively. |

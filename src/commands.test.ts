@@ -5,7 +5,7 @@
  * leaves behind in a real directory.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -114,5 +114,8 @@ describe("init", () => {
     expect(result.repository?.secrets).toEqual([]);
     expect(result.nextSteps[1]).toBe(RELOAD.find((row) => row.harness === "Claude Code")?.line);
     expect(result.nextSteps[2]).toContain("src/ops.ts");
+    // `keywords` defaults to `[name]` — Kiro Powers and Agent Plugins key activation off it —
+    // and lands in the scaffolded identity file (`package.json`, here) like the rest of identity.
+    expect(JSON.parse(readFileSync(join(dir, "package.json"), "utf8")).keywords).toEqual(["probe"]);
   });
 });

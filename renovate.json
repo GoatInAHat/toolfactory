@@ -33,6 +33,19 @@
     },
     {
       "customType": "regex",
+      "description": "MCPB_PIN, the @anthropic-ai/mcpb release the mcpb surface validates and packs with",
+      "managerFilePatterns": [
+        "/^src/surfaces/mcpb\\.ts$/"
+      ],
+      "matchStrings": [
+        "MCPB_PIN = \"(?<currentValue>[^\"]+)\""
+      ],
+      "depNameTemplate": "@anthropic-ai/mcpb",
+      "datasourceTemplate": "npm",
+      "versioningTemplate": "npm"
+    },
+    {
+      "customType": "regex",
       "description": "HERMES_PIN.commit, the hermes-agent commit the hermes surface installs in CI",
       "managerFilePatterns": [
         "/^src/surfaces/hermes-native\\.ts$/"
@@ -43,6 +56,32 @@
       "depNameTemplate": "https://github.com/NousResearch/hermes-agent",
       "currentValueTemplate": "main",
       "datasourceTemplate": "git-refs"
+    },
+    {
+      "customType": "regex",
+      "description": "GEMINI_PIN, the @google/gemini-cli release the gemini surface's validator runs",
+      "managerFilePatterns": [
+        "/^src/surfaces/gemini\\.ts$/"
+      ],
+      "matchStrings": [
+        "GEMINI_PIN = \"(?<currentValue>[^\"]+)\""
+      ],
+      "depNameTemplate": "@google/gemini-cli",
+      "datasourceTemplate": "npm",
+      "versioningTemplate": "npm"
+    },
+    {
+      "customType": "regex",
+      "description": "CODEX_PIN, the @openai/codex release the codex surface's validator runs",
+      "managerFilePatterns": [
+        "/^src/surfaces/codex\\.ts$/"
+      ],
+      "matchStrings": [
+        "CODEX_PIN = \"(?<currentValue>[^\"]+)\""
+      ],
+      "depNameTemplate": "@openai/codex",
+      "datasourceTemplate": "npm",
+      "versioningTemplate": "npm"
     }
   ],
   "ignorePaths": [

@@ -12,8 +12,9 @@
 import { projectName } from "../identity/name.js";
 import type { PackageManager, Project } from "../model.js";
 import { HOST_DIR as DSH_HOST_DIR } from "../surfaces/dsh.js";
+import { MANIFEST_PATH as MCPB_MANIFEST_PATH, MCPB_PIN } from "../surfaces/mcpb.js";
 import { HOST_DIR as OPENCLAW_HOST_DIR } from "../surfaces/openclaw-native.js";
-import { has } from "../surfaces/shared.js";
+import { has, npmName } from "../surfaces/shared.js";
 
 export interface GateStep {
   /** Step label: the CI step name, and the banner the shell script echoes. */
@@ -187,6 +188,24 @@ export function packageSteps(project: Project): GateStep[] {
   ];
   if (has(project, "npm")) {
     steps.push({ name: "npm tarball", run: `npm pack --pack-destination ${RELEASE_DIR}` });
+  }
+  if (has(project, "mcpb")) {
+    // A bundle root is the published package with its production dependencies installed into
+    // it, so it is built from the tarball `npm pack` just wrote rather than from the checkout:
+    // whatever ships to npm is exactly what ships to Claude Desktop. `--ignore-scripts` because
+    // nothing in a bundle root may run a build; the tarball already carries `dist/`.
+    const stage = "dist/mcpb";
+    const tarball = `${npmName(project).replace(/^@/, "").replace("/", "-")}-${project.identity.version ?? "0.0.0"}.tgz`;
+    steps.push({
+      name: "MCPB bundle",
+      run: [
+        `rm -rf ${stage} && mkdir -p ${stage}`,
+        `tar -xzf ${RELEASE_DIR}/${tarball} -C ${stage} --strip-components=1`,
+        `npm --prefix ${stage} install --omit=dev --ignore-scripts`,
+        `cp ${MCPB_MANIFEST_PATH} ${stage}/manifest.json`,
+        `npx -y @anthropic-ai/mcpb@${MCPB_PIN} pack ${stage} ${RELEASE_DIR}/${name}.mcpb`,
+      ].join(" && "),
+    });
   }
   if (has(project, "pypi")) {
     steps.push({ name: "python distributions", run: `uv build --out-dir ${RELEASE_DIR}` });

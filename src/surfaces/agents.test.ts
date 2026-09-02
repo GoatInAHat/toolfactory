@@ -156,6 +156,27 @@ describe("agents", () => {
     expect(Object.keys(cliOnly.patch)).toEqual(["toolfactory"]);
   });
 
+  it("lists the surfaces' submission portals and the Gemini host-install line", () => {
+    const body = region(
+      project(["mcp", "claude", "agent-plugins", "codex", "gemini"]),
+      "AGENTS.md",
+    );
+    expect(body).toContain("## Listing");
+    expect(body).toContain("docker/mcp-registry");
+    expect(body).toContain("cline/mcp-marketplace");
+    expect(body).toContain("chatmcp/mcpso");
+    expect(body).toContain("punkpeye/awesome-mcp-servers");
+    expect(body).toContain("claude.com/docs/plugins/submit");
+    expect(body).toContain("kiro.dev/powers/submit");
+    expect(body).toContain("developers.openai.com/plugins/deploy/submission");
+    expect(body).toContain("`gemini extensions link .`");
+
+    // No listing-eligible surface, no section; the bare `cli` project also gets no Gemini bullet.
+    const bare = region(project(["cli"]), "AGENTS.md");
+    expect(bare).not.toContain("## Listing");
+    expect(bare).not.toContain("gemini extensions link");
+  });
+
   it("prints the reload line of the harness it is running inside", () => {
     expect(reloadLine({ CLAUDECODE: "1" })).toContain("reconnect from `/mcp`");
     expect(reloadLine({ HERMES_HOME: "/h" })).toContain("hermes skills trust");

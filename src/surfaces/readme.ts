@@ -8,6 +8,11 @@
  * Every line works from a plain checkout; the ones that need a GitHub repository (`npx skills
  * add`, the skills.sh badge, the marketplace and Hermes clone URLs) appear only once the
  * identity file carries one, so a tool built without GitHub still gets an accurate section.
+ *
+ * When `mcp` is selected alongside a package registry, the MCP line also carries the two
+ * first-party one-click badges (VS Code's `vscode.dev/redirect/mcp/install`, Cursor's
+ * `cursor.com/en/install-mcp`), both computed from the exact same `{command, args, env}` launch
+ * the plain-text line renders — a badge can never point somewhere the text line does not.
  */
 import { githubSlug } from "../hosts/github.js";
 import { projectName } from "../identity/name.js";
@@ -15,22 +20,56 @@ import type { Project, Surface } from "../model.js";
 import { HOST_DIR as DSH_HOST_DIR, dshTarball } from "./dsh.js";
 import { pluginDir as hermesPluginDir } from "./hermes-native.js";
 import { HOST_DIR as OPENCLAW_HOST_DIR } from "./openclaw-native.js";
-import { has, npmName, pypiName } from "./shared.js";
+import { envName, has, npmName, pypiName, requiredConfig } from "./shared.js";
 
 export const README_PATH = "README.md";
 export const INSTALL_BEGIN = "<!-- tf:install -->";
 export const INSTALL_END = "<!-- /tf:install -->";
 
-/** The kernel MCP server as a one-shot command: the same launch `mcp.json` carries, unpinned. */
+/**
+ * The kernel MCP server's published launch, unpinned — `{command, args}`, plus an `env` map of
+ * blank placeholders for whatever config the tool requires. The one source both `mcpCommand`
+ * (the plain-text line) and the VS Code / Cursor install badges below encode: a badge can never
+ * name a launch the text line does not.
+ */
+function launchConfig(project: Project): {
+  command: string;
+  args: string[];
+  env?: Record<string, string>;
+} {
+  const { command, args } =
+    project.tool.binding === "python"
+      ? (() => {
+          const pypi = pypiName(project);
+          // `uvx <pkg>` runs the command of the same name; a dotted tool name renames the package.
+          return pypi === project.identity.name
+            ? { command: "uvx", args: [pypi, "mcp"] }
+            : { command: "uvx", args: ["--from", pypi, project.identity.name, "mcp"] };
+        })()
+      : { command: "npx", args: ["-y", npmName(project), "mcp"] };
+  const required = requiredConfig(project);
+  return required.length
+    ? { command, args, env: Object.fromEntries(required.map((key) => [envName(key), ""])) }
+    : { command, args };
+}
+
 function mcpCommand(project: Project): string {
-  if (project.tool.binding === "python") {
-    const pypi = pypiName(project);
-    // `uvx <pkg>` runs the command of the same name; a dotted tool name renames the package.
-    return pypi === project.identity.name
-      ? `uvx ${pypi} mcp`
-      : `uvx --from ${pypi} ${project.identity.name} mcp`;
-  }
-  return `npx -y ${npmName(project)} mcp`;
+  const { command, args } = launchConfig(project);
+  return [command, ...args].join(" ");
+}
+
+/** github.com/github/github-mcp-server's README badge, verbatim shields.io style. */
+function vscodeBadge(project: Project): string {
+  const config = encodeURIComponent(JSON.stringify(launchConfig(project)));
+  const url = `https://vscode.dev/redirect/mcp/install?name=${encodeURIComponent(project.identity.name)}&config=${config}`;
+  return `[![Install in VS Code](https://img.shields.io/badge/VS_Code-Install_Server-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](${url})`;
+}
+
+/** cursor.com/docs/mcp/install-links's own badge SVG and `en/install-mcp` redirect. */
+function cursorBadge(project: Project): string {
+  const config = Buffer.from(JSON.stringify(launchConfig(project))).toString("base64");
+  const url = `https://cursor.com/en/install-mcp?name=${encodeURIComponent(project.identity.name)}&config=${config}`;
+  return `[![Install in Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](${url})`;
 }
 
 function installLines(project: Project): string[] {
@@ -41,13 +80,37 @@ function installLines(project: Project): string[] {
     lines.push(`- **Agent Skill** — \`npx skills add ${slug}\``);
   }
   if (has(project, "mcp")) {
-    lines.push(`- **MCP server** — \`${mcpCommand(project)}\``);
+    // The one-click badges need a published package to point at: they read the same launch
+    // config the text line does, so they only appear once there is somewhere to `npx`/`uvx` from.
+    const badges =
+      has(project, "npm") || has(project, "pypi")
+        ? ` ${vscodeBadge(project)} ${cursorBadge(project)}`
+        : "";
+    lines.push(`- **MCP server** — \`${mcpCommand(project)}\`${badges}`);
+  }
+  if (has(project, "mcpb")) {
+    lines.push(
+      `- **Claude Desktop extension** — download \`${identity.name}.mcpb\` from the GitHub Release and double-click to install`,
+    );
   }
   if (has(project, "claude")) {
     // The repository is its own marketplace (`.claude-plugin/marketplace.json`); Copilot CLI
     // reads the same file with the same command.
     lines.push(
       `- **Claude Code plugin** — \`claude plugin marketplace add ${slug ?? "."}\`, then \`claude plugin install ${identity.name}@${identity.name}\``,
+    );
+  }
+  if (has(project, "codex")) {
+    // `.agents/plugins/marketplace.json` lists the repository's own plugin (`codex.ts`).
+    lines.push(
+      `- **Codex plugin** — \`codex plugin marketplace add ${slug ?? "."}\`, then \`codex plugin add ${identity.name}@${identity.name}\``,
+    );
+  }
+  if (has(project, "gemini")) {
+    lines.push(
+      slug
+        ? `- **Gemini CLI extension** — \`gemini extensions install https://github.com/${slug}\``
+        : "- **Gemini CLI extension** — `gemini extensions link .` from a checkout",
     );
   }
   if (has(project, "openclaw-native")) {

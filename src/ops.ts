@@ -33,6 +33,12 @@ export const operations = [
         .optional()
         .describe("Source repository URL (GitHub URL enables the MCP Registry name)"),
       author: z.string().optional().describe("Author name"),
+      keywords: z
+        .array(z.string())
+        .optional()
+        .describe(
+          "Activation triggers for hosts that key off them (Kiro Powers, Agent Plugins); defaults to [name]",
+        ),
       git: z
         .boolean()
         .default(true)
