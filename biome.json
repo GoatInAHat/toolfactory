@@ -31,7 +31,8 @@
       "!COVERAGE.md",
       "!hosts",
       "!web",
-      "!renovate.json"
+      "!renovate.json",
+      "!.agents/skills"
     ]
   }
 }
