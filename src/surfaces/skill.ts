@@ -3,7 +3,7 @@
  * the `<!-- tf:operations -->` block; the body is the author's prose and is never generated.
  */
 import { stringify as yaml } from "yaml";
-import type { Operation, Project, Surface, Verdict } from "../model.js";
+import type { Capability, Operation, Project, Surface, Verdict } from "../model.js";
 import { compact, has, skillVerdict } from "./shared.js";
 
 export const OPERATIONS_BEGIN = "<!-- tf:operations -->";
@@ -26,6 +26,13 @@ function invocation(project: Project, operation: Operation): string {
   return lines.join(" ");
 }
 
+/** How an agent bridges each non-portable capability before calling the operation. */
+const GUIDANCE: Partial<Record<Capability, string>> = {
+  browser: "drive this host's own browser tools and pass what they return as arguments",
+  model: "do that reasoning yourself and pass the result as an argument",
+  "user-input": "ask the user for what it needs before calling it",
+};
+
 export function renderOperations(project: Project): string {
   const lines = ["", "## Operations", ""];
   if (project.operations.length === 0) {
@@ -44,8 +51,9 @@ export function renderOperations(project: Project): string {
     const how = invocation(project, operation);
     if (how) lines.push(how, "");
     if (verdict.kind === "bridged") {
+      const needs = operation.requires.filter((capability) => GUIDANCE[capability]);
       lines.push(
-        `This operation needs ${operation.requires.join(", ")}: use this host's own tools to obtain it, then pass the result as an argument.`,
+        `This operation needs ${needs.join(", ")}: ${needs.map((capability) => GUIDANCE[capability]).join("; ")}.`,
         "",
       );
     }

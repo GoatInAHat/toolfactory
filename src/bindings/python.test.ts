@@ -8,7 +8,7 @@ import { listTools } from "../introspect/index.js";
 import type { FullFile, MergeFile, PlannedFile, Project, SurfaceId } from "../model.js";
 import { ToolConfigSchema } from "../model.js";
 import { surface as pypi } from "../surfaces/pypi.js";
-import { cliCommand, kernel, kernelCommand, scaffold } from "./python.js";
+import { cliCommand, cli as cliFiles, kernel, kernelCommand, scaffold } from "./python.js";
 
 function project(surfaces: SurfaceId[], overrides: Partial<Project> = {}): Project {
   return {
@@ -50,7 +50,7 @@ describe("python binding", () => {
       "hello_py.toolfactory.mcp",
     ]);
     expect(cliCommand(both).args.at(-1)).toBe("hello_py.toolfactory.cli");
-    expect(paths(kernel(both))).toEqual([
+    expect(paths([...kernel(both), ...cliFiles(both)])).toEqual([
       "src/hello_py/toolfactory/__init__.py",
       "src/hello_py/toolfactory/types.py",
       "src/hello_py/toolfactory/config.py",
@@ -68,7 +68,7 @@ describe("python binding", () => {
   });
 
   it("emits an opt-in --http flag, defaulting to stdio, on both the mcp module and the cli subcommand", () => {
-    const files = kernel(project(["mcp", "cli"]));
+    const files = [...kernel(project(["mcp", "cli"])), ...cliFiles(project(["mcp", "cli"]))];
     const mcp = text(files, "src/hello_py/toolfactory/mcp.py");
     expect(mcp).toContain(
       'def serve_http(host: str = "127.0.0.1", port: int = 3000, path: str = "/mcp")',
@@ -114,7 +114,7 @@ describe.skipIf(!uv)("python kernel, really run", () => {
   it("serves tools/list and answers the CLI", { timeout: 300_000 }, async () => {
     const root = mkdtempSync(join(tmpdir(), "toolfactory-python-"));
     const real = project(["mcp", "cli"], { root, identity: { name: "probe", version: "0.1.0" } });
-    for (const file of [...scaffold(real), ...kernel(real)]) {
+    for (const file of [...scaffold(real), ...kernel(real), ...cliFiles(real)]) {
       const path = join(root, file.path);
       mkdirSync(dirname(path), { recursive: true });
       writeFileSync(path, (file as FullFile).content);
@@ -144,7 +144,7 @@ describe.skipIf(!uv)("python kernel, really run", () => {
   }, async () => {
     const root = mkdtempSync(join(tmpdir(), "toolfactory-python-http-"));
     const real = project(["mcp", "cli"], { root, identity: { name: "probe", version: "0.1.0" } });
-    for (const file of [...scaffold(real), ...kernel(real)]) {
+    for (const file of [...scaffold(real), ...kernel(real), ...cliFiles(real)]) {
       const path = join(root, file.path);
       mkdirSync(dirname(path), { recursive: true });
       writeFileSync(path, (file as FullFile).content);

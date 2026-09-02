@@ -11,11 +11,16 @@ import { createServer as createHttpServer } from "node:http";
 import { z } from "zod";
 import { operations } from "../ops.js";
 import { context } from "./config.js";
+import { serves } from "./types.js";
 
-/** Builds one server instance with every operation registered; called once for stdio, once per HTTP request. */
+/** toolfactory introspects with every operation visible; a served instance lists only what MCP can run. */
+const introspecting = Boolean(process.env.TOOLFACTORY_INTROSPECT);
+
+/** Builds one server instance with every servable operation registered; called once for stdio, once per HTTP request. */
 function createServer(): McpServer {
   const server = new McpServer({ name: "toolfactory", version: "0.1.0" });
   for (const op of operations) {
+    if (!introspecting && !serves(op, "mcp")) continue;
     server.registerTool(
       op.name,
       {

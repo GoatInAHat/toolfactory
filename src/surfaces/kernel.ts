@@ -6,7 +6,7 @@
 import { getBinding } from "../bindings/index.js";
 import type { Project, Surface } from "../model.js";
 import { TOOLFACTORY_DIR } from "../project/lock.js";
-import { json, mcpVerdict } from "./shared.js";
+import { cliVerdict, json, mcpVerdict } from "./shared.js";
 
 /** MCP Inspector session config pointing at the dev kernel (no build step). */
 export const INSPECTOR_CONFIG_PATH = `${TOOLFACTORY_DIR}/inspector.json`;
@@ -18,12 +18,9 @@ function inspectorConfig(project: Project): string {
 
 export const mcp: Surface = {
   id: "mcp",
+  // The kernel itself is generated for every tool (plan.ts); this surface ships it.
   plan(project) {
-    const files = getBinding(project.tool.binding).kernel(project);
-    return [
-      ...files.filter((file) => !file.path.endsWith("cli.ts") && !file.path.endsWith("cli.py")),
-      { kind: "file", path: INSPECTOR_CONFIG_PATH, content: inspectorConfig(project) },
-    ];
+    return [{ kind: "file", path: INSPECTOR_CONFIG_PATH, content: inspectorConfig(project) }];
   },
   validate(project) {
     return [
@@ -51,8 +48,7 @@ export const mcp: Surface = {
 export const cli: Surface = {
   id: "cli",
   plan(project) {
-    const files = getBinding(project.tool.binding).kernel(project);
-    return files.filter((file) => !file.path.endsWith("mcp.ts") && !file.path.endsWith("mcp.py"));
+    return getBinding(project.tool.binding).cli(project);
   },
   validate(project) {
     const launch = getBinding(project.tool.binding).cliCommand(project);
@@ -60,5 +56,5 @@ export const cli: Surface = {
       { label: "cli --help", ...launch, args: [...launch.args, "--help"], cwd: project.root },
     ];
   },
-  verdict: mcpVerdict,
+  verdict: cliVerdict,
 };

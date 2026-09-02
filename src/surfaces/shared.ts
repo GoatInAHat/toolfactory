@@ -1,6 +1,6 @@
 /** Helpers shared by surface projectors. Pure. */
 import { projectName } from "../identity/name.js";
-import type { Operation, Project, Verdict } from "../model.js";
+import { type Operation, PORTABLE_CAPABILITIES, type Project, type Verdict } from "../model.js";
 import { defaultVerdict } from "../report/coverage.js";
 
 export const TOOLFACTORY_DIR = "dev.toolfactory";
@@ -57,6 +57,16 @@ export function mcpVerdict(operation: Operation): Verdict {
 }
 
 /** Verdict for skills hosts: non-portable operations are bridged by the agent driving the host's own tools. */
+/** A CLI has a human at the terminal, so user-input is native there; other host capabilities are not. */
+export function cliVerdict(operation: Operation): Verdict {
+  const portable = operation.requires.every(
+    (capability) => PORTABLE_CAPABILITIES.has(capability) || capability === "user-input",
+  );
+  return portable
+    ? { kind: "native" }
+    : { kind: "excluded", reason: "excluded:cli-no-host-capabilities" };
+}
+
 export function skillVerdict(operation: Operation): Verdict {
   const verdict = defaultVerdict(operation);
   if (verdict.kind !== "excluded") return verdict;
