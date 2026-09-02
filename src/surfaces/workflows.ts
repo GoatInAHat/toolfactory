@@ -101,6 +101,14 @@ function checkSteps(project: Project, node: string, matrix: boolean): Step[] {
   if (has(project, "claude")) {
     steps.push({ name: "Install Claude Code CLI", run: "npm i -g @anthropic-ai/claude-code" });
   }
+  if (has(project, "web")) {
+    // The web smoke drives Chromium; web/'s own npm install fetches the browser, the runner
+    // needs its system libraries.
+    steps.push({
+      name: "Install Chromium dependencies",
+      run: "npx --yes playwright install-deps chromium",
+    });
+  }
   if (has(project, "hermes-native")) {
     steps.push({
       name: "Install Hermes",

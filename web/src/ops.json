@@ -1,0 +1,276 @@
+{
+  "tool": {
+    "name": "toolfactory",
+    "version": "0.1.0",
+    "description": "Build an agent tool once; ship it as Agent Skills, MCP servers, Agent Plugins / Claude / Codex / Cursor bundles, OpenClaw and Hermes plugins, CLIs, and packages, with the tests and releases to match."
+  },
+  "cliAvailable": true,
+  "defaultEndpoint": "/mcp",
+  "mcpProtocolVersion": "2026-07-28",
+  "operations": [
+    {
+      "name": "adopt",
+      "description": "Stop regenerating one file; it becomes the author's (recorded as manual in the lock).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "root": {
+            "default": ".",
+            "description": "Project root (directory containing dev.toolfactory/)",
+            "type": "string"
+          },
+          "path": {
+            "type": "string",
+            "description": "Repo-relative path of a generated file"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      }
+    },
+    {
+      "name": "build",
+      "description": "Generate every selected surface in-tree from the identity file and the operation snapshot, and refresh the lock.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "root": {
+            "default": ".",
+            "description": "Project root (directory containing dev.toolfactory/)",
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      }
+    },
+    {
+      "name": "check",
+      "description": "Fail if the operation snapshot or any generated file drifted from the code (the CI drift gate).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "root": {
+            "default": ".",
+            "description": "Project root (directory containing dev.toolfactory/)",
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      }
+    },
+    {
+      "name": "coverage",
+      "description": "The operation × surface verdict matrix: native, bridged, degraded, or excluded, with reasons.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "root": {
+            "default": ".",
+            "description": "Project root (directory containing dev.toolfactory/)",
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      }
+    },
+    {
+      "name": "doctor",
+      "description": "Report which upstream CLIs this machine can delegate to (claude, openclaw, clawhub, hermes, uvx, agentskills, MCP Inspector, docker).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      }
+    },
+    {
+      "name": "eject",
+      "description": "Adopt every file a surface owns, so the author takes it over entirely.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "root": {
+            "default": ".",
+            "description": "Project root (directory containing dev.toolfactory/)",
+            "type": "string"
+          },
+          "surface": {
+            "type": "string",
+            "enum": [
+              "skill",
+              "agent-plugins",
+              "claude",
+              "codex",
+              "cursor",
+              "mcp",
+              "mcp-registry",
+              "cli",
+              "npm",
+              "pypi",
+              "openclaw-native",
+              "hermes-native",
+              "clawhub",
+              "web",
+              "dsh",
+              "workflows"
+            ]
+          }
+        },
+        "required": [
+          "surface"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      }
+    },
+    {
+      "name": "init",
+      "description": "Create a new tool: dev.toolfactory/tool.json, the authored identity file, the kernel scaffold for the chosen language, and the first build of every selected surface.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "root": {
+            "default": ".",
+            "description": "Project root (directory containing dev.toolfactory/)",
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "description": "Tool name: lowercase letters, digits, hyphens, dots (Agent Plugins rule)"
+          },
+          "binding": {
+            "type": "string",
+            "enum": [
+              "typescript",
+              "python"
+            ],
+            "description": "Language of the core logic: typescript or python"
+          },
+          "surfaces": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "skill",
+                "agent-plugins",
+                "claude",
+                "codex",
+                "cursor",
+                "mcp",
+                "mcp-registry",
+                "cli",
+                "npm",
+                "pypi",
+                "openclaw-native",
+                "hermes-native",
+                "clawhub",
+                "web",
+                "dsh",
+                "workflows"
+              ]
+            },
+            "description": "Surfaces to generate"
+          },
+          "description": {
+            "description": "One-line description",
+            "type": "string"
+          },
+          "license": {
+            "description": "SPDX license identifier",
+            "type": "string"
+          },
+          "repository": {
+            "description": "Source repository URL (GitHub URL enables the MCP Registry name)",
+            "type": "string"
+          },
+          "author": {
+            "description": "Author name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "binding",
+          "surfaces"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      }
+    },
+    {
+      "name": "introspect",
+      "description": "Spawn the kernel MCP server, list its tools, and snapshot them to dev.toolfactory/ops.json.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "root": {
+            "default": ".",
+            "description": "Project root (directory containing dev.toolfactory/)",
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      }
+    },
+    {
+      "name": "unadopt",
+      "description": "Return an adopted file to toolfactory and regenerate it.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "root": {
+            "default": ".",
+            "description": "Project root (directory containing dev.toolfactory/)",
+            "type": "string"
+          },
+          "path": {
+            "type": "string",
+            "description": "Repo-relative path of an adopted file"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      }
+    },
+    {
+      "name": "validate",
+      "description": "Run each selected surface's own upstream validator (agentskills, claude plugin validate, MCP Inspector, openclaw, hermes, npm pack, uv build).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "root": {
+            "default": ".",
+            "description": "Project root (directory containing dev.toolfactory/)",
+            "type": "string"
+          },
+          "surface": {
+            "description": "Only this surface",
+            "type": "string",
+            "enum": [
+              "skill",
+              "agent-plugins",
+              "claude",
+              "codex",
+              "cursor",
+              "mcp",
+              "mcp-registry",
+              "cli",
+              "npm",
+              "pypi",
+              "openclaw-native",
+              "hermes-native",
+              "clawhub",
+              "web",
+              "dsh",
+              "workflows"
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      }
+    }
+  ],
+  "excluded": []
+}

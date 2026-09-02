@@ -30,6 +30,8 @@ jobs:
         run: npx toolfactory check
       - name: Install Claude Code CLI
         run: npm i -g @anthropic-ai/claude-code
+      - name: Install Chromium dependencies
+        run: npx --yes playwright install-deps chromium
       - name: Install Hermes
         run: |-
           curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash -s -- --commit 180291162ff4df0d42b5dc4fecd08005cf7cebf9 --skip-setup --skip-browser --skip-computer-use --non-interactive --no-skills

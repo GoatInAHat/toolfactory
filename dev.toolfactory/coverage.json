@@ -10,7 +10,8 @@
     "npm",
     "mcp-registry",
     "openclaw-native",
-    "hermes-native"
+    "hermes-native",
+    "web"
   ],
   "rows": [
     {
@@ -51,6 +52,9 @@
         "hermes-native": {
           "kind": "degraded",
           "reason": "degraded:out-of-process"
+        },
+        "web": {
+          "kind": "native"
         }
       }
     },
@@ -92,6 +96,9 @@
         "hermes-native": {
           "kind": "degraded",
           "reason": "degraded:out-of-process"
+        },
+        "web": {
+          "kind": "native"
         }
       }
     },
@@ -133,6 +140,9 @@
         "hermes-native": {
           "kind": "degraded",
           "reason": "degraded:out-of-process"
+        },
+        "web": {
+          "kind": "native"
         }
       }
     },
@@ -174,6 +184,9 @@
         "hermes-native": {
           "kind": "degraded",
           "reason": "degraded:out-of-process"
+        },
+        "web": {
+          "kind": "native"
         }
       }
     },
@@ -215,6 +228,9 @@
         "hermes-native": {
           "kind": "degraded",
           "reason": "degraded:out-of-process"
+        },
+        "web": {
+          "kind": "native"
         }
       }
     },
@@ -256,6 +272,9 @@
         "hermes-native": {
           "kind": "degraded",
           "reason": "degraded:out-of-process"
+        },
+        "web": {
+          "kind": "native"
         }
       }
     },
@@ -297,6 +316,9 @@
         "hermes-native": {
           "kind": "degraded",
           "reason": "degraded:out-of-process"
+        },
+        "web": {
+          "kind": "native"
         }
       }
     },
@@ -338,6 +360,9 @@
         "hermes-native": {
           "kind": "degraded",
           "reason": "degraded:out-of-process"
+        },
+        "web": {
+          "kind": "native"
         }
       }
     },
@@ -379,6 +404,9 @@
         "hermes-native": {
           "kind": "degraded",
           "reason": "degraded:out-of-process"
+        },
+        "web": {
+          "kind": "native"
         }
       }
     },
@@ -420,6 +448,9 @@
         "hermes-native": {
           "kind": "degraded",
           "reason": "degraded:out-of-process"
+        },
+        "web": {
+          "kind": "native"
         }
       }
     }
