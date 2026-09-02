@@ -1,6 +1,6 @@
 /**
  * Claude Code plugin: an unconditional projection whenever selected, validated by
- * `claude plugin validate . --strict`. Reuses the root `skills/`; MCP goes through `.mcp.json`.
+ * `claude plugin validate .`. Reuses the root `skills/`; MCP servers are declared inline.
  */
 import type { Surface } from "../model.js";
 import {
@@ -36,6 +36,13 @@ export const surface: Surface = {
         }),
       ]),
     );
+    const launch = kernelLaunch(project, "${CLAUDE_PLUGIN_ROOT}");
+    const env = Object.fromEntries(
+      Object.keys(configProperties(project)).map((key) => [
+        key.toUpperCase(),
+        `\${user_config.${key}}`,
+      ]),
+    );
     const manifest = compact({
       $schema: "https://json.schemastore.org/claude-code-plugin-manifest.json",
       name: identity.name,
@@ -47,28 +54,17 @@ export const surface: Surface = {
       license: identity.license,
       keywords: identity.keywords,
       userConfig: Object.keys(userConfig).length ? userConfig : undefined,
+      // Inline rather than .mcp.json: a root .mcp.json doubles as the repo's own project MCP
+      // config in Claude Code, and repo templates commonly own that file.
+      mcpServers: has(project, "mcp")
+        ? {
+            [identity.name]: compact({ ...launch, env: Object.keys(env).length ? env : undefined }),
+          }
+        : undefined,
     });
     const files: ReturnType<Surface["plan"]> = [
       { kind: "file", path: ".claude-plugin/plugin.json", content: json(manifest) },
     ];
-    if (has(project, "mcp")) {
-      const launch = kernelLaunch(project, "${CLAUDE_PLUGIN_ROOT}");
-      const env = Object.fromEntries(
-        Object.keys(configProperties(project)).map((key) => [
-          key.toUpperCase(),
-          `\${user_config.${key}}`,
-        ]),
-      );
-      files.push({
-        kind: "file",
-        path: ".mcp.json",
-        content: json({
-          mcpServers: {
-            [identity.name]: compact({ ...launch, env: Object.keys(env).length ? env : undefined }),
-          },
-        }),
-      });
-    }
     return files;
   },
   validate(project) {
@@ -76,7 +72,9 @@ export const surface: Surface = {
       {
         label: "claude plugin validate",
         command: "claude",
-        args: ["plugin", "validate", ".", "--strict"],
+        // Not --strict: a repo-root CLAUDE.md (the AGENTS.md pointer every repo carries) is a
+        // strict-mode warning, and warnings never describe the generated manifest.
+        args: ["plugin", "validate", "."],
         cwd: project.root,
       },
     ];

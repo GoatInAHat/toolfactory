@@ -1,9 +1,9 @@
 {
   "name": "toolfactory",
-  "version": "0.0.0",
-  "description": "Build an agent tool once; ship it as skills, MCP servers, plugins for every agent host, CLIs, UIs, and packages.",
+  "version": "0.1.0",
+  "description": "Build an agent tool once; ship it as Agent Skills, MCP servers, Agent Plugins / Claude / Codex / Cursor bundles, OpenClaw and Hermes plugins, CLIs, and packages, with the tests and releases to match.",
   "license": "MIT",
-  "repository": "github:GoatInAHat/toolfactory",
+  "repository": "https://github.com/GoatInAHat/toolfactory",
   "type": "module",
   "packageManager": "pnpm@10.33.0",
   "engines": {
@@ -13,7 +13,8 @@
     "build": "tsc -p tsconfig.json",
     "check": "biome check . && tsc -p tsconfig.json --noEmit",
     "format": "biome format --write .",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "toolfactory": "node --import tsx src/toolfactory/cli.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/client": "^2.0.0",
@@ -32,15 +33,28 @@
     "vitest": "^4.1.11"
   },
   "bin": {
-    "toolfactory": "./dist/cli.js"
+    "toolfactory": "./dist/toolfactory/cli.js"
   },
   "files": [
     "dist",
-    "schemas",
+    "src",
     "README.md",
     "LICENSE"
   ],
   "exports": {
     ".": "./dist/index.js"
-  }
+  },
+  "homepage": "https://github.com/GoatInAHat/toolfactory",
+  "keywords": [
+    "agent",
+    "mcp",
+    "skills",
+    "agent-plugins",
+    "openclaw",
+    "hermes",
+    "claude-code",
+    "codex",
+    "cursor"
+  ],
+  "mcpName": "io.github.GoatInAHat/toolfactory"
 }

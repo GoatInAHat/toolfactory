@@ -1,0 +1,155 @@
+/**
+ * toolfactory's own operations. toolfactory is a tool built with toolfactory: this file is
+ * the author-owned operation module, and `src/toolfactory/{cli,mcp}.ts` are generated from
+ * it by `toolfactory build`, exactly as for any other tool.
+ */
+import { z } from "zod";
+import * as commands from "./commands.js";
+import { BINDINGS, SURFACE_IDS } from "./model.js";
+import { operation } from "./toolfactory/types.js";
+
+const root = z
+  .string()
+  .default(".")
+  .describe("Project root (directory containing dev.toolfactory/)");
+const surfaceId = z.enum(SURFACE_IDS);
+
+export const operations = [
+  operation({
+    name: "init",
+    description:
+      "Create a new tool: dev.toolfactory/tool.json, the authored identity file, the kernel scaffold for the chosen language, and the first build of every selected surface.",
+    input: z.object({
+      root,
+      name: z
+        .string()
+        .describe("Tool name: lowercase letters, digits, hyphens, dots (Agent Plugins rule)"),
+      binding: z.enum(BINDINGS).describe("Language of the core logic: typescript or python"),
+      surfaces: z.array(surfaceId).min(1).describe("Surfaces to generate"),
+      description: z.string().optional().describe("One-line description"),
+      license: z.string().optional().describe("SPDX license identifier"),
+      repository: z
+        .string()
+        .optional()
+        .describe("Source repository URL (GitHub URL enables the MCP Registry name)"),
+      author: z.string().optional().describe("Author name"),
+    }),
+    output: z.object({ written: z.array(z.string()) }),
+    annotations: { idempotentHint: true },
+    handler: async (args) => commands.init(args),
+  }),
+  operation({
+    name: "introspect",
+    description:
+      "Spawn the kernel MCP server, list its tools, and snapshot them to dev.toolfactory/ops.json.",
+    input: z.object({ root }),
+    output: z.object({ path: z.string(), changed: z.boolean(), operations: z.number() }),
+    annotations: { idempotentHint: true },
+    handler: async ({ root }) => {
+      const { path, changed, ops } = await commands.introspect(root);
+      return { path, changed, operations: ops.tools.length };
+    },
+  }),
+  operation({
+    name: "build",
+    description:
+      "Generate every selected surface in-tree from the identity file and the operation snapshot, and refresh the lock.",
+    input: z.object({ root }),
+    output: z.object({
+      written: z.array(z.string()),
+      deleted: z.array(z.string()),
+      unchanged: z.array(z.string()),
+      manual: z.array(z.string()),
+    }),
+    annotations: { idempotentHint: true },
+    handler: async ({ root }) => commands.build(root).result,
+  }),
+  operation({
+    name: "check",
+    description:
+      "Fail if any generated file drifted from what build would write (the CI drift gate).",
+    input: z.object({ root }),
+    output: z.object({ ok: z.literal(true) }),
+    annotations: { readOnlyHint: true },
+    handler: async ({ root }) => {
+      commands.check(root);
+      return { ok: true as const };
+    },
+  }),
+  operation({
+    name: "validate",
+    description:
+      "Run each selected surface's own upstream validator (agentskills, claude plugin validate, MCP Inspector, openclaw, hermes, npm pack, uv build).",
+    input: z.object({ root, surface: surfaceId.optional().describe("Only this surface") }),
+    output: z.object({
+      outcomes: z.array(z.object({ label: z.string(), command: z.string(), ok: z.boolean() })),
+    }),
+    annotations: { readOnlyHint: true },
+    handler: async ({ root, surface }) => ({
+      outcomes: commands
+        .validate(root, surface)
+        .map(({ label, command, ok }) => ({ label, command, ok })),
+    }),
+  }),
+  operation({
+    name: "coverage",
+    description:
+      "The operation × surface verdict matrix: native, bridged, degraded, or excluded, with reasons.",
+    input: z.object({ root }),
+    output: z.object({
+      surfaces: z.array(z.string()),
+      rows: z.array(
+        z.object({
+          operation: z.string(),
+          verdicts: z.record(
+            z.string(),
+            z.object({ kind: z.string(), reason: z.string().optional() }),
+          ),
+        }),
+      ),
+    }),
+    annotations: { readOnlyHint: true },
+    handler: async ({ root }) => commands.coverage(root),
+  }),
+  operation({
+    name: "adopt",
+    description:
+      "Stop regenerating one file; it becomes the author's (recorded as manual in the lock).",
+    input: z.object({ root, path: z.string().describe("Repo-relative path of a generated file") }),
+    output: z.object({ adopted: z.string() }),
+    handler: async ({ root, path }) => {
+      commands.adopt(root, path);
+      return { adopted: path };
+    },
+  }),
+  operation({
+    name: "unadopt",
+    description: "Return an adopted file to toolfactory and regenerate it.",
+    input: z.object({ root, path: z.string().describe("Repo-relative path of an adopted file") }),
+    output: z.object({ regenerated: z.string() }),
+    handler: async ({ root, path }) => {
+      commands.unadopt(root, path);
+      return { regenerated: path };
+    },
+  }),
+  operation({
+    name: "eject",
+    description: "Adopt every file a surface owns, so the author takes it over entirely.",
+    input: z.object({ root, surface: surfaceId }),
+    output: z.object({ adopted: z.array(z.string()) }),
+    handler: async ({ root, surface }) => ({ adopted: commands.eject(root, surface) }),
+  }),
+  operation({
+    name: "doctor",
+    description:
+      "Report which upstream CLIs this machine can delegate to (claude, openclaw, clawhub, hermes, uvx, agentskills, MCP Inspector, docker).",
+    input: z.object({}),
+    output: z.object({
+      toolfactory: z.string(),
+      node: z.string(),
+      tools: z.record(z.string(), z.string()),
+    }),
+    annotations: { readOnlyHint: true },
+    handler: async () => commands.doctor(),
+  }),
+];

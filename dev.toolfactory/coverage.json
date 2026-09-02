@@ -1,0 +1,355 @@
+{
+  "surfaces": [
+    "skill",
+    "agent-plugins",
+    "claude",
+    "codex",
+    "cursor",
+    "mcp",
+    "cli",
+    "npm",
+    "mcp-registry"
+  ],
+  "rows": [
+    {
+      "operation": "adopt",
+      "verdicts": {
+        "skill": {
+          "kind": "native"
+        },
+        "agent-plugins": {
+          "kind": "native"
+        },
+        "claude": {
+          "kind": "native"
+        },
+        "codex": {
+          "kind": "degraded",
+          "reason": "degraded:loader-unverified"
+        },
+        "cursor": {
+          "kind": "degraded",
+          "reason": "degraded:loader-unverified"
+        },
+        "mcp": {
+          "kind": "native"
+        },
+        "cli": {
+          "kind": "native"
+        },
+        "npm": {
+          "kind": "native"
+        },
+        "mcp-registry": {
+          "kind": "native"
+        }
+      }
+    },
+    {
+      "operation": "build",
+      "verdicts": {
+        "skill": {
+          "kind": "native"
+        },
+        "agent-plugins": {
+          "kind": "native"
+        },
+        "claude": {
+          "kind": "native"
+        },
+        "codex": {
+          "kind": "degraded",
+          "reason": "degraded:loader-unverified"
+        },
+        "cursor": {
+          "kind": "degraded",
+          "reason": "degraded:loader-unverified"
+        },
+        "mcp": {
+          "kind": "native"
+        },
+        "cli": {
+          "kind": "native"
+        },
+        "npm": {
+          "kind": "native"
+        },
+        "mcp-registry": {
+          "kind": "native"
+        }
+      }
+    },
+    {
+      "operation": "check",
+      "verdicts": {
+        "skill": {
+          "kind": "native"
+        },
+        "agent-plugins": {
+          "kind": "native"
+        },
+        "claude": {
+          "kind": "native"
+        },
+        "codex": {
+          "kind": "degraded",
+          "reason": "degraded:loader-unverified"
+        },
+        "cursor": {
+          "kind": "degraded",
+          "reason": "degraded:loader-unverified"
+        },
+        "mcp": {
+          "kind": "native"
+        },
+        "cli": {
+          "kind": "native"
+        },
+        "npm": {
+          "kind": "native"
+        },
+        "mcp-registry": {
+          "kind": "native"
+        }
+      }
+    },
+    {
+      "operation": "coverage",
+      "verdicts": {
+        "skill": {
+          "kind": "native"
+        },
+        "agent-plugins": {
+          "kind": "native"
+        },
+        "claude": {
+          "kind": "native"
+        },
+        "codex": {
+          "kind": "degraded",
+          "reason": "degraded:loader-unverified"
+        },
+        "cursor": {
+          "kind": "degraded",
+          "reason": "degraded:loader-unverified"
+        },
+        "mcp": {
+          "kind": "native"
+        },
+        "cli": {
+          "kind": "native"
+        },
+        "npm": {
+          "kind": "native"
+        },
+        "mcp-registry": {
+          "kind": "native"
+        }
+      }
+    },
+    {
+      "operation": "doctor",
+      "verdicts": {
+        "skill": {
+          "kind": "native"
+        },
+        "agent-plugins": {
+          "kind": "native"
+        },
+        "claude": {
+          "kind": "native"
+        },
+        "codex": {
+          "kind": "degraded",
+          "reason": "degraded:loader-unverified"
+        },
+        "cursor": {
+          "kind": "degraded",
+          "reason": "degraded:loader-unverified"
+        },
+        "mcp": {
+          "kind": "native"
+        },
+        "cli": {
+          "kind": "native"
+        },
+        "npm": {
+          "kind": "native"
+        },
+        "mcp-registry": {
+          "kind": "native"
+        }
+      }
+    },
+    {
+      "operation": "eject",
+      "verdicts": {
+        "skill": {
+          "kind": "native"
+        },
+        "agent-plugins": {
+          "kind": "native"
+        },
+        "claude": {
+          "kind": "native"
+        },
+        "codex": {
+          "kind": "degraded",
+          "reason": "degraded:loader-unverified"
+        },
+        "cursor": {
+          "kind": "degraded",
+          "reason": "degraded:loader-unverified"
+        },
+        "mcp": {
+          "kind": "native"
+        },
+        "cli": {
+          "kind": "native"
+        },
+        "npm": {
+          "kind": "native"
+        },
+        "mcp-registry": {
+          "kind": "native"
+        }
+      }
+    },
+    {
+      "operation": "init",
+      "verdicts": {
+        "skill": {
+          "kind": "native"
+        },
+        "agent-plugins": {
+          "kind": "native"
+        },
+        "claude": {
+          "kind": "native"
+        },
+        "codex": {
+          "kind": "degraded",
+          "reason": "degraded:loader-unverified"
+        },
+        "cursor": {
+          "kind": "degraded",
+          "reason": "degraded:loader-unverified"
+        },
+        "mcp": {
+          "kind": "native"
+        },
+        "cli": {
+          "kind": "native"
+        },
+        "npm": {
+          "kind": "native"
+        },
+        "mcp-registry": {
+          "kind": "native"
+        }
+      }
+    },
+    {
+      "operation": "introspect",
+      "verdicts": {
+        "skill": {
+          "kind": "native"
+        },
+        "agent-plugins": {
+          "kind": "native"
+        },
+        "claude": {
+          "kind": "native"
+        },
+        "codex": {
+          "kind": "degraded",
+          "reason": "degraded:loader-unverified"
+        },
+        "cursor": {
+          "kind": "degraded",
+          "reason": "degraded:loader-unverified"
+        },
+        "mcp": {
+          "kind": "native"
+        },
+        "cli": {
+          "kind": "native"
+        },
+        "npm": {
+          "kind": "native"
+        },
+        "mcp-registry": {
+          "kind": "native"
+        }
+      }
+    },
+    {
+      "operation": "unadopt",
+      "verdicts": {
+        "skill": {
+          "kind": "native"
+        },
+        "agent-plugins": {
+          "kind": "native"
+        },
+        "claude": {
+          "kind": "native"
+        },
+        "codex": {
+          "kind": "degraded",
+          "reason": "degraded:loader-unverified"
+        },
+        "cursor": {
+          "kind": "degraded",
+          "reason": "degraded:loader-unverified"
+        },
+        "mcp": {
+          "kind": "native"
+        },
+        "cli": {
+          "kind": "native"
+        },
+        "npm": {
+          "kind": "native"
+        },
+        "mcp-registry": {
+          "kind": "native"
+        }
+      }
+    },
+    {
+      "operation": "validate",
+      "verdicts": {
+        "skill": {
+          "kind": "native"
+        },
+        "agent-plugins": {
+          "kind": "native"
+        },
+        "claude": {
+          "kind": "native"
+        },
+        "codex": {
+          "kind": "degraded",
+          "reason": "degraded:loader-unverified"
+        },
+        "cursor": {
+          "kind": "degraded",
+          "reason": "degraded:loader-unverified"
+        },
+        "mcp": {
+          "kind": "native"
+        },
+        "cli": {
+          "kind": "native"
+        },
+        "npm": {
+          "kind": "native"
+        },
+        "mcp-registry": {
+          "kind": "native"
+        }
+      }
+    }
+  ]
+}

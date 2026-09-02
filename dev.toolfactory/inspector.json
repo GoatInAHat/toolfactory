@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "toolfactory": {
+      "command": "node",
+      "args": [
+        "--import",
+        "tsx",
+        "src/toolfactory/mcp.ts"
+      ]
+    }
+  }
+}

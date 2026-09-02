@@ -16,5 +16,19 @@
         "noTemplateCurlyInString": "off"
       }
     }
+  },
+  "files": {
+    "includes": [
+      "**",
+      "!src/toolfactory",
+      "!dev.toolfactory",
+      "!schemas",
+      "!.claude-plugin",
+      "!.codex-plugin",
+      "!.cursor-plugin",
+      "!mcp.json",
+      "!server.json",
+      "!COVERAGE.md"
+    ]
   }
 }

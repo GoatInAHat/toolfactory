@@ -4,7 +4,7 @@
  * `loader-unverified` note until someone does.
  */
 import type { Surface } from "../model.js";
-import { compact, has, json, mcpVerdict } from "./shared.js";
+import { compact, has, json, kernelLaunch, mcpVerdict } from "./shared.js";
 
 export const surface: Surface = {
   id: "codex",
@@ -28,7 +28,9 @@ export const surface: Surface = {
       license: identity.license,
       keywords: identity.keywords,
       skills: has(project, "skill") ? "./skills/" : undefined,
-      mcpServers: has(project, "mcp") ? "./.mcp.json" : undefined,
+      mcpServers: has(project, "mcp")
+        ? { [identity.name]: kernelLaunch(project, "${CLAUDE_PLUGIN_ROOT}") }
+        : undefined,
       interface: {
         displayName,
         shortDescription: (identity.description ?? identity.name).slice(0, 80),
