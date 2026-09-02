@@ -28,7 +28,12 @@ import type {
   SurfaceId,
   ToolConfig,
 } from "./model.js";
-import { assertNoSensitiveArgument, SURFACE_IDS, ToolConfigSchema } from "./model.js";
+import {
+  assertNoSensitiveArgument,
+  defaultSurfaces,
+  SURFACE_IDS,
+  ToolConfigSchema,
+} from "./model.js";
 import { apply, check as checkPlan, type Drift, setState } from "./project/apply.js";
 import {
   type GateStep,
@@ -185,7 +190,7 @@ export function init(options: InitOptions): InitResult {
   // a repository, and because `gh repo create --source` pushes one.
   if (options.git !== false && !existsSync(join(root, ".git")))
     git(root, ["init", "-q", "-b", "main"]);
-  const surfaces = [...new Set(options.surfaces)];
+  const surfaces = [...new Set(options.surfaces ?? defaultSurfaces(options.binding))];
   assertSurfaceRequirements(surfaces);
   const usesBundle = surfaces.some((s) => BUNDLE_SURFACES.includes(s));
   const identityPath = usesBundle

@@ -196,6 +196,7 @@ TOOLS = json.loads(
           "description": "Language of the core logic: typescript or python"
         },
         "surfaces": {
+          "description": "Surfaces to generate. Default: the skills-first minimum — skill, agent-plugins, mcp, cli and the binding's package registry; every host-specific plugin is opt-in.",
           "minItems": 1,
           "type": "array",
           "items": {
@@ -223,8 +224,7 @@ TOOLS = json.loads(
               "mcpb",
               "browser-extension"
             ]
-          },
-          "description": "Surfaces to generate"
+          }
         },
         "description": {
           "description": "One-line description",
@@ -284,8 +284,7 @@ TOOLS = json.loads(
       },
       "required": [
         "name",
-        "binding",
-        "surfaces"
+        "binding"
       ]
     }
   },

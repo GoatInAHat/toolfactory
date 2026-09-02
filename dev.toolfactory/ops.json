@@ -512,6 +512,7 @@
             "description": "Language of the core logic: typescript or python"
           },
           "surfaces": {
+            "description": "Surfaces to generate. Default: the skills-first minimum — skill, agent-plugins, mcp, cli and the binding's package registry; every host-specific plugin is opt-in.",
             "minItems": 1,
             "type": "array",
             "items": {
@@ -539,8 +540,7 @@
                 "mcpb",
                 "browser-extension"
               ]
-            },
-            "description": "Surfaces to generate"
+            }
           },
           "description": {
             "description": "One-line description",
@@ -600,8 +600,7 @@
         },
         "required": [
           "name",
-          "binding",
-          "surfaces"
+          "binding"
         ],
         "$schema": "https://json-schema.org/draft/2020-12/schema"
       },

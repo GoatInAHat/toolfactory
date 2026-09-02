@@ -54,6 +54,17 @@ export type SurfaceId = (typeof SURFACE_IDS)[number];
 export const BINDINGS = ["typescript", "python"] as const;
 export type Binding = (typeof BINDINGS)[number];
 
+/**
+ * What `init` selects when asked for nothing: the skills-first minimum that already serves every
+ * harness — a skill (installed anywhere by `npx skills add`), the Agent Plugins bundle, the
+ * kernel as an MCP server and a CLI, and the binding's package registry to distribute them. Every
+ * host-specific plugin is opt-in: add one only when that host needs what a skill and an MCP
+ * server cannot give it (a gateway tab, browser capability, a store listing).
+ */
+export function defaultSurfaces(binding: Binding): SurfaceId[] {
+  return ["skill", "agent-plugins", "mcp", "cli", binding === "python" ? "pypi" : "npm"];
+}
+
 /** Package managers the generated workflows know how to drive; read from package.json `packageManager`. */
 export const PACKAGE_MANAGERS = ["npm", "pnpm"] as const;
 export type PackageManager = (typeof PACKAGE_MANAGERS)[number];

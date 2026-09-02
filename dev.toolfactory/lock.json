@@ -296,7 +296,7 @@
       "state": "generated"
     },
     "hosts/hermes/toolfactory_hermes/__init__.py": {
-      "sha256": "0bc819820fe8632877850469f2f235beb8b33812498d84514ab789163190be77",
+      "sha256": "3a0340d60ff7d3eb2188014f93215517aeeb3aab790a0ffc62b07c79c6f45bab",
       "state": "generated"
     },
     "hosts/hermes/toolfactory_hermes/plugin.yaml": {
@@ -336,7 +336,7 @@
       "state": "generated"
     },
     "hosts/openclaw/src/index.ts": {
-      "sha256": "b083a0d186dc231b75da3ac5ad93c0102476bb7092aa984f6b16c1bf0c83c38d",
+      "sha256": "25597b4f182bb9dfb918f7cbb8b2813f5ee73364ae0293b3345a07c38d41b178",
       "state": "generated",
       "regions": [
         {
@@ -511,7 +511,7 @@
       "state": "generated"
     },
     "web/src/ops.json": {
-      "sha256": "7ff1dded480c22d07ddb76df51edc84b4a99999d26b23a61c381760d264ec900",
+      "sha256": "83d38513c6c4a01f139bf69f73831c8ba72920455517eb386c1bf3f7630a1856",
       "state": "generated"
     },
     "web/src/schema-form.tsx": {

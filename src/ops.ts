@@ -25,7 +25,13 @@ export const operations = [
         .string()
         .describe("Tool name: lowercase letters, digits, hyphens, dots (Agent Plugins rule)"),
       binding: z.enum(BINDINGS).describe("Language of the core logic: typescript or python"),
-      surfaces: z.array(surfaceId).min(1).describe("Surfaces to generate"),
+      surfaces: z
+        .array(surfaceId)
+        .min(1)
+        .optional()
+        .describe(
+          "Surfaces to generate. Default: the skills-first minimum — skill, agent-plugins, mcp, cli and the binding's package registry; every host-specific plugin is opt-in.",
+        ),
       description: z.string().optional().describe("One-line description"),
       license: z.string().optional().describe("SPDX license identifier"),
       repository: z

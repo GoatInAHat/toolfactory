@@ -249,6 +249,7 @@ const entry = defineToolPlugin({
             "description": "Language of the core logic: typescript or python"
           },
           "surfaces": {
+            "description": "Surfaces to generate. Default: the skills-first minimum — skill, agent-plugins, mcp, cli and the binding's package registry; every host-specific plugin is opt-in.",
             "minItems": 1,
             "type": "array",
             "items": {
@@ -276,8 +277,7 @@ const entry = defineToolPlugin({
                 "mcpb",
                 "browser-extension"
               ]
-            },
-            "description": "Surfaces to generate"
+            }
           },
           "description": {
             "description": "One-line description",
@@ -337,8 +337,7 @@ const entry = defineToolPlugin({
         },
         "required": [
           "name",
-          "binding",
-          "surfaces"
+          "binding"
         ]
       }),
       execute: async (params, config) =>
