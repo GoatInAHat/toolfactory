@@ -102,7 +102,8 @@ export function envDeclarations(project: Project): { required: EnvEntry[]; optio
     const meta = (property["x-toolfactory"] ?? {}) as { url?: string };
     const description = typeof property.description === "string" ? property.description : key;
     return {
-      needed: required.has(key) || isSensitive(property),
+      // Only schema-required keys are required by Hermes; an optional secret stays optional.
+      needed: required.has(key),
       entry: compact({
         name: envName(key),
         description,

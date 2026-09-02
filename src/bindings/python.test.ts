@@ -1,5 +1,6 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { createServer as createNetServer } from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -66,6 +67,23 @@ describe("python binding", () => {
     );
   });
 
+  it("emits an opt-in --http flag, defaulting to stdio, on both the mcp module and the cli subcommand", () => {
+    const files = kernel(project(["mcp", "cli"]));
+    const mcp = text(files, "src/hello_py/toolfactory/mcp.py");
+    expect(mcp).toContain(
+      'def serve_http(host: str = "127.0.0.1", port: int = 3000, path: str = "/mcp")',
+    );
+    expect(mcp).toContain('server.run("streamable-http"');
+    expect(mcp).toContain("stateless_http=True");
+    // Stdio is still the default: the standalone entrypoint only switches transport when --http is present.
+    expect(mcp).toContain("serve_http(port=args.http) if args.http is not None else serve()");
+
+    const cli = text(files, "src/hello_py/toolfactory/cli.py");
+    expect(cli).toContain('"--http"');
+    expect(cli).toContain("from .mcp import serve_http");
+    expect(cli).toContain("if options.http is not None:");
+  });
+
   it("projects identity into pyproject.toml only when it is not the identity file", () => {
     const patch = (p: Project) =>
       (pypi.plan(p)[0] as MergeFile).patch.project as Record<string, unknown>;
@@ -120,4 +138,108 @@ describe.skipIf(!uv)("python kernel, really run", () => {
     });
     expect(JSON.parse(ran.stdout)).toEqual({ text: "hi" });
   });
+
+  it("serves tools/list over MCP streamable HTTP when started with --http", {
+    timeout: 300_000,
+  }, async () => {
+    const root = mkdtempSync(join(tmpdir(), "toolfactory-python-http-"));
+    const real = project(["mcp", "cli"], { root, identity: { name: "probe", version: "0.1.0" } });
+    for (const file of [...scaffold(real), ...kernel(real)]) {
+      const path = join(root, file.path);
+      mkdirSync(dirname(path), { recursive: true });
+      writeFileSync(path, (file as FullFile).content);
+    }
+    const sync = spawnSync("uv", ["sync", "--quiet"], { cwd: root, encoding: "utf8" });
+    expect(sync.status, sync.stderr).toBe(0);
+
+    const port = await freePort();
+    const cli = cliCommand(real);
+    const child = spawn(cli.command, [...cli.args, "mcp", "--http", String(port)], {
+      cwd: root,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const stderr: string[] = [];
+    child.stderr?.on("data", (chunk: Buffer) => stderr.push(String(chunk)));
+
+    try {
+      const url = `http://127.0.0.1:${port}/mcp`;
+      const init = await waitForInitialize(url, 30_000).catch((error) => {
+        throw new Error(`${error instanceof Error ? error.message : error}\n${stderr.join("")}`);
+      });
+      expect(init.status).toBe(200);
+      const negotiated = (init.json as { result: { protocolVersion: string } }).result
+        .protocolVersion;
+
+      const list = await postRpc(url, { jsonrpc: "2.0", id: 2, method: "tools/list" }, negotiated);
+      expect(list.status).toBe(200);
+      const tools = (list.json as { result: { tools: { name: string }[] } }).result.tools;
+      expect(tools.map((tool) => tool.name)).toEqual(["echo"]);
+    } finally {
+      child.kill();
+    }
+  });
 });
+
+function freePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const probe = createNetServer();
+    probe.on("error", reject);
+    probe.listen(0, "127.0.0.1", () => {
+      const address = probe.address();
+      const port = typeof address === "object" && address ? address.port : 0;
+      probe.close((error) => (error ? reject(error) : resolve(port)));
+    });
+  });
+}
+
+// The streamable HTTP transport requires `Accept: application/json, text/event-stream` on every
+// POST, and `MCP-Protocol-Version` on every request *after* the one that negotiates it in `initialize`.
+async function postRpc(
+  url: string,
+  body: unknown,
+  protocolVersion?: string,
+): Promise<{ status: number; json: unknown }> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Accept: "application/json, text/event-stream",
+  };
+  if (protocolVersion) headers["MCP-Protocol-Version"] = protocolVersion;
+  const response = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
+  const raw = await response.text();
+  const isEventStream =
+    response.headers.get("content-type")?.includes("text/event-stream") ?? false;
+  const payload = isEventStream
+    ? JSON.parse(
+        raw
+          .split("\n")
+          .find((line) => line.startsWith("data: "))
+          ?.slice("data: ".length) ?? "{}",
+      )
+    : JSON.parse(raw || "{}");
+  return { status: response.status, json: payload };
+}
+
+/** Retries `initialize` until the freshly-spawned server starts accepting connections. */
+async function waitForInitialize(
+  url: string,
+  deadlineMs: number,
+): Promise<{ status: number; json: unknown }> {
+  const deadline = Date.now() + deadlineMs;
+  for (;;) {
+    try {
+      return await postRpc(url, {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: {
+          protocolVersion: "2026-07-28",
+          capabilities: {},
+          clientInfo: { name: "toolfactory-test", version: "0.0.0" },
+        },
+      });
+    } catch (error) {
+      if (Date.now() >= deadline) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+  }
+}

@@ -108,8 +108,13 @@ def context() -> Context:
 }
 
 function mcpTemplate(project: Project): string {
-  return `${HEADER}"""The kernel MCP server: every operation registered from its pydantic input model."""
+  return `${HEADER}"""The kernel MCP server: every operation registered from its pydantic input model.
 
+Serves over stdio by default; \`serve_http()\` (or the CLI's \`mcp --http [port]\`) serves the
+same server over MCP streamable HTTP instead, via \`MCPServer.run(transport="streamable-http", ...)\`.
+"""
+
+import argparse
 import inspect
 from typing import Annotated, Any
 
@@ -164,23 +169,59 @@ def serve() -> None:
     server.run("stdio")
 
 
+def serve_http(host: str = "127.0.0.1", port: int = 3000, path: str = "/mcp") -> None:
+    """Serve over MCP streamable HTTP instead of stdio. Opt-in; stdio stays the default transport."""
+    server.run("streamable-http", host=host, port=port, streamable_http_path=path, stateless_http=True)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--http",
+        nargs="?",
+        const=3000,
+        type=int,
+        default=None,
+        metavar="PORT",
+        help="serve over MCP streamable HTTP instead of stdio (default port 3000, host 127.0.0.1, path /mcp)",
+    )
+    args = parser.parse_args()
+    serve_http(port=args.http) if args.http is not None else serve()
+
+
 if __name__ == "__main__":
-    serve()
+    main()
 `;
 }
 
 function cliTemplate(project: Project): string {
   const mcpCommand = has(project, "mcp")
     ? `
-    mcp = subcommands.add_parser("mcp", help="Serve the operations as an MCP server over stdio")
+    mcp = subcommands.add_parser(
+        "mcp", help="Serve the operations as an MCP server over stdio, or over streamable HTTP with --http"
+    )
+    mcp.add_argument(
+        "--http",
+        nargs="?",
+        const=3000,
+        type=int,
+        default=None,
+        metavar="PORT",
+        help="serve over MCP streamable HTTP instead of stdio (default port 3000, host 127.0.0.1, path /mcp)",
+    )
     mcp.set_defaults(tf_operation=None, tf_schema={})
 `
     : "";
   const mcpDispatch = has(project, "mcp")
     ? `    if options.tf_operation is None:
-        from .mcp import serve
+        if options.http is not None:
+            from .mcp import serve_http
 
-        serve()
+            serve_http(port=options.http)
+        else:
+            from .mcp import serve
+
+            serve()
         return
 `
     : "";

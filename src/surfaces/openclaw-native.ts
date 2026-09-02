@@ -12,7 +12,7 @@ import { DRIFT_ENTRY } from "../hosts/openclaw.js";
 import { projectName } from "../identity/name.js";
 import { isPortable, type Operation, type Project, type Surface, type Verdict } from "../model.js";
 import { includedOperations } from "../report/coverage.js";
-import { configProperties, json, npmName, rootEnvName } from "./shared.js";
+import { compact, configProperties, isSensitive, json, npmName, rootEnvName } from "./shared.js";
 
 /** Transcribed from `openclaw plugins init --type tool`; `validate()` proves them still current. */
 export const OPENCLAW_SCAFFOLD = {
@@ -141,17 +141,27 @@ function packageJson(project: Project): string {
   });
 }
 
-/** `openclaw plugins build` regenerates this file; emitting it keeps `--check` green from a clean tree. */
+/**
+ * `openclaw plugins build` regenerates this file; emitting it keeps `--check` green from a clean tree.
+ * `uiHints` is manifest-owned (preserved by the builder): it is how OpenClaw's config UI learns which
+ * keys to mask, from the same `x-toolfactory.sensitive` declaration every other surface reads.
+ */
 function pluginManifest(project: Project, operations: Operation[]): string {
-  return json({
-    id: project.identity.name,
-    name: displayName(project.identity.name),
-    description: pluginDescription(project),
-    version: project.identity.version ?? "0.0.0",
-    configSchema: configSchema(project),
-    activation: { onStartup: true },
-    contracts: { tools: operations.map((operation) => operation.name) },
-  });
+  const sensitive = Object.entries(configProperties(project))
+    .filter(([, property]) => isSensitive(property))
+    .map(([key]) => [key, { sensitive: true }]);
+  return json(
+    compact({
+      id: project.identity.name,
+      name: displayName(project.identity.name),
+      description: pluginDescription(project),
+      version: project.identity.version ?? "0.0.0",
+      configSchema: configSchema(project),
+      uiHints: sensitive.length ? Object.fromEntries(sensitive) : undefined,
+      activation: { onStartup: true },
+      contracts: { tools: operations.map((operation) => operation.name) },
+    }),
+  );
 }
 
 function executeBody(project: Project, operation: Operation): string {
