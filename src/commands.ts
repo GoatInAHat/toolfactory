@@ -81,6 +81,16 @@ function git(root: string, args: string[]): boolean {
 }
 
 /**
+ * `git commit` refuses to run without an identity, and a CI runner or a fresh machine has none;
+ * this commit is toolfactory's own, so it falls back to naming itself rather than failing.
+ */
+function commitIdentity(root: string): string[] {
+  return git(root, ["config", "--get", "user.email"])
+    ? []
+    : ["-c", "user.name=toolfactory", "-c", "user.email=toolfactory@localhost"];
+}
+
+/**
  * `.agents/setup`: the template's one entry point — it renders the harness adapters from
  * `.agents/`, installs the git hooks that keep them in sync (and the drift gate in front of the
  * pre-commit hook), and installs the project's dependencies. Best-effort: a machine missing
@@ -213,7 +223,7 @@ export function init(options: InitOptions): InitResult {
   // commit depend on a toolchain the project has not installed yet.
   if (options.git !== false && !git(root, ["rev-parse", "--verify", "-q", "HEAD"])) {
     if (git(root, ["add", "-A"])) {
-      git(root, ["commit", "-q", "--no-verify", "-m", "toolfactory init"]);
+      git(root, [...commitIdentity(root), "commit", "-q", "--no-verify", "-m", "toolfactory init"]);
     }
   }
   const result: InitResult = {

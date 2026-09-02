@@ -87,6 +87,9 @@ describe("init", () => {
   it("initialises a git repository, commits, and reports the reload line of this harness", () => {
     const dir = mkdtempSync(join(tmpdir(), "toolfactory-init-"));
     process.env.CLAUDECODE = "1";
+    // No git identity, as on a CI runner: the first commit must still land.
+    process.env.GIT_CONFIG_GLOBAL = "/dev/null";
+    process.env.GIT_CONFIG_SYSTEM = "/dev/null";
     // `setup: false`: `.agents/setup` installs dependencies, which belongs to the end-to-end
     // proof in a real project, not to a unit test.
     const result = commands.init({
