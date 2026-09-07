@@ -121,11 +121,18 @@ export function gateSteps(project: Project): GateStep[] {
   const pm = commands(project);
   const cli = toolfactoryCli(project);
   const openclaw = has(project, "openclaw-native");
-  const steps: GateStep[] = [
-    ...bootstrapSteps(project),
-    { name: "toolfactory check", run: `${cli} check` },
-    outputsStep(project),
-  ];
+  const steps: GateStep[] = [...bootstrapSteps(project)];
+  if (!typescript && has(project, "hermes-native")) {
+    // Hermes' launcher clears PYTHONPATH and runs its own venv. Its plugin dependency
+    // declaration is advisory, so Doctor can import a native Python core only after the
+    // project is installed into that interpreter. Run after bootstrap's `uv sync` on CI.
+    steps.push({
+      name: "Install core into Hermes",
+      run: 'uv pip install --python "$HOME/.hermes/hermes-agent/venv/bin/python" --editable .',
+      when: "ci",
+    });
+  }
+  steps.push({ name: "toolfactory check", run: `${cli} check` }, outputsStep(project));
   if (has(project, "claude")) {
     steps.push({
       name: "Install Claude Code CLI",
