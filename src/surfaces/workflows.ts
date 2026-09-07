@@ -717,7 +717,10 @@ function releaseDocument(
           // A tag the dispatch is cutting does not exist yet: the Release creates it here.
           target_commitish: RELEASE_SHA,
           generate_release_notes: true,
-          files: `${RELEASE_ARTIFACT}/*`,
+          // PyPI distributions live one level below the other release assets.
+          files: has(project, "pypi")
+            ? `${RELEASE_ARTIFACT}/*\n${RELEASE_ARTIFACT}/pypi/*`
+            : `${RELEASE_ARTIFACT}/*`,
           fail_on_unmatched_files: true,
         },
       },

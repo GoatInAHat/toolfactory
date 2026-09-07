@@ -161,6 +161,9 @@ describe("workflows", () => {
         with: { "packages-dir": "release-assets/pypi/" },
       },
     ]);
+    expect(release.jobs.release.steps.at(-1)?.with.files).toBe(
+      "release-assets/*\nrelease-assets/pypi/*",
+    );
     expect(packageSteps(python).find((step) => step.name === "web build")).toBeDefined();
     expect(packageSteps(python).find((step) => step.name === "python distributions")?.run).toBe(
       "uv build --out-dir dist/release/pypi",
