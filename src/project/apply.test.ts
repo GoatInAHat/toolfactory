@@ -334,10 +334,14 @@ describe("apply / check — merge files", () => {
     const document = JSON.parse(readFileSync(path, "utf8"));
     document.contributes.commands[0].icon = "$(rocket)";
     writeFileSync(path, JSON.stringify(document));
+    // Native command details remain authored: they are not drift merely because Toolfactory
+    // owns the command's id and projected leaves.
+    expect(check(root, plan("Run", "Toolfactory"), "0.1.0")).toEqual([]);
     apply(root, plan("Run tool"), "0.1.0");
     expect(JSON.parse(readFileSync(path, "utf8")).contributes.commands).toEqual([
       { command: "hello.run", title: "Run tool", icon: "$(rocket)" },
     ]);
+    expect(check(root, plan("Run tool"), "0.1.0")).toEqual([]);
   });
 
   it("upgrades an untouched generated full file to a region but protects changed files", () => {
@@ -361,6 +365,43 @@ describe("apply / check — merge files", () => {
 });
 
 describe("apply / check — inverses and outputs", () => {
+  it("restores deleted keyed rows, leaves steady YAML bytes alone, and uninstalls keys and rows", () => {
+    const root = tmp();
+    const plan: MergeFile[] = [
+      {
+        kind: "merge",
+        path: "extension.yaml",
+        format: "yaml",
+        patch: {
+          generated: true,
+          commands: [{ command: "hello.run", title: "Run" }],
+        },
+        keyedArrays: { commands: "command" },
+      },
+    ];
+    apply(root, plan, "0.1.0");
+    writeFileSync(
+      join(root, "extension.yaml"),
+      "# author comment\nauthor: true\ngenerated: true\ncommands:\n  - command: author.run\n    title: Author\n",
+    );
+
+    // The prior lock owns hello.run, so removing it by hand does not turn it into an omission.
+    apply(root, plan, "0.1.0");
+    expect(readFileSync(join(root, "extension.yaml"), "utf8")).toContain("hello.run");
+
+    // Once current, no rewrite means YAML comments and formatting survive a rebuild.
+    const path = join(root, "extension.yaml");
+    writeFileSync(path, `# preserved comment\n${readFileSync(path, "utf8")}`);
+    const before = readFileSync(path, "utf8");
+    expect(apply(root, plan, "0.1.0").unchanged).toContain("extension.yaml");
+    expect(readFileSync(path, "utf8")).toBe(before);
+
+    apply(root, [], "0.1.0");
+    expect(readFileSync(path, "utf8")).toContain("author.run");
+    expect(readFileSync(path, "utf8")).not.toContain("hello.run");
+    expect(readFileSync(path, "utf8")).not.toContain("generated:");
+  });
+
   it("uninstalls the keys a patch stops writing, keeping every other key", () => {
     const root = tmp();
     mkdirSync(root, { recursive: true });

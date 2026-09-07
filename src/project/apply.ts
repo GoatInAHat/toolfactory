@@ -233,12 +233,11 @@ function mergeKeyedArrays(
             ),
           );
         }
-        changed = true;
         continue;
       }
       // Migration from a formerly whole generated file: an identical entry is ours already.
       if (replacement && JSON.stringify(entry) === JSON.stringify(replacement)) {
-        changed = true;
+        generated.push(entry);
         continue;
       }
       if (replacement)
@@ -248,12 +247,28 @@ function mergeKeyedArrays(
     const next = [
       ...retained,
       ...generated,
-      ...desired.filter((entry) => !previousIds.has(entry[id] as string)),
+      // A generated row may have been deleted by hand. It remains owned, so put its desired
+      // replacement back even when the previous lock knows its id already.
+      ...desired.filter((entry) => !generated.some((current) => current[id] === entry[id])),
     ];
     if (JSON.stringify(entries) !== JSON.stringify(next)) changed = true;
     setAt(document, path, next);
   }
   return changed;
+}
+
+/** Select only generated leaves from an entry, leaving authored extension fields out of drift. */
+function pickProjectedEntry(
+  current: Record<string, unknown> | undefined,
+  projected: Record<string, unknown>,
+): Record<string, unknown> | undefined {
+  if (!current) return undefined;
+  const picked: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(projected)) {
+    const actual = current[key];
+    picked[key] = isRecord(value) && isRecord(actual) ? pickProjectedEntry(actual, value) : actual;
+  }
+  return picked;
 }
 
 function removeKeyedArrayEntries(
@@ -290,7 +305,7 @@ function pickMerge(document: Record<string, unknown>, file: MergeFile): Record<s
     setAt(
       picked,
       path,
-      desired.map((entry) => byId.get(entry[id] as string)),
+      desired.map((entry) => pickProjectedEntry(byId.get(entry[id] as string), entry)),
     );
   }
   return picked;
@@ -606,10 +621,9 @@ export function apply(root: string, plan: PlannedFile[], toolfactoryVersion: str
       // The inverse of a merge file is its keys: the author keeps the file and everything else in it.
       const format = documentFormat(path);
       const document = parseDocument(readFileSync(join(root, path), "utf8"), format);
-      if (
-        removeKeys(document, entry.keys ?? []) ||
-        removeKeyedArrayEntries(document, entry.keyedArrays)
-      ) {
+      const removedKeys = removeKeys(document, entry.keys ?? []);
+      const removedEntries = removeKeyedArrayEntries(document, entry.keyedArrays);
+      if (removedKeys || removedEntries) {
         writeFileSync(join(root, path), serializeDocument(document, format));
         result.written.push(path);
       }
