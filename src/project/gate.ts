@@ -233,21 +233,28 @@ export function packageSteps(project: Project): GateStep[] {
     steps.push({ name: "npm tarball", run: `npm pack --pack-destination ${RELEASE_DIR}` });
   }
   if (has(project, "mcpb")) {
-    // A bundle root is the published package with its production dependencies installed into
-    // it, so it is built from the tarball `npm pack` just wrote rather than from the checkout:
-    // whatever ships to npm is exactly what ships to Claude Desktop. `--ignore-scripts` because
-    // nothing in a bundle root may run a build; the tarball already carries `dist/`.
     const stage = "dist/mcpb";
-    const tarball = npmTarball(project);
     steps.push({
       name: "MCPB bundle",
-      run: [
-        `rm -rf ${stage} && mkdir -p ${stage}`,
-        `tar -xzf ${RELEASE_DIR}/${tarball} -C ${stage} --strip-components=1`,
-        `npm --prefix ${stage} install --omit=dev --ignore-scripts`,
-        `cp ${MCPB_MANIFEST_PATH} ${stage}/manifest.json`,
-        `npx -y @anthropic-ai/mcpb@${MCPB_PIN} pack ${stage} ${RELEASE_DIR}/${name}.mcpb`,
-      ].join(" && "),
+      run:
+        project.tool.binding === "python"
+          ? [
+              `rm -rf ${stage} && mkdir -p ${stage}`,
+              `cp pyproject.toml ${stage}/pyproject.toml`,
+              `[ ! -f uv.lock ] || cp uv.lock ${stage}/uv.lock`,
+              `cp -R src ${stage}/src`,
+              `cp ${MCPB_MANIFEST_PATH} ${stage}/manifest.json`,
+              `npx -y @anthropic-ai/mcpb@${MCPB_PIN} pack ${stage} ${RELEASE_DIR}/${name}.mcpb`,
+            ].join(" && ")
+          : [
+              // The Node bundle root is the published package with production dependencies
+              // installed, so whatever ships to npm is exactly what ships to Claude Desktop.
+              `rm -rf ${stage} && mkdir -p ${stage}`,
+              `tar -xzf ${RELEASE_DIR}/${npmTarball(project)} -C ${stage} --strip-components=1`,
+              `npm --prefix ${stage} install --omit=dev --ignore-scripts`,
+              `cp ${MCPB_MANIFEST_PATH} ${stage}/manifest.json`,
+              `npx -y @anthropic-ai/mcpb@${MCPB_PIN} pack ${stage} ${RELEASE_DIR}/${name}.mcpb`,
+            ].join(" && "),
     });
   }
   if (has(project, "pypi")) {

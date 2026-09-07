@@ -143,6 +143,30 @@ describe("workflows", () => {
     expect(steps.some((s) => s.run === "uv run --with pytest pytest -q")).toBe(true);
   });
 
+  it("publishes the package job's prebuilt Python distributions", () => {
+    const python = project(["pypi", "web"], {
+      tool: { ...project([]).tool, binding: "python", surfaces: ["pypi", "web"] },
+    });
+    const release = yamlParse(emitted(python)[".github/workflows/release.yml"] ?? "");
+    const publish = release.jobs["publish-pypi"];
+    expect(publish.needs).toEqual(["gate", "package"]);
+    expect(publish.steps).toEqual([
+      {
+        uses: "actions/download-artifact@v8",
+        with: { name: "release-assets", path: "release-assets" },
+      },
+      {
+        name: "Publish package distributions to PyPI",
+        uses: "pypa/gh-action-pypi-publish@release/v1",
+        with: { "packages-dir": "release-assets/" },
+      },
+    ]);
+    expect(packageSteps(python).find((step) => step.name === "web build")).toBeDefined();
+    expect(packageSteps(python).find((step) => step.name === "python distributions")?.run).toBe(
+      "uv build --out-dir dist/release",
+    );
+  });
+
   it("release.yml runs the legs in the forced order npm -> oci -> mcp-registry -> clawhub, each gated on what the gate decided", () => {
     const files = emitted(
       project(

@@ -38,9 +38,9 @@ const registry: Partial<Record<SurfaceId, Surface>> = {
   cli,
   mcp,
   "mcp-registry": mcpRegistry,
-  // The bundle root is the npm tarball with its production dependencies installed into it, and
-  // its one row launches the kernel MCP server: without either surface there is nothing to pack.
-  mcpb: { ...mcpb, requires: ["mcp", "npm"] },
+  // TypeScript bundles stage their npm tarball; Python `uv` bundles stage the PyPI project's
+  // source. The projector enforces that binding-specific distribution dependency.
+  mcpb: { ...mcpb, requires: ["mcp"] },
   npm,
   skill,
   "hermes-native": hermesNative,

@@ -169,7 +169,13 @@ function installLines(project: Project): string[] {
       "  returns the URL.",
     );
   }
-  if (has(project, "npm")) lines.push(`- **npm package** — \`npm install ${npmName(project)}\``);
+  if (has(project, "npm")) {
+    const pythonBridge =
+      project.tool.binding === "python"
+        ? `; requires \`uv\`, and \`${identity.name}\` delegates to \`uvx --from ${pypiName(project)}==${identity.version} ${identity.name}\``
+        : "";
+    lines.push(`- **npm package** — \`npm install ${npmName(project)}\`${pythonBridge}`);
+  }
   if (has(project, "pypi")) lines.push(`- **PyPI package** — \`uv add ${pypiName(project)}\``);
   return lines;
 }
