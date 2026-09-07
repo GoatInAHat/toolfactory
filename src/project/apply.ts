@@ -162,7 +162,12 @@ function keyedArrayEntries(value: unknown, id: string, path: string): Record<str
 
 function keyedArrayState(
   file: MergeFile,
-): Record<string, { id: string; values: string[] }> | undefined {
+):
+  | Record<
+      string,
+      { id: string; values: string[]; entries: Record<string, Record<string, unknown>> }
+    >
+  | undefined {
   if (!file.keyedArrays || Object.keys(file.keyedArrays).length === 0) return undefined;
   return Object.fromEntries(
     Object.entries(file.keyedArrays).map(([path, id]) => [
@@ -172,9 +177,33 @@ function keyedArrayState(
         values: keyedArrayEntries(valueAt(file.patch, path), id, path).map(
           (entry) => entry[id] as string,
         ),
+        entries: Object.fromEntries(
+          keyedArrayEntries(valueAt(file.patch, path), id, path).map((entry) => [
+            entry[id] as string,
+            entry,
+          ]),
+        ),
       },
     ]),
   );
+}
+
+function removeProjectedLeaves(
+  entry: Record<string, unknown>,
+  previous: Record<string, unknown>,
+  next: Record<string, unknown>,
+): Record<string, unknown> {
+  const out = { ...entry };
+  for (const [key, oldValue] of Object.entries(previous)) {
+    if (!(key in next)) delete out[key];
+    else if (isRecord(oldValue) && isRecord(next[key]) && isRecord(out[key]))
+      out[key] = removeProjectedLeaves(
+        out[key] as Record<string, unknown>,
+        oldValue,
+        next[key] as Record<string, unknown>,
+      );
+  }
+  return out;
 }
 
 function mergeKeyedArrays(
@@ -190,10 +219,20 @@ function mergeKeyedArrays(
     const entries = current === undefined ? [] : keyedArrayEntries(current, id, path);
     const desiredById = new Map(desired.map((entry) => [entry[id] as string, entry]));
     const retained: Record<string, unknown>[] = [];
+    const generated: Record<string, unknown>[] = [];
     for (const entry of entries) {
       const key = entry[id] as string;
       const replacement = desiredById.get(key);
       if (previousIds.has(key)) {
+        if (replacement) {
+          const previousEntry = previous.files[file.path]?.keyedArrays?.[path]?.entries?.[key];
+          generated.push(
+            deepMerge(
+              previousEntry ? removeProjectedLeaves(entry, previousEntry, replacement) : entry,
+              replacement,
+            ),
+          );
+        }
         changed = true;
         continue;
       }
@@ -206,7 +245,11 @@ function mergeKeyedArrays(
         throw new Error(`${file.path} ${path} already has author entry ${id}=${key}.`);
       retained.push(entry);
     }
-    const next = [...retained, ...desired];
+    const next = [
+      ...retained,
+      ...generated,
+      ...desired.filter((entry) => !previousIds.has(entry[id] as string)),
+    ];
     if (JSON.stringify(entries) !== JSON.stringify(next)) changed = true;
     setAt(document, path, next);
   }
@@ -458,6 +501,12 @@ function render(root: string, file: PlannedFile, previous: Lock): string {
       const stale = staleRegions(previous, file.path, file.regions);
       const replaced = replaceRegions(emptyRegions(text, stale) ?? text, file);
       if (replaced === undefined) {
+        const prior = previous.files[file.path];
+        // A generated full file can become a region file without forcing an author to recreate
+        // markers. Its lock hash proves every byte is still the old generator's, so replacing it
+        // cannot discard authored work. Manual or changed files still require `adopt`.
+        if (prior?.state === "generated" && sha256(text) === prior.sha256)
+          return replaceRegions(file.template, file) ?? file.template;
         throw new Error(
           `${file.path} exists but is missing a toolfactory region marker; restore the markers or run \`toolfactory adopt ${file.path}\`.`,
         );
