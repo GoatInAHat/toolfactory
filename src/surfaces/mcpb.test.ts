@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { NODE_ENGINES } from "../bindings/typescript.js";
 import type { Operation, Project } from "../model.js";
-import { MCPB_PIN, surface as mcpb } from "./mcpb.js";
+import { MCPB_PIN, surface as mcpb, UV_MANIFEST_VERSION } from "./mcpb.js";
 
 const echo: Operation = {
   name: "echo",
@@ -95,11 +95,38 @@ describe("mcpb", () => {
     expect(manifestFile.content).not.toContain("privacy_policies");
   });
 
-  it("declares the kernel's own Node floor, and refuses a binding whose package is not the bundle", () => {
-    expect(() => mcpb.plan({ ...project, tool: { ...project.tool, binding: "python" } })).toThrow(
-      /requires the typescript binding/,
-    );
+  it("uses the official v0.4 uv bundle contract for Python, with its canonical PyPI surface", () => {
+    const pythonProject: Project = {
+      ...project,
+      tool: { ...project.tool, binding: "python", surfaces: ["mcp", "pypi", "mcpb"] },
+    };
+    const [file] = mcpb.plan(pythonProject);
+    if (file?.kind !== "file") throw new Error("expected one whole file");
+    expect(JSON.parse(file.content)).toMatchObject({
+      manifest_version: UV_MANIFEST_VERSION,
+      server: {
+        type: "uv",
+        entry_point: "src/hello_tool/toolfactory/mcp.py",
+        mcp_config: {
+          command: "uv",
+          args: [
+            "run",
+            "--directory",
+            "${__dirname}",
+            "python",
+            "-m",
+            "hello_tool.toolfactory.mcp",
+          ],
+        },
+      },
+      compatibility: { runtimes: { python: ">=3.11" } },
+    });
+    expect(() =>
+      mcpb.plan({ ...pythonProject, tool: { ...pythonProject.tool, surfaces: ["mcp", "mcpb"] } }),
+    ).toThrow(/requires the "pypi" surface/);
+  });
 
+  it("declares the kernel's own Node floor and validates with the pinned official CLI", () => {
     expect(mcpb.validate?.(project)).toEqual([
       {
         label: "mcpb validate",

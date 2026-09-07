@@ -517,18 +517,20 @@ function releaseDocument(
   }
   if (pypiSelected) {
     jobs["publish-pypi"] = compact({
-      needs: "gate",
+      needs: ["gate", "package"],
       if: gated("pypi"),
       "runs-on": "ubuntu-latest",
       environment: "pypi",
       permissions: { "id-token": "write" },
       steps: [
-        checkoutStep(RELEASE_SHA),
-        { uses: "astral-sh/setup-uv@v6" },
-        { run: "uv build" },
+        {
+          uses: "actions/download-artifact@v8",
+          with: { name: RELEASE_ARTIFACT, path: RELEASE_ARTIFACT },
+        },
         {
           name: "Publish package distributions to PyPI",
           uses: "pypa/gh-action-pypi-publish@release/v1",
+          with: { "packages-dir": `${RELEASE_ARTIFACT}/` },
         },
       ],
     });

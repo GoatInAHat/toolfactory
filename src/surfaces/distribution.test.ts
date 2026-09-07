@@ -52,6 +52,29 @@ describe("npm", () => {
       "--yes publint --strict",
     );
   });
+
+  it("makes a Python npm package a thin uvx launcher for its canonical PyPI distribution", () => {
+    const python = project(["npm", "pypi", "cli", "mcp"], {
+      tool: { ...project([]).tool, binding: "python", surfaces: ["npm", "pypi", "cli", "mcp"] },
+    });
+    const files = npm.plan(python);
+    const launcher = files.find((file) => file.path === "bin/hello.mjs");
+    const packageJson = files.find((file) => file.path === "package.json");
+    if (launcher?.kind !== "file" || packageJson?.kind !== "merge") {
+      throw new Error("expected a launcher and package metadata");
+    }
+    expect(launcher.content).toContain('spawnSync("uvx", ["--from", "hello==0.1.0", "hello"');
+    expect(launcher.content).toContain("...process.argv.slice(2)");
+    expect(packageJson.patch).toMatchObject({
+      name: "hello",
+      version: "0.1.0",
+      bin: { hello: "./bin/hello.mjs" },
+      files: ["bin", "README.md", "LICENSE"],
+    });
+    expect(region(python)).toContain(
+      "requires `uv`, and `hello` delegates to `uvx --from hello==0.1.0 hello`",
+    );
+  });
 });
 
 describe("claude", () => {

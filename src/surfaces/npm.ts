@@ -4,9 +4,9 @@
  */
 
 import { githubSlug } from "../hosts/github.js";
-import type { Surface } from "../model.js";
+import type { Project, Surface } from "../model.js";
 import { registryName } from "./mcp-registry.js";
-import { compact, has, npmName } from "./shared.js";
+import { compact, has, npmName, pypiName } from "./shared.js";
 import { WEB_DIR } from "./web.js";
 
 /**
@@ -22,14 +22,31 @@ function repositoryField(
   return { type: "git", url: slug ? `git+https://github.com/${slug}.git` : repository };
 }
 
+/**
+ * A deliberately thin cross-registry bridge: npm supplies discovery and a familiar `npx` entry,
+ * while uvx resolves the canonical Python distribution. `uvx` owns Python acquisition, caching,
+ * and the package install; the npm package never downloads an interpreter itself.
+ */
+function pythonLauncher(project: Project): string {
+  const { identity } = project;
+  return `#!/usr/bin/env node
+import { spawnSync } from "node:child_process";
+
+const child = spawnSync("uvx", ["--from", ${JSON.stringify(`${pypiName(project)}==${identity.version}`)}, ${JSON.stringify(identity.name)}, ...process.argv.slice(2)], {
+  stdio: "inherit",
+});
+if (child.error) throw child.error;
+process.exit(child.status ?? 1);
+`;
+}
+
 export const surface: Surface = {
   id: "npm",
   plan(project) {
-    if (project.tool.binding !== "typescript") {
-      throw new Error('Surface "npm" requires the typescript binding.');
-    }
     const { identity } = project;
     const authored = project.tool.identity === "package.json";
+    const python = project.tool.binding === "python";
+    const launcher = `bin/${identity.name}.mjs`;
     const patch = compact({
       name: authored ? undefined : npmName(project),
       version: authored ? undefined : identity.version,
@@ -41,21 +58,36 @@ export const surface: Surface = {
       type: "module",
       bin:
         has(project, "cli") || has(project, "mcp")
-          ? { [identity.name]: "./dist/toolfactory/cli.js" }
+          ? {
+              [identity.name]: python ? `./${launcher}` : "./dist/toolfactory/cli.js",
+            }
           : undefined,
       // `web/dist` only with the `web` surface: the kernel serves the built page from inside
       // the installed package, so `npx <tool> mcp --http --open` works without a checkout.
-      files: [
-        "dist",
-        "src",
-        "schemas",
-        ...(has(project, "web") ? [`${WEB_DIR}/dist`] : []),
-        "README.md",
-        "LICENSE",
-      ],
+      files: python
+        ? ["bin", "README.md", "LICENSE"]
+        : [
+            "dist",
+            "src",
+            "schemas",
+            ...(has(project, "web") ? [`${WEB_DIR}/dist`] : []),
+            "README.md",
+            "LICENSE",
+          ],
       mcpName: has(project, "mcp-registry") ? registryName(project) : undefined,
     });
-    return [{ kind: "merge", path: "package.json", format: "json", patch, owned: ["bin"] }];
+    return [
+      ...(python && (has(project, "cli") || has(project, "mcp"))
+        ? [{ kind: "file" as const, path: launcher, content: pythonLauncher(project) }]
+        : []),
+      {
+        kind: "merge" as const,
+        path: "package.json",
+        format: "json" as const,
+        patch,
+        owned: ["bin", "files"],
+      },
+    ];
   },
   validate(project) {
     return [
