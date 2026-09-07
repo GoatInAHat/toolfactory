@@ -56,30 +56,48 @@ describe("native package configuration", () => {
     ]);
     expect(steps[0]?.run).toContain("= '1.2.3'");
     expect(steps[1]?.run).toContain("cargo package --manifest-path 'native/cli/Cargo.toml'");
+    expect(steps[1]?.run).toContain("--target-dir 'dist/release/native/cargo/target'");
     expect(steps[1]?.run).not.toContain("/repo");
   });
 
-  it("does not invent artifacts for VCS-discovered Packagist or Go modules", () => {
+  it("uses ecosystem commands that need no Node runtime for default versions", () => {
+    const cargoDefault = {
+      id: "cargo",
+      path: "native/cli",
+      identity: "Cargo.toml",
+      name: "acme-cli",
+    };
+    const nuget = {
+      id: "nuget",
+      path: "dotnet",
+      identity: "Tool.csproj",
+      name: "Acme.Tool",
+    };
+    const steps = nativePackageSteps(project([cargoDefault, nuget]));
+    expect(steps[0]?.run).toContain(
+      "cargo metadata --no-deps --format-version 1 --manifest-path 'Cargo.toml'",
+    );
+    expect(steps[0]?.run).not.toContain("node -e");
+    expect(steps[2]?.run).toContain("dotnet msbuild 'Tool.csproj' -nologo -getProperty:Version");
+    expect(steps[2]?.run).not.toContain("sed -n");
+  });
+
+  it("leaves VCS-discovered Packagist and Go modules for the final release tag", () => {
     const entries = [
       {
         id: "packagist",
         path: ".",
         identity: "composer.json",
         name: "acme/tool",
-        versionCommand: "git describe --tags --abbrev=0 | sed 's/^v//'",
       },
       {
         id: "go-module",
         path: ".",
         identity: "go.mod",
         name: "github.com/acme/tool",
-        versionCommand: "git describe --tags --abbrev=0 | sed 's/^v//'",
       },
     ];
-    expect(nativePackageSteps(project(entries)).map((step) => step.name)).toEqual([
-      "packagist version matches release",
-      "go-module version matches release",
-    ]);
+    expect(nativePackageSteps(project(entries))).toEqual([]);
     expect(nativeInstallLines(project(entries))).toEqual([
       "`composer require acme/tool`",
       "`go get github.com/acme/tool@v1.2.3`",
@@ -108,6 +126,12 @@ describe("native package configuration", () => {
     expect(jobs["publish-nuget"]?.steps).toContainEqual(
       expect.objectContaining({ run: expect.stringContaining("dotnet nuget push") }),
     );
+    expect(jobs["publish-nuget"]?.steps).toContainEqual(
+      expect.objectContaining({
+        uses: "actions/setup-dotnet@v5",
+        with: { "dotnet-version": "8.0.x" },
+      }),
+    );
     expect(nativeRegistryRows(project(entries)).map((row) => row.secrets)).toEqual([
       ["CARGO_REGISTRY_TOKEN"],
       ["NUGET_API_KEY"],
@@ -117,5 +141,21 @@ describe("native package configuration", () => {
     expect(jobs["publish-cargo"]?.steps).not.toContainEqual(
       expect.objectContaining({ uses: "dtolnay/rust-toolchain@stable" }),
     );
+  });
+
+  it("builds a gem from its package directory before moving the resulting asset", () => {
+    const steps = nativePackageSteps(
+      project([
+        {
+          id: "rubygems",
+          path: "native/ruby",
+          identity: "acme.gemspec",
+          name: "acme",
+          versionCommand: "ruby -e 'puts 1.2.3'",
+        },
+      ]),
+    );
+    expect(steps[1]?.run).toContain("(cd 'native/ruby' && gem build --strict 'acme.gemspec')");
+    expect(steps[1]?.run).toContain("mv 'native/ruby/acme-1.2.3.gem'");
   });
 });

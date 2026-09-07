@@ -90,16 +90,18 @@ function defaultVersionCommand(entry: NativePackageConfig): string {
   const identity = shellQuote(entry.identity);
   switch (entry.id) {
     case "cargo":
-      return `cargo metadata --no-deps --format-version 1 --manifest-path ${identity} | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).packages[0].version))'`;
+      return `cargo metadata --no-deps --format-version 1 --manifest-path ${identity} | sed -n 's/.*"packages":\\[{"name":"[^"]*","version":"\\([^"]*\\)".*/\\1/p'`;
     case "nuget":
-      return `dotnet msbuild ${identity} -nologo -getProperty:Version | sed -n 's/^Version=//p'`;
+      return `dotnet msbuild ${identity} -nologo -getProperty:Version`;
     case "maven-central":
       return `mvn --quiet --file ${identity} -DforceStdout help:evaluate -Dexpression=project.version`;
     case "rubygems":
       return `ruby -e 'puts Gem::Specification.load(ARGV[0]).version' ${identity}`;
     case "packagist":
     case "go-module":
-      return "git describe --tags --abbrev=0 | sed 's/^v//'";
+      throw new Error(
+        `${entry.id} is discovered from the release tag and has no pre-release version command.`,
+      );
   }
 }
 function versionAssert(entry: NativePackageConfig, version: string | undefined): string {
@@ -202,6 +204,9 @@ export const nativePackageSurfaces: Surface[] = NATIVE_PACKAGE_IDS.map((id) => (
  */
 export function nativePackageSteps(project: Project): GateStep[] {
   return activeConfigs(project).flatMap((entry) => {
+    // Packagist and Go proxy discovery happens from the tag created by the final release job.
+    // Before then, `git describe` can only see the prior version, so asserting it here is wrong.
+    if (entry.id === "packagist" || entry.id === "go-module") return [];
     const directory = shellQuote(entry.path);
     const out = `dist/release/native/${entry.id}`;
     const check = versionAssert(entry, project.identity.version);
@@ -212,7 +217,7 @@ export function nativePackageSteps(project: Project): GateStep[] {
       case "cargo":
         steps.push({
           name: "Cargo crate",
-          run: `mkdir -p ${shellQuote(out)} && cargo package --manifest-path ${shellQuote(`${entry.path}/${entry.identity}`)} && cp ${shellQuote(`${entry.path}/target/package`)}/*.crate ${shellQuote(out)}/`,
+          run: `mkdir -p ${shellQuote(out)} && cargo package --manifest-path ${shellQuote(`${entry.path}/${entry.identity}`)} --target-dir ${shellQuote(`${out}/target`)} && cp ${shellQuote(`${out}/target/package`)}/*.crate ${shellQuote(out)}/`,
         });
         break;
       case "nuget":
@@ -230,12 +235,8 @@ export function nativePackageSteps(project: Project): GateStep[] {
       case "rubygems":
         steps.push({
           name: "Ruby gem",
-          run: `mkdir -p ${shellQuote(out)} && gem build --strict ${shellQuote(`${entry.path}/${entry.identity}`)} --output ${shellQuote(`${out}/${entry.name}-${project.identity.version}.gem`)}`,
+          run: `mkdir -p ${shellQuote(out)} && (cd ${directory} && gem build --strict ${shellQuote(entry.identity)}) && mv ${shellQuote(`${entry.path}/${entry.name}-${project.identity.version}.gem`)} ${shellQuote(out)}/`,
         });
-        break;
-      case "packagist":
-      case "go-module":
-        // A tag is the package. Packaging an archive here would falsely imply an upload protocol.
         break;
     }
     return steps;
@@ -383,7 +384,7 @@ export function nativePublishJobs(
             ...base,
             env: { NUGET_API_KEY: "${{ secrets.NUGET_API_KEY }}" },
             steps: [
-              { uses: "actions/setup-dotnet@v5" },
+              { uses: "actions/setup-dotnet@v5", with: { "dotnet-version": "8.0.x" } },
               { run: "dotnet --info" },
               download(artifactDir),
               {
