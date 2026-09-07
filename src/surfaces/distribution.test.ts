@@ -190,8 +190,8 @@ describe("claude", () => {
   it("makes the repository its own single-plugin marketplace", () => {
     const files = claude.plan(project(["claude", "mcp"]));
     const file = files.find((entry) => entry.path === ".claude-plugin/marketplace.json");
-    if (file?.kind !== "file") throw new Error("expected a whole file");
-    expect(JSON.parse(file.content)).toMatchObject({
+    if (file?.kind !== "merge") throw new Error("expected a merge file");
+    expect(file.patch).toMatchObject({
       name: "hello",
       owner: { name: "GoatInAHat" },
       plugins: [{ name: "hello", source: "./", description: "Say hello" }],

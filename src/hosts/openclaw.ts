@@ -62,8 +62,10 @@ function missing(scaffold: unknown, ours: unknown, path: string, skip: Set<strin
 
 function planned(files: PlannedFile[], path: string): string {
   const file = files.find((candidate) => candidate.path === `${HOST_DIR}/${path}`);
-  if (file?.kind !== "file") throw new Error(`the openclaw surface no longer plans ${path}`);
-  return file.content;
+  if (!file) throw new Error(`the openclaw surface no longer plans ${path}`);
+  if (file.kind === "file") return file.content;
+  if (file.kind === "merge" && file.format === "json") return JSON.stringify(file.patch, null, 2);
+  throw new Error(`the openclaw surface no longer plans ${path} as JSON`);
 }
 
 /** Human-readable drift lines; empty means the generator still mirrors upstream. */

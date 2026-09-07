@@ -25,7 +25,15 @@ export const LockSchema = z.object({
       keys: z.array(z.string()).optional(),
       /** A keyed array's inverse: the entries Toolfactory owns at each dotted path. */
       keyedArrays: z
-        .record(z.string(), z.object({ id: z.string(), values: z.array(z.string()) }))
+        .record(
+          z.string(),
+          z.object({
+            id: z.string(),
+            values: z.array(z.string()),
+            /** The last projected entry shape lets a later plan remove only stale generated leaves. */
+            entries: z.record(z.string(), z.record(z.string(), z.unknown())).optional(),
+          }),
+        )
         .optional(),
       /**
        * A region file's inverse, exactly as `keys` is a merge file's: the marker pairs its

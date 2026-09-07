@@ -313,6 +313,51 @@ describe("apply / check — merge files", () => {
     expect(check(root, plan(["hello.run", "hello.new"]), "0.1.0")).toEqual([]);
     expect(() => apply(root, plan(["author.run"]), "0.1.0")).toThrow(/already has author entry/);
   });
+
+  it("preserves unknown keyed-entry fields while removing stale projected leaves", () => {
+    const root = tmp();
+    const plan = (title: string, category?: string): MergeFile[] => [
+      {
+        kind: "merge",
+        path: "package.json",
+        format: "json",
+        patch: {
+          contributes: {
+            commands: [{ command: "hello.run", title, ...(category ? { category } : {}) }],
+          },
+        },
+        keyedArrays: { "contributes.commands": "command" },
+      },
+    ];
+    apply(root, plan("Run", "Toolfactory"), "0.1.0");
+    const path = join(root, "package.json");
+    const document = JSON.parse(readFileSync(path, "utf8"));
+    document.contributes.commands[0].icon = "$(rocket)";
+    writeFileSync(path, JSON.stringify(document));
+    apply(root, plan("Run tool"), "0.1.0");
+    expect(JSON.parse(readFileSync(path, "utf8")).contributes.commands).toEqual([
+      { command: "hello.run", title: "Run tool", icon: "$(rocket)" },
+    ]);
+  });
+
+  it("upgrades an untouched generated full file to a region but protects changed files", () => {
+    const root = tmp();
+    const old: PlannedFile[] = [{ kind: "file", path: "entry.ts", content: "old generated\n" }];
+    const region: RegionFile = {
+      kind: "region",
+      path: "entry.ts",
+      regions: [{ begin: "// tf:entry", end: "// /tf:entry", content: "new generated\n" }],
+      template: "// tf:entry\n// /tf:entry\n\n// author tail\n",
+    };
+    apply(root, old, "0.1.0");
+    apply(root, [region], "0.2.0");
+    expect(readFileSync(join(root, "entry.ts"), "utf8")).toContain("new generated");
+
+    const changed = tmp();
+    apply(changed, old, "0.1.0");
+    writeFileSync(join(changed, "entry.ts"), "author changed\n");
+    expect(() => apply(changed, [region], "0.2.0")).toThrow(/missing a toolfactory region marker/);
+  });
 });
 
 describe("apply / check — inverses and outputs", () => {

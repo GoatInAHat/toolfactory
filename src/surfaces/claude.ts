@@ -12,7 +12,6 @@ import {
   envName,
   has,
   isSensitive,
-  json,
   kernelLaunch,
   mcpVerdict,
   requiredConfig,
@@ -79,8 +78,13 @@ export const surface: Surface = {
       plugins: [compact({ name: identity.name, source: "./", description: identity.description })],
     });
     return [
-      { kind: "file", path: ".claude-plugin/plugin.json", content: json(manifest) },
-      { kind: "file", path: ".claude-plugin/marketplace.json", content: json(marketplace) },
+      { kind: "merge", path: ".claude-plugin/plugin.json", format: "json", patch: manifest },
+      {
+        kind: "merge",
+        path: ".claude-plugin/marketplace.json",
+        format: "json",
+        patch: marketplace,
+      },
     ];
   },
   validate(project) {
