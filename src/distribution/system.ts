@@ -16,23 +16,19 @@ export const SYSTEM_PACKAGE_IDS = [
 ] as const;
 export type SystemPackageId = (typeof SYSTEM_PACKAGE_IDS)[number];
 
+const repositoryPath = z
+  .string()
+  .min(1)
+  .refine(
+    (value) => !value.startsWith("/") && !value.split("/").includes(".."),
+    "path must stay inside the repository.",
+  );
+
 export const systemPackageConfigSchema = z
   .object({
     id: z.enum(SYSTEM_PACKAGE_IDS),
-    path: z
-      .string()
-      .min(1)
-      .refine(
-        (value) => !value.startsWith("/") && !value.split("/").includes(".."),
-        "path must stay inside the repository.",
-      ),
-    identity: z
-      .string()
-      .min(1)
-      .refine(
-        (value) => !value.startsWith("/") && !value.split("/").includes(".."),
-        "identity must be relative to path.",
-      ),
+    path: repositoryPath,
+    identity: repositoryPath.describe("Native package metadata path relative to path."),
     name: z
       .string()
       .min(1)
@@ -52,9 +48,7 @@ export const systemPackageConfigSchema = z
       .array(z.string().min(1))
       .default([])
       .describe("Native OS packages installed by the Debian or Fedora CI builder."),
-    asset: z
-      .string()
-      .min(1)
+    asset: repositoryPath
       .optional()
       .describe(
         "Repository-relative, author-built archive or installer when the manager consumes one.",
@@ -69,9 +63,12 @@ export const systemPackageConfigSchema = z
       .min(1)
       .optional()
       .describe("Author-controlled Scoop bucket repository (owner/repo)."),
-    catalogPath: z
+    bucketName: z
       .string()
       .min(1)
+      .optional()
+      .describe("Local Scoop bucket name used by install commands."),
+    catalogPath: repositoryPath
       .optional()
       .describe("Repository-relative destination inside the author-controlled tap or bucket."),
     ppa: z.string().min(1).optional().describe("Launchpad PPA as owner/archive."),
@@ -107,6 +104,12 @@ export const systemPackageConfigSchema = z
         code: "custom",
         path: ["bucket"],
         message: "Scoop requires an author-controlled bucket repository.",
+      });
+    if (entry.id === "scoop" && !entry.bucketName)
+      context.addIssue({
+        code: "custom",
+        path: ["bucketName"],
+        message: "Scoop requires its explicit bucket name.",
       });
     if (entry.id === "scoop" && !entry.catalogPath)
       context.addIssue({
@@ -456,11 +459,11 @@ export function systemPackageJobs(project: Project, releaseSha: string): Record<
         permissions: { contents: "read" },
         steps: [
           checkout(releaseSha),
+          ...(posixBuild ? [posixBuild] : []),
           { run: versionAssert(project, entry) },
           {
-            run: `brew tap-new --no-git ${quote(temporaryTap)} && taproot=$(brew --repository ${quote(temporaryTap)}) && install -m 0644 ${quote(`${entry.path}/${entry.identity}`)} "$taproot/Formula/$(basename ${quote(entry.identity)})" && brew audit --new --formula ${quote(`${temporaryTap}/${entry.name}`)} && brew install --build-from-source ${quote(`${temporaryTap}/${entry.name}`)}`,
+            run: `brew tap-new --no-git ${quote(temporaryTap)} && taproot=$(brew --repository ${quote(temporaryTap)}) && install -m 0644 ${quote(`${entry.path}/${entry.identity}`)} "$taproot/Formula/$(basename ${quote(entry.identity)})" && brew readall ${quote(temporaryTap)} && brew style --formula ${quote(`${temporaryTap}/${entry.name}`)} && brew audit --formula ${quote(`${temporaryTap}/${entry.name}`)}`,
           },
-          ...(posixBuild ? [posixBuild] : []),
           {
             run: `mkdir -p ${quote(out)} && test -f ${quote(`${entry.path}/${entry.identity}`)} && test -f ${quote(entry.asset ?? "")} && cp ${quote(`${entry.path}/${entry.identity}`)} ${quote(out)}/ && cp ${quote(entry.asset ?? "")} ${quote(out)}/`,
           },
@@ -474,12 +477,16 @@ export function systemPackageJobs(project: Project, releaseSha: string): Record<
         permissions: { contents: "read" },
         steps: [
           checkout(releaseSha),
+          {
+            run: "if (!(Get-Command winget -ErrorAction SilentlyContinue)) { Install-Module -Name Microsoft.WinGet.Client -Force -Repository PSGallery; Repair-WinGetPackageManager -AllUsers }; if (!(Get-Command winget -ErrorAction SilentlyContinue)) { throw 'WinGet CLI is unavailable after Repair-WinGetPackageManager' }",
+            shell: "pwsh",
+          },
+          ...(windowsBuild ? [windowsBuild] : []),
           { run: windowsVersionAssert(project, entry), shell: "pwsh" },
           {
             run: `Set-Location ${powershellQuote(entry.path)}; winget validate ${powershellQuote(entry.identity)}; if ($LASTEXITCODE) { exit $LASTEXITCODE }`,
             shell: "pwsh",
           },
-          ...(windowsBuild ? [windowsBuild] : []),
           {
             run: `New-Item -ItemType Directory -Force ${powershellQuote(out)} | Out-Null; if (!(Test-Path ${powershellQuote(`${entry.path}/${entry.identity}`)} -PathType Container) -or !(Test-Path ${powershellQuote(entry.asset ?? "")} -PathType Leaf)) { throw 'WinGet manifest directory or asset is missing' }; Copy-Item -Recurse -Force ${powershellQuote(`${entry.path}/${entry.identity}`)} ${powershellQuote(out)}; Copy-Item -Force ${powershellQuote(entry.asset ?? "")} ${powershellQuote(out)}`,
             shell: "pwsh",
@@ -494,12 +501,12 @@ export function systemPackageJobs(project: Project, releaseSha: string): Record<
         permissions: { contents: "read" },
         steps: [
           checkout(releaseSha),
+          ...(windowsBuild ? [windowsBuild] : []),
           { run: windowsVersionAssert(project, entry), shell: "pwsh" },
           {
             run: `Get-Content -Raw ${powershellQuote(`${entry.path}/${entry.identity}`)} | ConvertFrom-Json | Out-Null`,
             shell: "pwsh",
           },
-          ...(windowsBuild ? [windowsBuild] : []),
           {
             run: `New-Item -ItemType Directory -Force ${powershellQuote(out)} | Out-Null; if (!(Test-Path ${powershellQuote(`${entry.path}/${entry.identity}`)} -PathType Leaf) -or !(Test-Path ${powershellQuote(entry.asset ?? "")} -PathType Leaf)) { throw 'Scoop manifest or asset is missing' }; Copy-Item -Force ${powershellQuote(`${entry.path}/${entry.identity}`)} ${powershellQuote(out)}; Copy-Item -Force ${powershellQuote(entry.asset ?? "")} ${powershellQuote(out)}`,
             shell: "pwsh",
@@ -514,6 +521,7 @@ export function systemPackageJobs(project: Project, releaseSha: string): Record<
         permissions: { contents: "read" },
         steps: [
           checkout(releaseSha),
+          ...(windowsBuild ? [windowsBuild] : []),
           { run: windowsVersionAssert(project, entry), shell: "pwsh" },
           {
             run: `$workspace = (Get-Location).Path; $out = Join-Path $workspace ${powershellQuote(out)}; New-Item -ItemType Directory -Force $out | Out-Null; Set-Location ${powershellQuote(entry.path)}; choco pack ${powershellQuote(entry.identity)} --outputdirectory $out; if ($LASTEXITCODE) { exit $LASTEXITCODE }`,
@@ -530,10 +538,11 @@ export function systemPackageJobs(project: Project, releaseSha: string): Record<
         permissions: { contents: "read" },
         steps: [
           checkout(releaseSha),
-          { run: versionAssert(project, entry) },
           {
             run: `sudo apt-get update && sudo apt-get install -y devscripts dpkg-dev ${dependencies}`,
           },
+          ...(posixBuild ? [posixBuild] : []),
+          { run: versionAssert(project, entry) },
           {
             run: `mkdir -p ${quote(out)} && (cd ${quote(entry.path)} && dpkg-buildpackage -S -sa -us -uc) && find ${quote(`${entry.path}/..`)} -maxdepth 1 -type f '(' -name '*.changes' -o -name '*.dsc' -o -name '*.tar.*' -o -name '*.diff.gz' -o -name '*.buildinfo' ')' -exec cp {} ${quote(out)} \\;`,
           },
@@ -549,8 +558,9 @@ export function systemPackageJobs(project: Project, releaseSha: string): Record<
         permissions: { contents: "read" },
         steps: [
           checkout(releaseSha),
-          { run: versionAssert(project, entry) },
           { run: `dnf -y install rpm-build ${dependencies}` },
+          ...(posixBuild ? [posixBuild] : []),
+          { run: versionAssert(project, entry) },
           {
             run: `mkdir -p ${quote(out)} && workspace="$PWD" && rpmbuild -bs "$workspace/${entry.path}/${entry.identity}" --define "_sourcedir $workspace/${entry.path}" --define "_srcrpmdir $workspace/${out}"`,
           },
@@ -569,7 +579,7 @@ export function systemPackageJobs(project: Project, releaseSha: string): Record<
 export function systemPublishJobs(
   project: Project,
   artifactDir: string,
-  releaseSha: string,
+  _releaseSha: string,
 ): Record<string, Job> {
   const jobs: Record<string, Job> = {};
   for (const entry of active(project)) {
@@ -635,19 +645,27 @@ export function systemPublishJobs(
       const repository = entry.id === "homebrew" ? entry.tap : entry.bucket;
       const token = entry.id === "homebrew" ? "HOMEBREW_TAP_TOKEN" : "SCOOP_BUCKET_TOKEN";
       const destinationPath = entry.catalogPath ?? "";
+      const stagedMetadata = quote(`.system-package/${entry.identity.split("/").at(-1) ?? ""}`);
       jobs[`publish-${entry.id}`] = {
         ...base,
         permissions: { contents: "read" },
         env: { CATALOG_TOKEN: `\${{ secrets.${token} }}` },
         steps: [
-          checkout(releaseSha),
+          download(artifact, ".system-package"),
           {
             uses: "actions/checkout@v7",
             with: { repository, token: "${{ env.CATALOG_TOKEN }}", path: ".system-catalog" },
           },
           {
-            run: `mkdir -p ".system-catalog/$(dirname ${quote(destinationPath)})" && install -m 0644 ${quote(`${entry.path}/${entry.identity}`)} ${quote(`.system-catalog/${destinationPath}`)} && git -C .system-catalog add -- ${quote(destinationPath)} && if git -C .system-catalog diff --cached --quiet; then exit 0; fi && git -C .system-catalog config user.name toolfactory-release && git -C .system-catalog config user.email toolfactory-release@users.noreply.github.com && git -C .system-catalog commit -m ${quote(`Release ${entry.name} ${version(project, entry)}`)} && git -C .system-catalog push`,
+            run: `mkdir -p ".system-catalog/$(dirname ${quote(destinationPath)})" && test -f ${stagedMetadata} && install -m 0644 ${stagedMetadata} ${quote(`.system-catalog/${destinationPath}`)} && git -C .system-catalog add -- ${quote(destinationPath)} && if git -C .system-catalog diff --cached --quiet; then exit 0; fi && git -C .system-catalog config user.name toolfactory-release && git -C .system-catalog config user.email toolfactory-release@users.noreply.github.com && git -C .system-catalog commit -m ${quote(`Release ${entry.name} ${version(project, entry)}`)} && git -C .system-catalog push`,
           },
+          ...(entry.id === "homebrew"
+            ? [
+                {
+                  run: `brew tap-new --no-git toolfactory-postrelease/tap && taproot=$(brew --repository toolfactory-postrelease/tap) && install -m 0644 ${quote(`.system-catalog/${destinationPath}`)} "$taproot/Formula/$(basename ${quote(destinationPath)})" && brew install --build-from-source ${quote(`toolfactory-postrelease/tap/${entry.name}`)}`,
+                },
+              ]
+            : []),
         ],
       };
     }
@@ -659,9 +677,9 @@ export function systemInstallLines(project: Project): string[] {
   return active(project).map(
     (entry) =>
       ({
-        homebrew: `\`brew install ${entry.tap}/${entry.name}\``,
+        homebrew: `\`brew install ${entry.tap?.replace(/\/homebrew-/, "/")}/${entry.name}\``,
         winget: `\`winget install ${entry.name}\``,
-        scoop: `\`scoop bucket add ${entry.bucket}\` then \`scoop install ${entry.name}\``,
+        scoop: `\`scoop bucket add ${entry.bucketName} https://github.com/${entry.bucket}.git\` then \`scoop install ${entry.bucketName}/${entry.name}\``,
         chocolatey: `\`choco install ${entry.name}\``,
         apt: `add the ${entry.ppa} PPA, then \`apt install ${entry.name}\``,
         rpm: `enable COPR ${entry.coprProject}, then \`dnf install ${entry.name}\``,

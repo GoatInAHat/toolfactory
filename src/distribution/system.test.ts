@@ -40,6 +40,20 @@ const choco = {
 describe("system packages", () => {
   it("requires real catalog/repository configuration", () => {
     expect(() => systemPackageConfigSchema.parse({ ...choco, id: "apt" })).toThrow(/PPA/);
+    expect(() =>
+      systemPackageConfigSchema.parse({
+        id: "scoop",
+        path: "packaging/scoop",
+        identity: "tool.json",
+        name: "tool",
+        versionCommand: "Get-Content VERSION",
+        buildCommand: "./build.ps1",
+        asset: "../tool.zip",
+        bucket: "acme/scoop-bucket",
+        bucketName: "acme",
+        catalogPath: "bucket/tool.json",
+      }),
+    ).toThrow(/path must stay/);
     expect(() => systemPackageSteps(project([], ["chocolatey"]))).toThrow(/exactly one/);
   });
   it("packages with checkout-relative paths", () => {
@@ -95,6 +109,8 @@ describe("system packages", () => {
     expect(jobs["publish-chocolatey"]?.if).toBe("needs.gate.outputs.chocolatey == 'true'");
     expect(jobs["publish-homebrew"]?.needs).toEqual(["gate", "release"]);
     expect(JSON.stringify(jobs["publish-homebrew"])).toContain("git -C .system-catalog push");
+    expect(JSON.stringify(jobs["publish-homebrew"])).toContain("system-homebrew");
+    expect(JSON.stringify(jobs["publish-homebrew"])).toContain("toolfactory-postrelease/tap");
     expect(JSON.stringify(jobs["publish-chocolatey"])).toContain("system-chocolatey");
     expect(JSON.stringify(jobs)).not.toContain("/local/never-in-output");
     expect(systemRegistryRows(project([choco])).at(0)?.secrets).toEqual(["CHOCOLATEY_API_KEY"]);

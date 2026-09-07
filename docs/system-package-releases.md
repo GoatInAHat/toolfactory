@@ -47,7 +47,8 @@ uploads a signed Debian source package with `dput`; it is not a universal apt re
 configured COPR project: it uploads a source RPM with `copr-cli`; dnf is not a registry. Removing
 catalog entries or PPA/COPR builds is a repository/dashboard action.
 
-The module invokes the upstream format and transport tools: `brew audit` / source install,
+The module invokes the upstream format and transport tools: `brew readall`, `brew style`, `brew audit`
+and a post-release source install,
 `winget validate`, PowerShell JSON parsing for Scoop, `choco pack`, `dpkg-buildpackage`, `dput`,
 `rpmbuild`, and `copr-cli`. It does not write a formula, installer, manifest, Debian control file,
 or spec file. WinGet release output is an auditable submission bundle; make the reviewed WinGet pull
