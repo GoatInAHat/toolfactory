@@ -21,6 +21,12 @@ const echo: Operation = {
   requires: [],
 };
 const shoot: Operation = { name: "shoot", inputSchema: { type: "object" }, requires: ["browser"] };
+const web: Operation = {
+  name: "web",
+  description: "Open the generated operations page.",
+  inputSchema: { type: "object" },
+  requires: [],
+};
 
 function project(overrides: Partial<Project> = {}): Project {
   return {
@@ -126,6 +132,22 @@ describe("hermes-native", () => {
     >;
     expect(pyproject.project.dependencies).toEqual(["hello>=1.2.0,<2"]);
     expect(pyproject.tool.uv.sources.hello).toEqual({ path: "../..", editable: true });
+  });
+
+  it("gives a Python Hermes plugin the generated web operation used by its tool schema", () => {
+    const target = project({
+      tool: {
+        ...project().tool,
+        binding: "python",
+        surfaces: ["hermes-native", "cli", "mcp", "web"],
+      },
+      operations: [echo, web],
+    });
+    const native = emitted(target)[`${pluginDir(target)}/__init__.py`] ?? "";
+    expect(native).toContain("from hello.ops import OPERATIONS as AUTHORED_OPERATIONS");
+    expect(native).toContain("from hello.toolfactory.web import OPERATION as WEB_OPERATION");
+    expect(native).toContain("OPERATIONS = [*AUTHORED_OPERATIONS, WEB_OPERATION]");
+    expect(native).toContain('handler=_handler(schema["name"])');
   });
 
   it("emits a fake-ctx test that registers and calls a real handler, no Hermes import", () => {

@@ -36,6 +36,7 @@ import {
   configProperties,
   dataDirEnvName,
   envName,
+  has,
   isSensitive,
   pypiName,
   requiredConfig,
@@ -333,14 +334,16 @@ interface PluginCore {
 /** Python core: the handler calls the author's own operation in-process. */
 function pythonCore(project: Project): PluginCore {
   const pkg = projectName.pythonPackage(project.identity.name);
+  const web = has(project, "web");
   return {
     stdlib: ["import asyncio", "import inspect"],
     external: [
       "from pydantic import BaseModel",
-      `from ${pkg}.ops import OPERATIONS`,
+      `from ${pkg}.ops import OPERATIONS${web ? " as AUTHORED_OPERATIONS" : ""}`,
       `from ${pkg}.toolfactory.config import context`,
+      ...(web ? [`from ${pkg}.toolfactory.web import OPERATION as WEB_OPERATION`] : []),
     ],
-    body: `def _operation(name: str) -> Any:
+    body: `${web ? "OPERATIONS = [*AUTHORED_OPERATIONS, WEB_OPERATION]\n\n\n" : ""}def _operation(name: str) -> Any:
     """Fail loudly if the core package and this plugin disagree on the operations."""
     for operation in OPERATIONS:
         if operation.name == name:
