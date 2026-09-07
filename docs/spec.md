@@ -561,6 +561,14 @@ into whichever harnesses are on the machine. What a repository cannot do is relo
 is already open, so `init` prints the one reload line of the harness it is running inside and the
 generated `AGENTS.md` carries the table it comes from.
 
+GSD consumes the existing `skill`, `cli` and `mcp` surfaces, not a separate projector. Its native
+resource loader reads `AGENTS.md` and `.agents/skills/`; its MCP client reads `.mcp.json`, rendered
+by `sync.py --all` even when no auto-detected harness requests that file. Interactive trust is
+required before unattended project-stdio calls. Host-launched GSD children discover their own
+project configuration; an outer OpenClaw/Hermes plugin does not inject its tools into them.
+`scripts/check-gsd.mjs` exercises these artifacts through a dependency-installed GSD checkout's
+own resource loader and MCP extension without a model. Setup and limits: [GSD](gsd.md).
+
 `init` also seeds `keywords` on the identity file, defaulting to `[name]` when `--keywords` is
 omitted: Kiro Powers and Agent Plugins hosts key activation off `plugin.json.keywords`, and
 `package.json`/`pyproject.toml` carry the same field for the npm/pypi metadata projections, so one

@@ -90,6 +90,13 @@ export const RELOAD: Reload[] = [
     line: "Run `hermes skills trust` once in this repo, then start a new Hermes conversation — every invocation re-scans plugins, skills and AGENTS.md. `/reload-mcp` only affects an already-open session; `hermes gateway restart` is only for the messaging gateway.",
   },
   {
+    harness: "GSD",
+    env: [],
+    mcp: "`python3 .agents/sync.py --all` renders the shared `.mcp.json` even on a GSD-only machine. Refresh with `mcp_servers(refresh=true)`; start a new session after changing a connected server. Approve `mcp_discover` interactively once before unattended stdio use.",
+    instructions:
+      "Reads `AGENTS.md` and `.agents/skills/` natively; `/reload` refreshes resources. `--bare` omits them.",
+  },
+  {
     harness: "Gemini CLI",
     env: [],
     mcp: "`/mcp reload`",

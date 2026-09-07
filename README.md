@@ -147,6 +147,12 @@ Inside OpenClaw, install the tool you are building with
 `hermes plugins install file://<repo>#hosts/hermes/<pkg>` — every `hermes` run is a fresh process,
 and `hermes gateway restart` is only for the messaging gateway.
 
+GSD uses the same skills, CLI and MCP server; no GSD-specific surface is needed. From a generated
+project, run `bash .agents/setup --all` so `.mcp.json` is rendered even on a GSD-only machine,
+then discover its server in an interactive GSD session before unattended use. GSD launched by
+OpenClaw or Hermes loads the child project's configuration separately from the outer agent.
+See [GSD compatibility](docs/gsd.md) for setup, runtime boundaries and the repeatable smoke test.
+
 ## The boundary
 
 Core logic is a pure function of JSON arguments, environment/config and the filesystem. An
