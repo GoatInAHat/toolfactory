@@ -55,7 +55,14 @@
           "readme",
           "gemini",
           "mcpb",
-          "browser-extension"
+          "browser-extension",
+          "vscode-extension",
+          "cargo",
+          "nuget",
+          "maven-central",
+          "rubygems",
+          "packagist",
+          "go-module"
         ]
       },
       "description": "Selected surfaces. A file exists iff a selected surface owns it."
@@ -206,6 +213,68 @@
         "toolset": {
           "type": "string"
         }
+      }
+    },
+    "vscode": {
+      "type": "object",
+      "properties": {
+        "publisher": {
+          "description": "Your registered Visual Studio Marketplace/Open VSX publisher; repository owner is the local packaging default.",
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9-]*$"
+        },
+        "marketplace": {
+          "default": true,
+          "type": "boolean"
+        },
+        "openvsx": {
+          "default": true,
+          "type": "boolean"
+        }
+      }
+    },
+    "nativePackages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "cargo",
+              "nuget",
+              "maven-central",
+              "rubygems",
+              "packagist",
+              "go-module"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "identity": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Registry package identity, including its required namespace."
+          },
+          "versionCommand": {
+            "description": "Command run in path that prints exactly the authored native package version.",
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "path",
+          "identity",
+          "name"
+        ],
+        "additionalProperties": false
       }
     },
     "openclaw": {

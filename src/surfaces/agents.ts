@@ -198,7 +198,8 @@ function layoutSection(project: Project): string[] {
     has(project, "openclaw-native") ||
     has(project, "hermes-native") ||
     has(project, "dsh") ||
-    has(project, "browser-extension")
+    has(project, "browser-extension") ||
+    has(project, "vscode-extension")
   ) {
     lines.push(
       "- `hosts/<id>/` — the host-native escape hatch for a selected host; nothing else creates it.",
@@ -281,6 +282,15 @@ function installSection(project: Project): string[] {
       "  KEY/PASSWORD/SECRET/TOKEN names before spawning an MCP server.",
     );
   }
+  if (has(project, "vscode-extension")) {
+    lines.push(
+      "- **VS Code extension**: `npm --prefix hosts/vscode install`, then open `hosts/vscode` in VS Code",
+      "  and press F5. Development and `npm --prefix hosts/vscode test` use the checkout's kernel.",
+      "  `npm --prefix hosts/vscode run vsix` packages it; install with `code --install-extension hosts/vscode/extension.vsix`.",
+      "  Use Developer: Reload Window after rebuilding an installed extension. Native activation, contributions",
+      "  and every VS Code API are available in your own files; include your license in the extension directory.",
+    );
+  }
   if (has(project, "browser-extension")) {
     const { command, args } = getBinding(project.tool.binding).cliCommand(project);
     lines.push(
@@ -299,7 +309,8 @@ function installSection(project: Project): string[] {
     !openclaw &&
     !hermes &&
     !has(project, "dsh") &&
-    !has(project, "browser-extension")
+    !has(project, "browser-extension") &&
+    !has(project, "vscode-extension")
   ) {
     lines.push(
       "_No host-native surface (`openclaw-native`, `hermes-native`, `dsh`, `browser-extension`) or",

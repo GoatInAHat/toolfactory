@@ -7,6 +7,8 @@
  * rest is derived and written in-tree, tracked by a lock file.
  */
 import { z } from "zod";
+import { NATIVE_PACKAGE_IDS, nativePackageConfigSchema } from "./distribution/native.js";
+import { vscodeConfigSchema } from "./surfaces/vscode-extension.js";
 
 export const CAPABILITIES = [
   "net",
@@ -48,6 +50,8 @@ export const SURFACE_IDS = [
   "gemini",
   "mcpb",
   "browser-extension",
+  "vscode-extension",
+  ...NATIVE_PACKAGE_IDS,
 ] as const;
 export type SurfaceId = (typeof SURFACE_IDS)[number];
 
@@ -187,6 +191,8 @@ export const ToolConfigSchema = z
         "Privacy-policy URLs of the services this tool talks to; Anthropic's Connectors Directory submission requires them in the MCPB manifest.",
       ),
     hermes: z.object({ toolset: z.string().optional() }).optional(),
+    vscode: vscodeConfigSchema.optional(),
+    nativePackages: z.array(nativePackageConfigSchema).optional(),
     openclaw: z
       .object({
         registers: z

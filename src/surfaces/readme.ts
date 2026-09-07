@@ -14,6 +14,8 @@
  * `cursor.com/en/install-mcp`), both computed from the exact same `{command, args, env}` launch
  * the plain-text line renders — a badge can never point somewhere the text line does not.
  */
+
+import { nativeInstallLines } from "../distribution/native.js";
 import { githubSlug } from "../hosts/github.js";
 import { projectName } from "../identity/name.js";
 import type { Project, Surface } from "../model.js";
@@ -22,6 +24,7 @@ import { HOST_DIR as DSH_HOST_DIR, dshTarball } from "./dsh.js";
 import { pluginDir as hermesPluginDir } from "./hermes-native.js";
 import { HOST_DIR as OPENCLAW_HOST_DIR } from "./openclaw-native.js";
 import { envName, has, npmName, pypiName, requiredConfig } from "./shared.js";
+import { vsixName } from "./vscode-extension.js";
 
 export const README_PATH = "README.md";
 export const INSTALL_BEGIN = "<!-- tf:install -->";
@@ -83,6 +86,11 @@ function installLines(project: Project): string[] {
   const { identity } = project;
   const slug = githubSlug(identity.repository);
   const lines: string[] = [];
+  lines.push(...nativeInstallLines(project).map((line) => `- **Native package** — ${line}`));
+  if (has(project, "vscode-extension"))
+    lines.push(
+      `- **VS Code extension** — download \`${vsixName(project)}\` from the release, then \`code --install-extension ${vsixName(project)}\``,
+    );
   if (has(project, "skill") && slug) {
     lines.push(`- **Agent Skill** — \`npx skills add ${slug}\``);
   }

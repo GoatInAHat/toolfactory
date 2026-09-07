@@ -1,4 +1,4 @@
-- insert:
+# tf:mcp- insert:
     - id: mcp-toolfactory
       name: "@deepseek-ai/dsh-mcp-client"
       config:
@@ -10,3 +10,6 @@
           - tsx
           - src/toolfactory/mcp.ts
         failOnStartupError: true
+# /tf:mcp
+
+# Yours: add Cordis rows or local code configuration below this marker.

@@ -1,3 +1,4 @@
+import { nativePackageSurfaces } from "../distribution/native.js";
 import type { Surface, SurfaceId } from "../model.js";
 import { surface as agentPlugins } from "./agent-plugins.js";
 import { surface as agents } from "./agents.js";
@@ -17,10 +18,12 @@ import { surface as openclawNative } from "./openclaw-native.js";
 import { surface as pypi } from "./pypi.js";
 import { surface as readme } from "./readme.js";
 import { surface as skill } from "./skill.js";
+import { surface as vscodeExtension } from "./vscode-extension.js";
 import { surface as web } from "./web.js";
 import { surface as workflows } from "./workflows.js";
 
 const registry: Partial<Record<SurfaceId, Surface>> = {
+  ...Object.fromEntries(nativePackageSurfaces.map((surface) => [surface.id, surface])),
   "agent-plugins": agentPlugins,
   agents,
   "browser-extension": { ...browserExtension, requires: ["mcp"] },
@@ -48,6 +51,7 @@ const registry: Partial<Record<SurfaceId, Surface>> = {
   pypi,
   readme,
   web: { ...web, requires: ["mcp"] },
+  "vscode-extension": { ...vscodeExtension, requires: ["mcp", "cli"] },
   workflows,
 };
 

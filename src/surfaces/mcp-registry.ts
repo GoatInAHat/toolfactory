@@ -151,7 +151,7 @@ WORKDIR /app
 # pyproject metadata can name README, license, and other package assets; copy the project without
 # assuming optional metadata files exist.
 COPY . .
-RUN uv sync --no-dev
+${web ? "COPY --from=web /app/web/dist ./web/dist\n" : ""}RUN uv sync --no-dev
 RUN mkdir /app/runtime && cp pyproject.toml /app/runtime/ && cp -R src /app/runtime/src && for path in README README.md README.rst LICENSE LICENSE.md LICENSE.txt NOTICE NOTICE.md NOTICE.txt; do if [ -f "$path" ]; then cp "$path" /app/runtime/; fi; done
 
 FROM ${PYTHON_IMAGE}

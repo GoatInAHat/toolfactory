@@ -67,9 +67,8 @@ export const nativePackageConfigSchema = z
   .strict();
 export type NativePackageConfig = z.infer<typeof nativePackageConfigSchema>;
 
-type NativeTool = Project["tool"] & { nativePackages?: NativePackageConfig[] };
 function configs(project: Project): NativePackageConfig[] {
-  const raw = (project.tool as NativeTool).nativePackages ?? [];
+  const raw = project.tool.nativePackages ?? [];
   const parsed = raw.map((entry) => nativePackageConfigSchema.parse(entry));
   const duplicates = parsed.filter(
     (entry, index) => parsed.findIndex((other) => other.id === entry.id) !== index,
@@ -81,7 +80,7 @@ function configs(project: Project): NativePackageConfig[] {
   return parsed;
 }
 function selected(project: Project, id: NativePackageId): boolean {
-  return (project.tool.surfaces as string[]).includes(id);
+  return project.tool.surfaces.includes(id);
 }
 function shellQuote(value: string): string {
   return `'${value.replace(/'/g, "'\\''")}'`;
@@ -90,7 +89,7 @@ function defaultVersionCommand(entry: NativePackageConfig): string {
   const identity = shellQuote(entry.identity);
   switch (entry.id) {
     case "cargo":
-      return `cargo metadata --no-deps --format-version 1 --manifest-path ${identity} | sed -n 's/.*"packages":\\[{"name":"[^"]*","version":"\\([^"]*\\)".*/\\1/p'`;
+      return `cargo metadata --no-deps --format-version 1 --manifest-path ${identity} | node -e ${shellQuote(`let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).packages.find(p=>p.name===${JSON.stringify(entry.name)}).version))`)}`;
     case "nuget":
       return `dotnet msbuild ${identity} -nologo -getProperty:Version`;
     case "maven-central":
@@ -174,20 +173,19 @@ const commands: Record<NativePackageId, (entry: NativePackageConfig) => Command[
     {
       label: "Composer validate",
       command: "composer",
-      args: ["validate", "--strict", "--no-check-publish"],
+      args: ["validate", "--strict", entry.identity],
       cwd: entry.path,
     },
   ],
   "go-module": (entry) => [
-    { label: "Go module tidy", command: "go", args: ["mod", "tidy"], cwd: entry.path },
+    { label: "Go module tidy", command: "go", args: ["mod", "tidy", "-diff"], cwd: entry.path },
     { label: "Go module tests", command: "go", args: ["test", "./..."], cwd: entry.path },
   ],
 };
 
 /** External registries do not generate files: their package metadata remains author-owned. */
 export const nativePackageSurfaces: Surface[] = NATIVE_PACKAGE_IDS.map((id) => ({
-  // Root extends SurfaceId with this tuple. Keep this module independently type-checkable first.
-  id: id as Surface["id"],
+  id,
   plan(project) {
     configFor(project, id);
     return [];
@@ -217,7 +215,7 @@ export function nativePackageSteps(project: Project): GateStep[] {
       case "cargo":
         steps.push({
           name: "Cargo crate",
-          run: `mkdir -p ${shellQuote(out)} && cargo package --manifest-path ${shellQuote(`${entry.path}/${entry.identity}`)} --target-dir ${shellQuote(`${out}/target`)} && cp ${shellQuote(`${out}/target/package`)}/*.crate ${shellQuote(out)}/`,
+          run: `mkdir -p ${shellQuote(out)} && cargo package --manifest-path ${shellQuote(`${entry.path}/${entry.identity}`)} --target-dir ${shellQuote(`dist/native-build/${entry.id}`)} && cp ${shellQuote(`dist/native-build/${entry.id}/package`)}/*.crate ${shellQuote(out)}/`,
         });
         break;
       case "nuget":
@@ -229,7 +227,7 @@ export function nativePackageSteps(project: Project): GateStep[] {
       case "maven-central":
         steps.push({
           name: "Maven package",
-          run: `mkdir -p ${shellQuote(out)} && mvn --batch-mode --file ${shellQuote(`${entry.path}/${entry.identity}`)} package && find ${shellQuote(`${entry.path}/target`)} -maxdepth 1 -type f \\( -name '*.jar' -o -name '*.pom' \\) -exec cp {} ${shellQuote(out)} \\;`,
+          run: `mkdir -p ${shellQuote(out)} && mvn --batch-mode --file ${shellQuote(`${entry.path}/${entry.identity}`)} package && cp ${shellQuote(`${entry.path}/${entry.identity}`)} ${shellQuote(`${out}/${entry.name.split(":")[1]}-${project.identity.version}.pom`)} && find ${shellQuote(`${entry.path}/target`)} -maxdepth 1 -type f \\( -name '*.jar' -o -name '*.war' -o -name '*.pom' \\) -exec cp {} ${shellQuote(out)} \\;`,
         });
         break;
       case "rubygems":
@@ -267,7 +265,7 @@ function row(project: Project, entry: NativePackageConfig): Registry {
   const version = entryVersion(project, entry);
   const [groupId = "", artifactId = ""] = entry.name.split(":");
   const mavenSearch = `https://search.maven.org/solrsearch/select?q=${encodeURIComponent(`g:"${groupId}" AND a:"${artifactId}" AND v:"${version}"`)}&rows=1&wt=json`;
-  const shared = {
+  const shared: Pick<Registry, "id" | "surfaces" | "url"> = {
     id: entry.id,
     surfaces: [entry.id],
     url: {
@@ -287,7 +285,7 @@ function row(project: Project, entry: NativePackageConfig): Registry {
         exists: `curl -fsS -o /dev/null ${shellQuote(`https://crates.io/api/v1/crates/${encodeURIComponent(entry.name)}/${encodeURIComponent(version)}`)}`,
         gate: '[ -n "$CARGO_REGISTRY_TOKEN" ]',
         retract: `cargo yank ${shellQuote(entry.name)} --vers ${shellQuote(version)} --token "$CARGO_REGISTRY_TOKEN"`,
-      } as unknown as Registry;
+      };
     case "nuget":
       return {
         ...shared,
@@ -295,7 +293,7 @@ function row(project: Project, entry: NativePackageConfig): Registry {
         exists: `curl -fsS -o /dev/null ${shellQuote(`https://api.nuget.org/v3-flatcontainer/${entry.name.toLowerCase()}/${version.toLowerCase()}/${entry.name.toLowerCase()}.${version.toLowerCase()}.nupkg`)}`,
         gate: '[ -n "$NUGET_API_KEY" ]',
         retract: `dotnet nuget delete ${shellQuote(entry.name)} ${shellQuote(version)} --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --non-interactive`,
-      } as unknown as Registry;
+      };
     case "maven-central":
       return {
         ...shared,
@@ -308,7 +306,7 @@ function row(project: Project, entry: NativePackageConfig): Registry {
         exists: `curl -fsS ${shellQuote(mavenSearch)} | node -e ${shellQuote("let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.exit(JSON.parse(s).response.numFound>0?0:1))")}`,
         gate: '[ -n "$MAVEN_CENTRAL_USERNAME" ] && [ -n "$MAVEN_CENTRAL_PASSWORD" ] && [ -n "$MAVEN_GPG_PRIVATE_KEY" ] && [ -n "$MAVEN_GPG_PASSPHRASE" ]',
         retractUrl: "https://central.sonatype.com/publishing/deployments",
-      } as unknown as Registry;
+      };
     case "rubygems":
       return {
         ...shared,
@@ -316,21 +314,21 @@ function row(project: Project, entry: NativePackageConfig): Registry {
         exists: `curl -fsS ${shellQuote(`https://rubygems.org/api/v1/versions/${encodeURIComponent(entry.name)}.json`)} | node -e ${shellQuote(`let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.exit(JSON.parse(s).some(v=>v.number===${JSON.stringify(version)})?0:1))`)}`,
         gate: '[ -n "$RUBYGEMS_API_KEY" ]',
         retract: `GEM_HOST_API_KEY="$RUBYGEMS_API_KEY" gem yank ${shellQuote(entry.name)} -v ${shellQuote(version)}`,
-      } as unknown as Registry;
+      };
     case "packagist":
       return {
         ...shared,
         secrets: [],
         gate: "true",
         retractUrl: "https://packagist.org/packages",
-      } as unknown as Registry;
+      };
     case "go-module":
       return {
         ...shared,
         secrets: [],
         gate: "true",
         retractUrl: "https://go.dev/ref/mod#go-mod-file-retract-directive",
-      } as unknown as Registry;
+      };
   }
 }
 
@@ -436,6 +434,12 @@ export function nativePublishJobs(
           };
           break;
       }
+      const steps = job.steps as Array<Record<string, unknown>>;
+      steps.unshift({ uses: "actions/setup-node@v7", with: { "node-version": "24" } });
+      const publish = steps.at(-1);
+      const exists = row(project, entry).exists;
+      if (publish && exists)
+        publish.run = `if ${exists}; then echo "${entry.id}: version already published"; else ${publish.run}; fi`;
       return [[`publish-${entry.id}`, job]];
     }),
   );
@@ -450,7 +454,7 @@ export function nativeInstallLines(project: Project): string[] {
         "maven-central": `add \`${entry.name}\` as a Maven dependency`,
         rubygems: `\`gem install ${entry.name}\``,
         packagist: `\`composer require ${entry.name}\``,
-        "go-module": `\`go get ${entry.name}@v${project.identity.version ?? "latest"}\``,
+        "go-module": `\`go get ${entry.name}@${project.identity.version ? `v${project.identity.version}` : "latest"}\``,
       })[entry.id],
   );
 }

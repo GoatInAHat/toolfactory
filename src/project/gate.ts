@@ -9,6 +9,13 @@
  * A step here is a command and nothing else. GitHub Actions `uses:` steps are runner provisioning
  * (checkout, toolchains, caches) and stay in `src/surfaces/workflows.ts`, which wraps this list.
  */
+
+import {
+  type NativePackageId,
+  nativePackageSteps,
+  nativeRegistryRows,
+  nativeToolchainSteps,
+} from "../distribution/native.js";
 import { githubSlug } from "../hosts/github.js";
 import { githubOwner, projectName } from "../identity/name.js";
 import { isInstructionOnly, type PackageManager, type Project, type SurfaceId } from "../model.js";
@@ -28,6 +35,14 @@ import {
   npmName,
   pypiName,
 } from "../surfaces/shared.js";
+import {
+  extensionName,
+  OVSX_VERSION,
+  publisher,
+  VSCE_VERSION,
+  HOST_DIR as VSCODE_HOST_DIR,
+  vsixName,
+} from "../surfaces/vscode-extension.js";
 
 export interface GateStep {
   /** Step label: the CI step name, and the banner the shell script echoes. */
@@ -140,7 +155,11 @@ export function gateSteps(project: Project): GateStep[] {
       when: "ci",
     });
   }
-  if (has(project, "web") || has(project, "browser-extension")) {
+  if (
+    has(project, "web") ||
+    has(project, "browser-extension") ||
+    has(project, "vscode-extension")
+  ) {
     // The web smoke and the browser extension's own Playwright smoke both drive Chromium;
     // their own npm installs fetch the browser, the runner needs its system libraries.
     steps.push({
@@ -149,6 +168,7 @@ export function gateSteps(project: Project): GateStep[] {
       when: "ci",
     });
   }
+  steps.push(...nativeToolchainSteps(project));
   steps.push({
     name: "toolfactory validate",
     run: `${cli} validate`,
@@ -160,6 +180,7 @@ export function gateSteps(project: Project): GateStep[] {
     name: "author tests",
     run: typescript ? pm.test : "uv run --with pytest pytest -q",
   });
+  if (typescript) steps.push({ name: "author integration tests", run: pm.run("test:integration") });
   if (openclaw) {
     // T3, credential-free: one real OpenClaw agent turn against a scripted model. The suite only
     // exists when `tool.json` `tests.examples` names an operation the plugin carries, which is
@@ -227,6 +248,8 @@ export function packageSteps(project: Project): GateStep[] {
     { name: "release directory", run: `rm -rf ${RELEASE_DIR} && mkdir -p ${RELEASE_DIR}` },
     ...bootstrapSteps(project),
     outputsStep(project),
+    ...nativeToolchainSteps(project),
+    ...nativePackageSteps(project),
   ];
   if (has(project, "web")) {
     steps.push({
@@ -329,6 +352,12 @@ export function packageSteps(project: Project): GateStep[] {
     });
   }
   // COVERAGE.md is tracked; coverage.json is a build output that need not be, so recompute it.
+  if (has(project, "vscode-extension")) {
+    steps.push({
+      name: "VS Code extension VSIX",
+      run: `npm --prefix ${VSCODE_HOST_DIR} install && npm --prefix ${VSCODE_HOST_DIR} run vsix && cp ${VSCODE_HOST_DIR}/extension.vsix ${RELEASE_DIR}/${vsixName(project)}`,
+    });
+  }
   steps.push({
     name: "coverage report",
     run: `cp COVERAGE.md ${RELEASE_DIR}/ && ${cli} coverage > ${RELEASE_DIR}/coverage.json`,
@@ -355,6 +384,7 @@ export function openclawTarball(project: Project): string {
 export interface Registry {
   /** Stable id: the release job suffix, the `secrets status` row, the unpublish step name. */
   id:
+    | NativePackageId
     | "npm"
     | "pypi"
     | "mcp-registry"
@@ -365,7 +395,9 @@ export interface Registry {
     | "chrome"
     | "firefox"
     | "edge"
-    | "safari";
+    | "safari"
+    | "vscode-marketplace"
+    | "open-vsx";
   /** The surfaces whose selection publishes here; all must be selected. */
   surfaces: SurfaceId[];
   /** Environment names the publish leg consumes (repository scope); [] for OIDC/GITHUB_TOKEN legs. */
@@ -447,6 +479,15 @@ const ASC_SECRETS = ["ASC_KEY_ID", "ASC_ISSUER_ID", "ASC_PRIVATE_KEY"];
 export const RELEASE_SECRET_NAMES = [
   "NPM_TOKEN",
   "CLAWHUB_TOKEN",
+  "VSCE_PAT",
+  "OVSX_PAT",
+  "CARGO_REGISTRY_TOKEN",
+  "NUGET_API_KEY",
+  "MAVEN_CENTRAL_USERNAME",
+  "MAVEN_CENTRAL_PASSWORD",
+  "MAVEN_GPG_PRIVATE_KEY",
+  "MAVEN_GPG_PASSPHRASE",
+  "RUBYGEMS_API_KEY",
   ...CHROME_SECRETS,
   ...FIREFOX_SECRETS,
   ...EDGE_SECRETS,
@@ -474,6 +515,28 @@ export function registries(project: Project): Registry[] {
   const wxtSubmit = `npm --prefix ${BROWSER_HOST_DIR} exec --no -- wxt submit --dry-run`;
 
   const rows: Registry[] = [
+    ...nativeRegistryRows(project),
+    {
+      id: "vscode-marketplace",
+      surfaces: ["vscode-extension"],
+      secrets: ["VSCE_PAT"],
+      url: "https://marketplace.visualstudio.com/manage",
+      probe: `npx --yes @vscode/vsce@${VSCE_VERSION} verify-pat ${publisher(project)}`,
+      exists: `npx --yes @vscode/vsce@${VSCE_VERSION} show ${publisher(project)}.${extensionName(project)} --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.exit(JSON.parse(s).versions.some(v=>v.version==="${version}")?0:1))'`,
+      gate: allSet(["VSCE_PAT"]),
+      retractUrl: "https://marketplace.visualstudio.com/manage",
+      retractHard: `npx --yes @vscode/vsce@${VSCE_VERSION} unpublish ${publisher(project)}.${extensionName(project)} --force`,
+    },
+    {
+      id: "open-vsx",
+      surfaces: ["vscode-extension"],
+      secrets: ["OVSX_PAT"],
+      url: "https://open-vsx.org/user-settings/tokens",
+      probe: `npx --yes ovsx@${OVSX_VERSION} verify-pat ${publisher(project)}`,
+      exists: `curl -fsS -o /dev/null https://open-vsx.org/api/${publisher(project)}/${extensionName(project)}/${version}`,
+      gate: allSet(["OVSX_PAT"]),
+      retractUrl: "https://open-vsx.org/user-settings/extensions",
+    },
     {
       id: "npm",
       surfaces: ["npm"],
@@ -627,7 +690,9 @@ export function registries(project: Project): Registry[] {
   const selected = rows.filter(
     (row) =>
       row.surfaces.every((surface) => has(project, surface)) &&
-      (row.id !== "safari" || project.tool.browserExtension?.safari === true),
+      (row.id !== "safari" || project.tool.browserExtension?.safari === true) &&
+      (row.id !== "vscode-marketplace" || project.tool.vscode?.marketplace !== false) &&
+      (row.id !== "open-vsx" || project.tool.vscode?.openvsx !== false),
   );
   const mcpRegistry = selected.find((row) => row.id === "mcp-registry");
   if (mcpRegistry) {
@@ -664,6 +729,10 @@ export function manualSteps(project: Project): string[] {
   const has_ = (id: Registry["id"]) => rows.some((row) => row.id === id);
   const slug = githubSlug(project.identity.repository);
   const steps: string[] = [];
+  if (has_("vscode-marketplace") || has_("open-vsx"))
+    steps.push(
+      "VS Code: register the publisher in Visual Studio Marketplace; create the Open VSX namespace and accept its publisher agreement before setting VSCE_PAT / OVSX_PAT. tool.vscode.publisher selects that identity.",
+    );
   if (has_("oci")) {
     steps.push(
       `ghcr.io: the first push publishes a private image whatever the repository's visibility, and GitHub has no visibility API — flip it once at ${rows.find((row) => row.id === "oci")?.url}.`,
