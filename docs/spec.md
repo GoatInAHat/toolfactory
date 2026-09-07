@@ -217,6 +217,15 @@ hooks).
 
 ### 3.1 How `mcp.json` reaches the kernel
 
+#### Instruction-only Codex plugins
+
+`tool.json.runtime: "none"` is the runtime-free mode. It accepts only `skill` and `codex` in
+`surfaces`; the generated plugin contains SKILL.md and `.codex-plugin/plugin.json`, with no
+`mcp.json`, `mcpServers` entry, operation snapshot, language scaffold, generated kernel, or
+consumer runtime dependency. Its required `binding` is retained only for schema compatibility.
+ToolFactory remains developer tooling; before a published release includes this mode, CI invokes
+a checked-out ToolFactory source copy rather than resolving ToolFactory from npm.
+
 toolfactory ships no installer. `tool.json.bundle.runtime` picks one of two spec-conformant shapes:
 
 | `bundle.runtime` | `mcp.json` entry | When |

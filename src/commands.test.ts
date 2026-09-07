@@ -17,6 +17,7 @@ import {
   type Operation,
   type Project,
   type SurfaceId,
+  ToolConfigSchema,
 } from "./model.js";
 import { RELOAD } from "./surfaces/agents.js";
 
@@ -125,6 +126,43 @@ describe("init", () => {
     expect(JSON.parse(readFileSync(join(dir, "package.json"), "utf8")).keywords).toEqual(["probe"]);
     // Asked for nothing, init selects the skills-first minimum; host plugins are opt-in.
     expect(defaultSurfaces("python")).toEqual(["skill", "agent-plugins", "mcp", "cli", "pypi"]);
+  });
+
+  it("creates an instruction-only Codex plugin without a generated runtime", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "toolfactory-instructions-"));
+    const result = commands.init({
+      root: dir,
+      name: "paper-viz",
+      binding: "typescript",
+      runtime: "none",
+      surfaces: ["skill", "codex"],
+      git: false,
+      setup: false,
+    });
+
+    expect(existsSync(join(dir, "package.json"))).toBe(false);
+    expect(existsSync(join(dir, "src/toolfactory/mcp.ts"))).toBe(false);
+    expect(existsSync(join(dir, "mcp.json"))).toBe(false);
+    expect(
+      JSON.parse(readFileSync(join(dir, ".codex-plugin/plugin.json"), "utf8")),
+    ).not.toHaveProperty("mcpServers");
+    expect(readFileSync(join(dir, "skills/paper-viz/SKILL.md"), "utf8")).not.toContain(
+      "No operations yet",
+    );
+    expect(result.nextSteps[2]).toContain("SKILL.md");
+    await expect(commands.check(dir)).resolves.toBeDefined();
+  });
+
+  it("refuses runtime none with a surface that needs an executable payload", () => {
+    expect(() =>
+      ToolConfigSchema.parse({
+        schemaVersion: 1,
+        identity: "plugin.json",
+        binding: "typescript",
+        runtime: "none",
+        surfaces: ["skill", "mcp"],
+      }),
+    ).toThrow(/skill and codex surfaces/);
   });
 });
 

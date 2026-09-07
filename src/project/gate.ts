@@ -11,7 +11,7 @@
  */
 import { githubSlug } from "../hosts/github.js";
 import { githubOwner, projectName } from "../identity/name.js";
-import type { PackageManager, Project, SurfaceId } from "../model.js";
+import { isInstructionOnly, type PackageManager, type Project, type SurfaceId } from "../model.js";
 import {
   HOST_DIR as BROWSER_HOST_DIR,
   sourcesZipName,
@@ -67,6 +67,7 @@ export const PACKAGE_MANAGER_COMMANDS: Record<
 
 /** How the project invokes toolfactory: the devDependency in a TypeScript project, a pinned fetch otherwise. */
 export function toolfactoryCli(project: Project): string {
+  if (isInstructionOnly(project.tool)) return `npx --yes toolfactory@${project.toolfactoryVersion}`;
   return project.tool.binding === "typescript"
     ? "npx toolfactory"
     : `npx --yes toolfactory@${project.toolfactoryVersion}`;
@@ -90,6 +91,7 @@ export function outputsStep(project: Project): GateStep {
 }
 
 export function bootstrapSteps(project: Project): GateStep[] {
+  if (isInstructionOnly(project.tool)) return [];
   const pm = commands(project);
   return project.tool.binding === "typescript"
     ? [
@@ -107,6 +109,14 @@ export function bootstrapSteps(project: Project): GateStep[] {
  * away from what `validate` actually runs.
  */
 export function gateSteps(project: Project): GateStep[] {
+  if (isInstructionOnly(project.tool)) {
+    const cli = toolfactoryCli(project);
+    return [
+      { name: "toolfactory check", run: `${cli} check` },
+      outputsStep(project),
+      { name: "toolfactory validate", run: `${cli} validate` },
+    ];
+  }
   const typescript = project.tool.binding === "typescript";
   const pm = commands(project);
   const cli = toolfactoryCli(project);
@@ -188,6 +198,20 @@ function bundlePaths(project: Project): string[] {
   return paths;
 }
 
+/** License notices stay with a plugin bundle when the author carries them at the repository root. */
+const LEGAL_BUNDLE_PATHS = [
+  "LICENSE",
+  "LICENSE.md",
+  "LICENSE.txt",
+  "NOTICE",
+  "NOTICE.md",
+  "NOTICE.txt",
+];
+
+function optionalBundleLegalFiles(): string {
+  return `$(for path in ${LEGAL_BUNDLE_PATHS.join(" ")}; do [ -f "$path" ] && printf '%s ' "$path"; done)`;
+}
+
 /**
  * The release assets, into `dist/release/`: the same list locally (`toolfactory package`) and in
  * the release workflow's `package` job, which uploads the directory as one artifact. Publishing
@@ -248,7 +272,7 @@ export function packageSteps(project: Project): GateStep[] {
   if (bundle.length) {
     steps.push({
       name: "plugin bundle",
-      run: `zip -qr ${RELEASE_DIR}/${name}-plugin.zip ${bundle.join(" ")}`,
+      run: `zip -qr ${RELEASE_DIR}/${name}-plugin.zip ${bundle.join(" ")} ${optionalBundleLegalFiles()}`,
     });
   }
   if (has(project, "web")) {

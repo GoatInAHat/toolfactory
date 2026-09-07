@@ -21,6 +21,14 @@
       ],
       "description": "Language of the core logic and its kernel surfaces."
     },
+    "runtime": {
+      "description": "Whether this project has an executable kernel. `none` is for an instruction-only Codex skill/plugin and permits only the skill and codex surfaces.",
+      "type": "string",
+      "enum": [
+        "kernel",
+        "none"
+      ]
+    },
     "surfaces": {
       "minItems": 1,
       "type": "array",

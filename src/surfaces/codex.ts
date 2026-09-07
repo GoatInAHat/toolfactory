@@ -73,16 +73,17 @@ export const surface: Surface = {
     // marketplace.json, `plugin add` installs the plugin entry it names (parsing plugin.json),
     // and `plugin list --available` confirms it resolves — the real install path end to end.
     const pluginId = `${project.identity.name}@${project.identity.name}`;
-    // `plugin add` copies the plugin directory verbatim. A checkout carries node_modules (and the
-    // OpenClaw host's link back to this repository), so the install runs from a staged copy that
-    // has neither — the tree a `git clone` of the repository would give Codex.
+    // `plugin add` copies the plugin directory verbatim. Stage only the distributable tree: a
+    // source checkout may carry dependencies, a source-pinned toolfactory cache, nested Git data,
+    // or environment files that must never become part of an installed plugin.
     const script = [
-      'CODEX_HOME="$(mktemp -d)"; STAGE="$(mktemp -d)"; export CODEX_HOME',
-      'tar --exclude=./.git --exclude=node_modules --exclude=dist -cf - . | tar -xf - -C "$STAGE"',
-      'cd "$STAGE"',
-      `out="$({ npx -y @openai/codex@${CODEX_PIN} plugin marketplace add . --json && npx -y @openai/codex@${CODEX_PIN} plugin add ${pluginId} --json && npx -y @openai/codex@${CODEX_PIN} plugin list --available --json; } 2>&1)"`,
+      'TF_CODEX_HOME="$(mktemp -d)"; TF_STAGE="$(mktemp -d)"',
+      'tar --exclude=.git --exclude=*/.git --exclude=.cache --exclude=.env --exclude=.env.* --exclude=node_modules --exclude=dist -cf - . | tar -xf - -C "$TF_STAGE"',
+      'test ! -e "$TF_STAGE/.cache" && test ! -e "$TF_STAGE/.env" && test -z "$(find "$TF_STAGE" -type d -name .git -print -quit)" || { rm -rf "$TF_CODEX_HOME" "$TF_STAGE"; exit 1; }',
+      'cd "$TF_STAGE"',
+      `out="$({ CODEX_HOME="$TF_CODEX_HOME" npx -y @openai/codex@${CODEX_PIN} plugin marketplace add . --json && CODEX_HOME="$TF_CODEX_HOME" npx -y @openai/codex@${CODEX_PIN} plugin add ${pluginId} --json && CODEX_HOME="$TF_CODEX_HOME" npx -y @openai/codex@${CODEX_PIN} plugin list --available --json; } 2>&1)"`,
       "status=$?",
-      'rm -rf "$CODEX_HOME" "$STAGE"',
+      'rm -rf "$TF_CODEX_HOME" "$TF_STAGE"',
       'printf "%s\\n" "$out"',
       "exit $status",
     ].join("\n");

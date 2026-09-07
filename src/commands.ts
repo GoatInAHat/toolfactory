@@ -31,6 +31,7 @@ import type {
 import {
   assertNoSensitiveArgument,
   defaultSurfaces,
+  isInstructionOnly,
   SURFACE_IDS,
   ToolConfigSchema,
 } from "./model.js";
@@ -78,6 +79,8 @@ export interface InitOptions {
   name: string;
   description?: string;
   binding: Binding;
+  /** `none` creates an instruction-only skill/Codex plugin with no executable payload. */
+  runtime?: "kernel" | "none";
   /** Default: `defaultSurfaces(binding)`, the skills-first minimum. */
   surfaces?: SurfaceId[];
   license?: string;
@@ -172,7 +175,9 @@ function nextSteps(project: Project, agentConfig: InitResult["agentConfig"]): st
       ? `Agent config is wired: \`.agents/\` is the canon (\`skills/\`, \`mcp/servers.json\`). \`${SETUP_PATH}\` rendered ${agentConfig.harnesses.length} harness adapter(s) here (${agentConfig.harnesses.join(", ") || "none detected"}) and installed the pre-commit/post-checkout/post-merge hooks, so pulls, branch switches and commits re-sync on their own. Details: \`.agents/README.md\`.`
       : `Agent config is written but \`${SETUP_PATH}\` did not finish here: run \`bash ${SETUP_PATH}\` to render the harness adapters from \`.agents/\`, install the git hooks that keep them in sync, and install the dependencies. Details: \`.agents/README.md\`.`,
     reloadLine(process.env),
-    `Next: write your operations in \`${ops}\`, then \`${cli} introspect && ${cli} build\`.`,
+    isInstructionOnly(project.tool)
+      ? `Next: write the skill instructions in \`skills/${project.identity.name}/SKILL.md\`, then \`${cli} build\`.`
+      : `Next: write your operations in \`${ops}\`, then \`${cli} introspect && ${cli} build\`.`,
     ...(summary ? [summary] : []),
   ];
 }
@@ -219,6 +224,7 @@ export function init(options: InitOptions): InitResult {
     schemaVersion: 1,
     identity: identityPath,
     binding: options.binding,
+    ...(options.runtime ? { runtime: options.runtime } : {}),
     surfaces,
   });
   const toolPath = join(root, TOOL_PATH);
@@ -235,7 +241,8 @@ export function init(options: InitOptions): InitResult {
     operations: [],
     toolfactoryVersion: TOOLFACTORY_VERSION,
   };
-  written.push(...writeIfAbsent(root, getBinding(options.binding).scaffold(scaffoldProject)));
+  if (!isInstructionOnly(tool))
+    written.push(...writeIfAbsent(root, getBinding(options.binding).scaffold(scaffoldProject)));
   // A region file that predates toolfactory has no markers, and `apply` refuses to guess where
   // they go; appending the empty pair lets `init` run in a folder that already has these files.
   for (const file of ["agents", "readme"].flatMap((id) =>
@@ -328,11 +335,11 @@ export async function check(root = "."): Promise<{ project: Project; drift: Drif
   const project = loadProject(root);
   assertNoSensitiveArgument(project.tool.config, project.operations);
   const drift = checkPlan(project.root, buildPlan(project), TOOLFACTORY_VERSION);
-  const ops = await snapshot(project);
-  if (ops.changed) drift.unshift({ kind: "changed", path: OPS_PATH });
+  const ops = isInstructionOnly(project.tool) ? undefined : await snapshot(project);
+  if (ops?.changed) drift.unshift({ kind: "changed", path: OPS_PATH });
   if (drift.length) {
     throw new Error(
-      `${drift.length} generated file(s) out of date; run \`toolfactory ${ops.changed ? "introspect" : "build"}\`:\n${drift.map((d) => `  ${d.kind}: ${d.path}`).join("\n")}`,
+      `${drift.length} generated file(s) out of date; run \`toolfactory ${ops?.changed ? "introspect" : "build"}\`:\n${drift.map((d) => `  ${d.kind}: ${d.path}`).join("\n")}`,
     );
   }
   return { project, drift };
@@ -341,6 +348,10 @@ export async function check(root = "."): Promise<{ project: Project; drift: Drif
 /** Regenerate the kernel first so the snapshot always reflects the current templates. */
 export async function introspect(root = ".") {
   const { project } = build(root);
+  if (isInstructionOnly(project.tool))
+    throw new Error(
+      'runtime "none" has no kernel to introspect; edit SKILL.md and run `toolfactory build`.',
+    );
   const snapshot = await runIntrospect(project);
   // Against the operations the kernel just reported, not the ones on disk: this is the moment an
   // author who routed a secret through an argument finds out, before it reaches any surface.

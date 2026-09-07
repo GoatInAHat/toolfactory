@@ -20,7 +20,13 @@
 import { stringify as yamlStringify } from "yaml";
 import { LIVE_TEST_COMMAND } from "../bindings/python.js";
 import { githubOwner } from "../identity/name.js";
-import type { PackageManager, PlannedFile, Project, Surface } from "../model.js";
+import {
+  isInstructionOnly,
+  type PackageManager,
+  type PlannedFile,
+  type Project,
+  type Surface,
+} from "../model.js";
 import {
   bootstrapSteps,
   type GateStep,
@@ -114,9 +120,13 @@ function toolchainSteps(project: Project, node: string, ref?: string): Step[] {
   const steps: Step[] = [checkoutStep(ref)];
   if (project.tool.binding === "typescript") {
     // uv runs the agentskills validator; the python toolchain has it anyway.
-    steps.push(...SETUP_ACTIONS[pmName], {
+    if (!isInstructionOnly(project.tool)) steps.push(...SETUP_ACTIONS[pmName]);
+    steps.push({
       uses: "actions/setup-node@v7",
-      with: { "node-version": node, cache: pmName },
+      with: {
+        "node-version": node,
+        ...(isInstructionOnly(project.tool) ? {} : { cache: pmName }),
+      },
     });
     if (has(project, "skill") || has(project, "hermes-native"))
       steps.push({ uses: "astral-sh/setup-uv@v6" });

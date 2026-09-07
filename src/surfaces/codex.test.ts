@@ -53,6 +53,19 @@ describe("codex", () => {
     expect(script).toContain("plugin marketplace add . --json");
     expect(script).toContain("plugin add hello@hello --json");
     expect(script).toContain("plugin list --available --json");
-    expect(script).toContain("CODEX_HOME");
+    expect(script).toContain('TF_CODEX_HOME="$(mktemp -d)"');
+    expect(script).toContain("--exclude=.cache --exclude=.env --exclude=.env.*");
+    expect(script).toContain("--exclude=.git --exclude=*/.git");
+    expect(script).toContain('CODEX_HOME="$TF_CODEX_HOME"');
+    expect(script).toContain('test ! -e "$TF_STAGE/.cache"');
+  });
+
+  it("ships only the skill when runtime is none", () => {
+    const target = project(["skill", "codex"]);
+    target.tool.runtime = "none";
+    const manifest = codex.plan(target).find((entry) => entry.path === ".codex-plugin/plugin.json");
+    if (manifest?.kind !== "file") throw new Error("expected a manifest");
+    expect(JSON.parse(manifest.content)).toMatchObject({ skills: "./skills/" });
+    expect(JSON.parse(manifest.content)).not.toHaveProperty("mcpServers");
   });
 });

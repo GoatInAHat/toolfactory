@@ -93,7 +93,7 @@
       "state": "generated"
     },
     ".github/workflows/release.yml": {
-      "sha256": "042ccc91d868a03cb1d39b1210acb454d6c389f58ec07bc31da77a0e9ab4232b",
+      "sha256": "29edb4eee66b8ea15a5790a3314aa4f638febcfc0d66370e5b4f7fe3d72de594",
       "state": "generated"
     },
     ".gitignore": {
@@ -133,7 +133,7 @@
       "state": "generated"
     },
     "dev.toolfactory/tool.schema.json": {
-      "sha256": "7cc03b0e4f8e2b1e616e288fb896e541c4e15c6a419a331a1a4afeaae498ba72",
+      "sha256": "7903b767f80a213e05bc7ad71a08440a43a5ca1ffb62c2642ab99b383d76e153",
       "state": "generated"
     },
     "Dockerfile": {
@@ -296,7 +296,7 @@
       "state": "generated"
     },
     "hosts/hermes/toolfactory_hermes/__init__.py": {
-      "sha256": "3a0340d60ff7d3eb2188014f93215517aeeb3aab790a0ffc62b07c79c6f45bab",
+      "sha256": "077aaed98798697014d8b0e89e3e977e63f7029a6afbf49c50aee302932ea90d",
       "state": "generated"
     },
     "hosts/hermes/toolfactory_hermes/plugin.yaml": {
@@ -336,7 +336,7 @@
       "state": "generated"
     },
     "hosts/openclaw/src/index.ts": {
-      "sha256": "25597b4f182bb9dfb918f7cbb8b2813f5ee73364ae0293b3345a07c38d41b178",
+      "sha256": "87b0ecd7ab030caba4b9f5f042172d87f71d27048830f09657c22eff717aed8f",
       "state": "generated",
       "regions": [
         {
@@ -404,7 +404,7 @@
       "state": "generated"
     },
     "skills/toolfactory/SKILL.md": {
-      "sha256": "c3abe1de6c1639645729233f78671a0123660319dfbf5714b194cd5b45b7e7fc",
+      "sha256": "2f6f374ba022b641538760dbe7abbf019db95227c5613e7ab8a97ef4e6304ef8",
       "state": "generated",
       "regions": [
         {
@@ -511,7 +511,7 @@
       "state": "generated"
     },
     "web/src/ops.json": {
-      "sha256": "83d38513c6c4a01f139bf69f73831c8ba72920455517eb386c1bf3f7630a1856",
+      "sha256": "d36ed4316d074e4212b6499df25ef61b24268f4f8653172b64eefc2a73d7a3ed",
       "state": "generated"
     },
     "web/src/schema-form.tsx": {

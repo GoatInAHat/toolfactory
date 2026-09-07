@@ -70,6 +70,17 @@ function expectAllYamlAndJsonParse(files: Record<string, string>): void {
 }
 
 describe("workflows", () => {
+  it("sets up Node without a package-manager cache for an instruction-only plugin", () => {
+    const target = project(["skill", "codex"]);
+    target.tool.runtime = "none";
+    const ci = yamlParse(emitted(target)[".github/workflows/ci.yml"] ?? "") as {
+      jobs: { test: { steps: Array<{ uses?: string; with?: Record<string, string> }> } };
+    };
+    const setupNode = ci.jobs.test.steps.find((step) => step.uses === "actions/setup-node@v7");
+    expect(setupNode?.with).toEqual({ "node-version": "${{ matrix.node-version }}" });
+    expect(ci.jobs.test.steps.some((step) => step.uses === "pnpm/action-setup@v4")).toBe(false);
+  });
+
   it("always emits ci.yml, release.yml, .env.example and renovate.json, never compose without a trigger", () => {
     const files = emitted(project(["cli", "mcp"]));
     expect(Object.keys(files).sort()).toEqual([
@@ -497,7 +508,9 @@ describe("gate", () => {
     expect(runs).toContain("npm pack --pack-destination dist/release");
     expect(runs).toContain("uv build --out-dir dist/release");
     expect(runs.some((run) => run.includes("npm pack ./hosts/openclaw"))).toBe(true);
-    expect(runs).toContain("zip -qr dist/release/hello-plugin.zip skills .claude-plugin");
+    expect(runs).toContain(
+      'zip -qr dist/release/hello-plugin.zip skills .claude-plugin $(for path in LICENSE LICENSE.md LICENSE.txt NOTICE NOTICE.md NOTICE.txt; do [ -f "$path" ] && printf \'%s \' "$path"; done)',
+    );
     expect(runs.some((run) => run.includes("hello-web.tar.gz"))).toBe(true);
     // wxt zip -b <browser> per store, copied into dist/release under zipName()'s own names, plus
     // the Firefox sources zip `wxt zip -b firefox` writes alongside it.
