@@ -6,7 +6,7 @@
 import { pythonPackage } from "../bindings/python.js";
 import { KERNEL_DIR } from "../bindings/typescript.js";
 import { githubOwner, projectName } from "../identity/name.js";
-import type { Project, Surface } from "../model.js";
+import type { PlannedFile, Project, Surface } from "../model.js";
 import {
   compact,
   configProperties,
@@ -88,6 +88,44 @@ const DOCKER_PACKAGE_MANAGERS: Record<
   },
 };
 
+const DOCKERIGNORE_BEGIN = "# tf:dockerignore";
+const DOCKERIGNORE_END = "# /tf:dockerignore";
+
+/** Build context hygiene is generated, while the rest of `.dockerignore` stays author-owned. */
+function dockerignore(): PlannedFile {
+  return {
+    kind: "region",
+    path: ".dockerignore",
+    regions: [
+      {
+        begin: DOCKERIGNORE_BEGIN,
+        end: DOCKERIGNORE_END,
+        content: `
+.git/
+.env
+.env.*
+!.env.example
+node_modules/
+**/node_modules/
+.venv/
+**/.venv/
+dist/
+coverage/
+test-results/
+playwright-report/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+__pycache__/
+**/__pycache__/
+.vscode-test/
+`,
+      },
+    ],
+    template: `${DOCKERIGNORE_BEGIN}\n${DOCKERIGNORE_END}\n\n# Add local build inputs to exclude below.\n`,
+  };
+}
+
 /**
  * The root `Dockerfile`, stdio only (§4.1: no `--host` flag exists to bind past loopback), one
  * multi-stage build per binding. `label` is `server.json`'s own `name`, byte for byte — the MCP
@@ -114,13 +152,13 @@ WORKDIR /app
 # assuming optional metadata files exist.
 COPY . .
 RUN uv sync --no-dev
+RUN mkdir /app/runtime && cp pyproject.toml /app/runtime/ && cp -R src /app/runtime/src && for path in README README.md README.rst LICENSE LICENSE.md LICENSE.txt NOTICE NOTICE.md NOTICE.txt; do if [ -f "$path" ]; then cp "$path" /app/runtime/; fi; done
 
 FROM ${PYTHON_IMAGE}
 LABEL io.modelcontextprotocol.server.name="${label}"
 WORKDIR /app
 COPY --from=build /app/.venv ./.venv
-COPY --from=build /app/src ./src
-COPY --from=build /app/pyproject.toml ./
+COPY --from=build /app/runtime/ ./
 ${
   web
     ? `COPY --from=web /app/web/dist ./src/${pythonPackage(project)}/${WEB_DIR}
@@ -204,6 +242,7 @@ export const surface: Surface = {
     return [
       { kind: "file", path: "server.json", content: json(server) },
       { kind: "file", path: "Dockerfile", content: dockerfileTemplate(project, name) },
+      dockerignore(),
     ];
   },
 };
