@@ -483,7 +483,9 @@ function releaseDocument(
   const priorLegs: string[] = [];
 
   if (npmSelected) {
-    const tarball = `${RELEASE_ARTIFACT}/${npmTarball(project)}`;
+    // npm treats a slash-containing bare operand as a Git spec; make the downloaded archive a
+    // filesystem path explicitly.
+    const tarball = `./${RELEASE_ARTIFACT}/${npmTarball(project)}`;
     jobs["publish-npm"] = compact({
       needs: ["gate", "package"],
       if: gated("npm"),

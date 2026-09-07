@@ -172,7 +172,7 @@ jobs:
       - name: npm publish
         env:
           NPM_TOKEN: ${{ vars.NPM_TRUSTED_PUBLISHER != 'true' && secrets.NPM_TOKEN || '' }}
-        run: 'if npm view toolfactory@0.1.2 version >/dev/null 2>&1; then echo "::notice::npm: toolfactory@0.1.2 already published; skipping immutable version."; elif [ "$NPM_TRUSTED_PUBLISHER" = true ]; then npm publish release-assets/toolfactory-0.1.2.tgz --access public; else NODE_AUTH_TOKEN="$NPM_TOKEN" npm publish release-assets/toolfactory-0.1.2.tgz --access public; fi'
+        run: 'if npm view toolfactory@0.1.2 version >/dev/null 2>&1; then echo "::notice::npm: toolfactory@0.1.2 already published; skipping immutable version."; elif [ "$NPM_TRUSTED_PUBLISHER" = true ]; then npm publish ./release-assets/toolfactory-0.1.2.tgz --access public; else NODE_AUTH_TOKEN="$NPM_TOKEN" npm publish ./release-assets/toolfactory-0.1.2.tgz --access public; fi'
   publish-oci:
     needs: gate
     if: needs.gate.outputs.oci == 'true'

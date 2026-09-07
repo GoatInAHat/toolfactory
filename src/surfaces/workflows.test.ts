@@ -372,10 +372,10 @@ describe("workflows", () => {
         (s) =>
           s.run?.includes("npm view hello@0.1.0 version") &&
           s.run?.includes(
-            'elif [ "$NPM_TRUSTED_PUBLISHER" = true ]; then npm publish release-assets/hello-0.1.0.tgz --access public',
+            'elif [ "$NPM_TRUSTED_PUBLISHER" = true ]; then npm publish ./release-assets/hello-0.1.0.tgz --access public',
           ) &&
           s.run?.includes(
-            'NODE_AUTH_TOKEN="$NPM_TOKEN" npm publish release-assets/hello-0.1.0.tgz --access public',
+            'NODE_AUTH_TOKEN="$NPM_TOKEN" npm publish ./release-assets/hello-0.1.0.tgz --access public',
           ),
       ),
     ).toBe(true);
