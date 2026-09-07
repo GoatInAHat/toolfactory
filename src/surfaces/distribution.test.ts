@@ -90,6 +90,7 @@ describe("npm", () => {
       tool: {
         hatch: {
           build: {
+            artifacts: ["web/dist/**"],
             targets: {
               wheel: {
                 "only-include": ["src/hello", "web/dist"],
@@ -122,6 +123,9 @@ readme = "README.md"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build]
+artifacts = ["web/dist/**"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/hello"]
 only-include = ["src/hello", "web/dist"]
@@ -136,13 +140,28 @@ only-include = ["pyproject.toml", "README.md", "LICENSE", "src/hello", "web/dist
     );
     writeFileSync(join(root, "README.md"), "# hello\n");
     writeFileSync(join(root, "LICENSE"), "MIT\n");
+    writeFileSync(join(root, ".gitignore"), "dist/\n");
     writeFileSync(join(root, "src", "hello", "__init__.py"), "");
-    writeFileSync(join(root, "web", "dist", "index.html"), "<main>hello</main>\n");
-    const build = spawnSync("uv", ["build", "--sdist", "--out-dir", "dist/release/pypi"], {
+    mkdirSync(join(root, "web", "dist", "assets"), { recursive: true });
+    writeFileSync(
+      join(root, "web", "dist", "index.html"),
+      '<link rel="stylesheet" href="assets/app.css"><script src="assets/app.js"></script>\n',
+    );
+    writeFileSync(join(root, "web", "dist", "assets", "app.css"), "main{color:#000}\n");
+    writeFileSync(join(root, "web", "dist", "assets", "app.js"), "console.log('hello')\n");
+    const build = spawnSync("uv", ["build", "--out-dir", "dist/release/pypi"], {
       cwd: root,
       encoding: "utf8",
     });
     expect(build.status, build.stderr).toBe(0);
+    const wheel = spawnSync(
+      "unzip",
+      ["-l", join(root, "dist", "release", "pypi", "hello-0.1.0-py2.py3-none-any.whl")],
+      { encoding: "utf8" },
+    );
+    expect(wheel.status, wheel.stderr).toBe(0);
+    expect(wheel.stdout).toContain("hello/web/assets/app.css");
+    expect(wheel.stdout).toContain("hello/web/assets/app.js");
     const stage = join(root, "dist", "mcpb");
     mkdirSync(stage, { recursive: true });
     const extract = spawnSync(
@@ -162,6 +181,8 @@ only-include = ["pyproject.toml", "README.md", "LICENSE", "src/hello", "web/dist
     expect(existsSync(join(stage, "README.md"))).toBe(true);
     expect(existsSync(join(stage, "LICENSE"))).toBe(true);
     expect(existsSync(join(stage, "web", "dist", "index.html"))).toBe(true);
+    expect(existsSync(join(stage, "web", "dist", "assets", "app.css"))).toBe(true);
+    expect(existsSync(join(stage, "web", "dist", "assets", "app.js"))).toBe(true);
   });
 });
 

@@ -37,6 +37,10 @@ export const surface: Surface = {
             tool: {
               hatch: {
                 build: {
+                  // Hatch's normal file selection honors .gitignore; `web/dist` is ignored in
+                  // every generated project, so artifacts is the standard explicit opt-in for
+                  // the release build's compiled page.
+                  artifacts: [`${WEB_DIR}/dist/**`],
                   targets: {
                     wheel: {
                       "only-include": [`src/${pythonPackage(project)}`, `${WEB_DIR}/dist`],
