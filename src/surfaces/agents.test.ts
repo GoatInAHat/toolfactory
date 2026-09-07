@@ -129,6 +129,22 @@ describe("agents", () => {
     expect(setup).toContain("npm install --no-audit --no-fund");
   });
 
+  it("installs uv before Python projects run the vendored setup workflow", () => {
+    const workflow = planned(
+      project(["cli"], { binding: "python" }),
+      ".github/workflows/agent-config.yml",
+    );
+    if (workflow.kind !== "file") throw new Error("expected an agent-config workflow file");
+    const install = "uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0";
+    expect(workflow.content).toContain(install);
+    expect(workflow.content.indexOf(install)).toBeLessThan(
+      workflow.content.indexOf("run: bash .agents/setup --all"),
+    );
+    const typescript = planned(project(["cli"]), ".github/workflows/agent-config.yml");
+    if (typescript.kind !== "file") throw new Error("expected an agent-config workflow file");
+    expect(typescript.content).toBe(TEMPLATE_FILES[".github/workflows/agent-config.yml"]);
+  });
+
   it("owns the agent adapters, the binding's ignores and the build outputs in .gitignore", () => {
     const bare = region(project(["cli"]), IGNORE_PATH);
     const agentBlocks = (TEMPLATE_FILES[IGNORE_PATH] ?? "").split("# ─── Secrets")[0] ?? "";

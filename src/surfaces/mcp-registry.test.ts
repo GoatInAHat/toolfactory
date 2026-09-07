@@ -65,6 +65,8 @@ describe("mcp-registry Dockerfile", () => {
 
     const py = files(project({ tool: { ...project().tool, binding: "python" } }));
     expect(py.Dockerfile).toContain('ENTRYPOINT ["python","-m","hello.toolfactory.mcp"]');
+    expect(py.Dockerfile).toContain("COPY . .\nRUN uv sync --no-dev");
+    expect(py.Dockerfile).not.toContain("COPY pyproject.toml ./");
 
     const pythonWeb = files(
       project({
