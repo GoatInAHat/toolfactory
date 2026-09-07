@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Project } from "../model.js";
 import {
   systemPackageConfigSchema,
+  systemPackageJobs,
   systemPackageSteps,
   systemPublishJobs,
   systemRegistryRows,
@@ -42,7 +43,7 @@ describe("system packages", () => {
     expect(() => systemPackageSteps(project([], ["chocolatey"]))).toThrow(/exactly one/);
   });
   it("packages with checkout-relative paths", () => {
-    const steps = systemPackageSteps(project([choco]));
+    const steps = systemPackageSteps(project([choco]), { local: false });
     expect(steps.at(-1)?.run).toContain("choco pack 'packaging/choco/tool.nuspec'");
     expect(steps.at(-1)?.run).not.toContain("/local/never-in-output");
   });
@@ -53,6 +54,7 @@ describe("system packages", () => {
       identity: "manifests/a/acme/tool/1.2.3",
       name: "Acme.Tool",
       versionCommand: "cat VERSION",
+      buildCommand: "./build-installer.ps1",
       asset: "dist/tool.msi",
     };
     const apt = {
@@ -62,8 +64,9 @@ describe("system packages", () => {
       name: "tool",
       versionCommand: "dpkg-parsechangelog -S Version | cut -d- -f1",
       ppa: "acme/tool",
+      buildDependencies: ["debhelper"],
     };
-    const steps = systemPackageSteps(project([winget, apt]));
+    const steps = systemPackageSteps(project([winget, apt]), { local: false });
     expect(steps.find((step) => step.name === "WinGet catalog submission")?.run).toContain(
       "test -d 'packaging/winget/manifests/a/acme/tool/1.2.3'",
     );
@@ -72,15 +75,17 @@ describe("system packages", () => {
     expect(debian).toContain("'dist/release/system/apt'");
     expect(debian).not.toContain("../dist/release");
   });
-  it("gates direct jobs and leaves reviewed catalogs out of direct publication", () => {
+  it("gates direct jobs and commits author-controlled Homebrew metadata after release", () => {
     const brew = {
       id: "homebrew",
       path: "packaging/brew",
       identity: "tool.rb",
       name: "tool",
       versionCommand: "grep VERSION tool.rb",
+      buildCommand: "make release-archive",
       asset: "dist/tool.tar.gz",
       tap: "acme/homebrew-tap",
+      catalogPath: "Formula/tool.rb",
     };
     const jobs = systemPublishJobs(
       project([choco, brew]),
@@ -88,11 +93,28 @@ describe("system packages", () => {
       "${{ needs.gate.outputs.sha }}",
     );
     expect(jobs["publish-chocolatey"]?.if).toBe("needs.gate.outputs.chocolatey == 'true'");
-    expect(jobs["publish-homebrew"]).toBeUndefined();
-    expect(JSON.stringify(jobs["publish-chocolatey"])).toContain(
-      "release-assets/system/chocolatey",
-    );
+    expect(jobs["publish-homebrew"]?.needs).toEqual(["gate", "release"]);
+    expect(JSON.stringify(jobs["publish-homebrew"])).toContain("git -C .system-catalog push");
+    expect(JSON.stringify(jobs["publish-chocolatey"])).toContain("system-chocolatey");
     expect(JSON.stringify(jobs)).not.toContain("/local/never-in-output");
     expect(systemRegistryRows(project([choco])).at(0)?.secrets).toEqual(["CHOCOLATEY_API_KEY"]);
+  });
+  it("uses dedicated native runners and upload names instead of the Ubuntu package job", () => {
+    const brew = {
+      id: "homebrew",
+      path: "packaging/brew",
+      identity: "tool.rb",
+      name: "tool",
+      versionCommand: "grep VERSION tool.rb",
+      buildCommand: "make release-archive",
+      asset: "dist/tool.tar.gz",
+      tap: "acme/homebrew-tap",
+      catalogPath: "Formula/tool.rb",
+    };
+    const jobs = systemPackageJobs(project([choco, brew]), "${{ github.sha }}");
+    expect(jobs["system-homebrew"]?.["runs-on"]).toBe("macos-latest");
+    expect(jobs["system-chocolatey"]?.["runs-on"]).toBe("windows-latest");
+    expect(JSON.stringify(jobs["system-chocolatey"])).toContain("system-chocolatey");
+    expect(JSON.stringify(jobs)).not.toContain("/local/never-in-output");
   });
 });
