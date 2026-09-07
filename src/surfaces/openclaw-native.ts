@@ -35,7 +35,7 @@ import {
 /** Transcribed from `openclaw plugins init --type tool`; `validate()` proves them still current. */
 export const OPENCLAW_SCAFFOLD = {
   /** The OpenClaw release the scaffold was taken from (`package.json openclaw.build`). */
-  openclawVersion: "2026.8.2",
+  openclawVersion: "2026.9.2",
   /** `peerDependencies.openclaw` and `openclaw.compat.pluginApi`. */
   pluginApi: ">=2026.5.17",
   private: true,
