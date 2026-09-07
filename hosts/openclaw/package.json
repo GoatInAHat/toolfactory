@@ -37,7 +37,7 @@
       "pluginApi": ">=2026.5.17"
     },
     "build": {
-      "openclawVersion": "2026.8.2"
+      "openclawVersion": "2026.9.2"
     }
   },
   "pluginInspector": {

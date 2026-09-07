@@ -149,16 +149,15 @@ export default defineConfig({
       preview: "vite preview",
     },
     dependencies: {
-      "@base-ui/react": "^1.7.0",
+      "@base-ui/react": "^1.8.0",
       "@fontsource-variable/geist": "^5.3.0",
       "@tailwindcss/vite": "^4.3.3",
       "class-variance-authority": "^0.7.1",
-      clsx: "^2.1.1",
-      "lucide-react": "^1.39.0",
+      cn: "^0.2.6",
+      "lucide-react": "^1.42.0",
       react: "^19.2.8",
       "react-dom": "^19.2.8",
-      shadcn: "^4.20.1",
-      "tailwind-merge": "^3.6.0",
+      shadcn: "^4.21.0",
       tailwindcss: "^4.3.3",
       "tw-animate-css": "^1.4.0",
     },
@@ -327,12 +326,7 @@ export default defineConfig({
     @apply font-sans;
     }
 }`,
-  utils: `import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
-
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
-}
+  utils: `export { cn } from "cn"
 `,
 } as const;
 

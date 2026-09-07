@@ -324,7 +324,7 @@
       "state": "generated"
     },
     "hosts/openclaw/package.json": {
-      "sha256": "ee7d9afef230bf2e0cabd2905b0690f8034cfa3d090335efab2051494a6f6c8d",
+      "sha256": "12ec5a3c223265c9c0eb705e96ad6b6393c4aeb31d25bfff821bc9108f474c77",
       "state": "generated"
     },
     "hosts/openclaw/README.md": {
@@ -450,7 +450,7 @@
       "state": "generated"
     },
     "web/package.json": {
-      "sha256": "21d9e1b3f59e3fef76cf41eaab7936b504e3fe49ec839e85b9dfc43ee944107a",
+      "sha256": "7b099b1b13d764cedd28c465f9a2aee40b527ea81f24d2c0aa570a7b4921ef42",
       "state": "generated",
       "keys": [
         "name",
@@ -466,12 +466,11 @@
         "dependencies.@fontsource-variable/geist",
         "dependencies.@tailwindcss/vite",
         "dependencies.class-variance-authority",
-        "dependencies.clsx",
+        "dependencies.cn",
         "dependencies.lucide-react",
         "dependencies.react",
         "dependencies.react-dom",
         "dependencies.shadcn",
-        "dependencies.tailwind-merge",
         "dependencies.tailwindcss",
         "dependencies.tw-animate-css",
         "devDependencies.@types/node",
@@ -503,7 +502,7 @@
       "state": "generated"
     },
     "web/src/lib/utils.ts": {
-      "sha256": "7c8c3dfc0cdd370d44932828eb067ef771c8fe7996693221d5d4b90af6d54f2d",
+      "sha256": "14300d758170c270c75b057f38fedb3793a5920ea872f0477e29fb131185e8a7",
       "state": "generated"
     },
     "web/src/main.tsx": {
