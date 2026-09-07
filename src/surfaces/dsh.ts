@@ -71,7 +71,10 @@ function patch(project: Project, launch: { command: string; args: string[] }): s
   const env = Object.fromEntries(
     Object.keys(configProperties(project)).map((key) => [
       envName(key),
-      jsExpression(`process.env.${envName(key)}`),
+      // Schemastery's dict rejects the empty object produced when every `!!js`
+      // value resolves to undefined. Keep every declared key string-valued;
+      // an absent optional credential remains the empty string for the child.
+      jsExpression(`process.env.${envName(key)} ?? ""`),
     ]),
   );
   const row = {

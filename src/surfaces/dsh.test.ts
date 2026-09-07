@@ -68,8 +68,8 @@ describe("dsh", () => {
               command: "npx",
               args: ["-y", "hello.tool@0.1.0", "mcp"],
               env: {
-                APIKEY: "process.env.APIKEY",
-                REGION: "process.env.REGION",
+                APIKEY: 'process.env.APIKEY ?? ""',
+                REGION: 'process.env.REGION ?? ""',
               },
               failOnStartupError: true,
             },
@@ -79,7 +79,7 @@ describe("dsh", () => {
     ]);
     // DSH scrubs KEY/PASSWORD/SECRET/TOKEN names before spawning, so every config variable is
     // restated as the `!!js` expression DSH evaluates when it loads the patch.
-    expect(patch).toContain("APIKEY: !!js process.env.APIKEY");
+    expect(patch).toContain('APIKEY: !!js process.env.APIKEY ?? ""');
   });
 
   it("validates by booting the checkout keylessly, and carries only MCP tool calls", () => {
