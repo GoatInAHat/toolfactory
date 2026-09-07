@@ -4,15 +4,7 @@
  */
 import { projectName } from "../identity/name.js";
 import type { Surface } from "../model.js";
-import {
-  compact,
-  configProperties,
-  envName,
-  has,
-  json,
-  mcpVerdict,
-  requiredConfig,
-} from "./shared.js";
+import { compact, configProperties, envName, has, mcpVerdict, requiredConfig } from "./shared.js";
 
 export const surface: Surface = {
   id: "cursor",
@@ -51,7 +43,7 @@ export const surface: Surface = {
       mcpServers: has(project, "agent-plugins") ? "./mcp.json" : undefined,
       variables,
     });
-    return [{ kind: "file", path: ".cursor-plugin/plugin.json", content: json(manifest) }];
+    return [{ kind: "merge", path: ".cursor-plugin/plugin.json", format: "json", patch: manifest }];
   },
   verdict: (operation) => {
     const verdict = mcpVerdict(operation);

@@ -279,6 +279,40 @@ describe("apply / check — merge files", () => {
     expect(text).toContain('dependencies = [ "zod" ]');
     expect(check(root, plan, "0.1.0")).toEqual([]);
   });
+
+  it("merges YAML and keeps authored keyed-array entries while removing stale generated ones", () => {
+    const root = tmp();
+    const plan = (commands: string[]): MergeFile[] => [
+      {
+        kind: "merge",
+        path: "extension.yaml",
+        format: "yaml",
+        patch: {
+          name: "hello",
+          commands: commands.map((command) => ({ command, title: command })),
+        },
+        keyedArrays: { commands: "command" },
+      },
+    ];
+    apply(root, plan(["hello.run", "hello.old"]), "0.1.0");
+    writeFileSync(
+      join(root, "extension.yaml"),
+      `${readFileSync(join(root, "extension.yaml"), "utf8")}commands:\n  - command: author.run\n    title: Author\n  - command: hello.run\n    title: hello.run\n  - command: hello.old\n    title: hello.old\n`,
+    );
+    // Recreate the document with a custom entry and the generated entries, as a hand-built host
+    // manifest would; the generated ids remain Toolfactory-owned from the lock.
+    writeFileSync(
+      join(root, "extension.yaml"),
+      "name: hello\ncommands:\n  - command: author.run\n    title: Author\n  - command: hello.run\n    title: hello.run\n  - command: hello.old\n    title: hello.old\n",
+    );
+    apply(root, plan(["hello.run", "hello.new"]), "0.1.0");
+    const text = readFileSync(join(root, "extension.yaml"), "utf8");
+    expect(text).toContain("author.run");
+    expect(text).toContain("hello.new");
+    expect(text).not.toContain("hello.old");
+    expect(check(root, plan(["hello.run", "hello.new"]), "0.1.0")).toEqual([]);
+    expect(() => apply(root, plan(["author.run"]), "0.1.0")).toThrow(/already has author entry/);
+  });
 });
 
 describe("apply / check — inverses and outputs", () => {

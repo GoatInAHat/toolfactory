@@ -26,7 +26,6 @@ import {
   configProperties,
   envName,
   isSensitive,
-  json,
   kernelLaunch,
   mcpVerdict,
 } from "./shared.js";
@@ -64,7 +63,7 @@ export const surface: Surface = {
       contextFileName: AGENTS_PATH,
       settings: settings.length ? settings : undefined,
     });
-    return [{ kind: "file", path: MANIFEST_PATH, content: json(manifest) }];
+    return [{ kind: "merge", path: MANIFEST_PATH, format: "json", patch: manifest }];
   },
   validate(project) {
     // Gemini's own manifest validator: it parses the manifest, enforces the name and version

@@ -238,7 +238,11 @@ function pluginInspector(project: Project, operations: Operation[]): Record<stri
   };
 }
 
-function packageJson(project: Project, operations: Operation[], kase?: E2eCase): string {
+function packageJson(
+  project: Project,
+  operations: Operation[],
+  kase?: E2eCase,
+): Record<string, unknown> {
   // The core is imported in-process only when an operation reaches this surface.
   const core =
     project.tool.binding === "typescript" && operations.length
@@ -246,32 +250,30 @@ function packageJson(project: Project, operations: Operation[], kase?: E2eCase):
       : undefined;
   const extra = project.tool.openclaw;
   const e2e = kase ? { "test:e2e": OPENCLAW_ADDITIONS.e2eScript } : undefined;
-  return json(
-    compact({
-      name: projectName.openclawPackage(project.identity.name),
-      version: project.identity.version ?? "0.0.0",
-      description: pluginDescription(project),
-      type: "module",
-      private: OPENCLAW_SCAFFOLD.private,
-      scripts: { ...OPENCLAW_SCAFFOLD.scripts, ...e2e },
-      files: OPENCLAW_SCAFFOLD.files,
-      peerDependencies: { openclaw: pluginApi(project), ...extra?.peerDependencies },
-      dependencies: { ...OPENCLAW_SCAFFOLD.dependencies, ...core, ...extra?.dependencies },
-      devDependencies: {
-        ...OPENCLAW_SCAFFOLD.devDependencies,
-        ...(kase ? { "@copilotkit/aimock": OPENCLAW_ADDITIONS.aimock } : {}),
-        ...extra?.devDependencies,
-      },
-      openclaw: {
-        extensions: [OPENCLAW_SCAFFOLD.entry],
-        compat: { pluginApi: pluginApi(project) },
-        build: { openclawVersion: OPENCLAW_SCAFFOLD.openclawVersion },
-      },
-      pluginInspector: expectedRegistrations(project, operations).length
-        ? pluginInspector(project, operations)
-        : undefined,
-    }),
-  );
+  return compact({
+    name: projectName.openclawPackage(project.identity.name),
+    version: project.identity.version ?? "0.0.0",
+    description: pluginDescription(project),
+    type: "module",
+    private: OPENCLAW_SCAFFOLD.private,
+    scripts: { ...OPENCLAW_SCAFFOLD.scripts, ...e2e },
+    files: OPENCLAW_SCAFFOLD.files,
+    peerDependencies: { openclaw: pluginApi(project), ...extra?.peerDependencies },
+    dependencies: { ...OPENCLAW_SCAFFOLD.dependencies, ...core, ...extra?.dependencies },
+    devDependencies: {
+      ...OPENCLAW_SCAFFOLD.devDependencies,
+      ...(kase ? { "@copilotkit/aimock": OPENCLAW_ADDITIONS.aimock } : {}),
+      ...extra?.devDependencies,
+    },
+    openclaw: {
+      extensions: [OPENCLAW_SCAFFOLD.entry],
+      compat: { pluginApi: pluginApi(project) },
+      build: { openclawVersion: OPENCLAW_SCAFFOLD.openclawVersion },
+    },
+    pluginInspector: expectedRegistrations(project, operations).length
+      ? pluginInspector(project, operations)
+      : undefined,
+  }) as Record<string, unknown>;
 }
 
 /**
@@ -281,7 +283,7 @@ function packageJson(project: Project, operations: Operation[], kase?: E2eCase):
  * config UI learns which keys to mask, from the same `x-toolfactory.sensitive` declaration every
  * other surface reads.
  */
-function pluginManifest(project: Project, operations: Operation[]): string {
+function pluginManifest(project: Project, operations: Operation[]): Record<string, unknown> {
   const sensitive = Object.entries(configProperties(project))
     .filter(([, property]) => isSensitive(property))
     .map(([key]) => [key, { sensitive: true }]);
@@ -289,21 +291,19 @@ function pluginManifest(project: Project, operations: Operation[]): string {
     registration.contract,
     registration.ids,
   ]);
-  return json(
-    compact({
-      id: project.identity.name,
-      name: displayName(project.identity.name),
-      description: pluginDescription(project),
-      version: project.identity.version ?? "0.0.0",
-      configSchema: configSchema(project),
-      uiHints: sensitive.length ? Object.fromEntries(sensitive) : undefined,
-      activation: activation(project),
-      contracts: {
-        tools: operations.map((operation) => operation.name),
-        ...Object.fromEntries(declared),
-      },
-    }),
-  );
+  return compact({
+    id: project.identity.name,
+    name: displayName(project.identity.name),
+    description: pluginDescription(project),
+    version: project.identity.version ?? "0.0.0",
+    configSchema: configSchema(project),
+    uiHints: sensitive.length ? Object.fromEntries(sensitive) : undefined,
+    activation: activation(project),
+    contracts: {
+      tools: operations.map((operation) => operation.name),
+      ...Object.fromEntries(declared),
+    },
+  }) as Record<string, unknown>;
 }
 
 function executeBody(project: Project, operation: Operation): string {
@@ -933,9 +933,10 @@ export const surface: Surface = {
     const kase = e2eCase(project, operations);
     return [
       {
-        kind: "file",
+        kind: "merge",
         path: `${HOST_DIR}/package.json`,
-        content: packageJson(project, operations, kase),
+        format: "json",
+        patch: packageJson(project, operations, kase),
       },
       {
         kind: "file",
@@ -955,9 +956,10 @@ export const surface: Surface = {
         content: OPENCLAW_SCAFFOLD.vitestConfig,
       },
       {
-        kind: "file",
+        kind: "merge",
         path: `${HOST_DIR}/openclaw.plugin.json`,
-        content: pluginManifest(project, operations),
+        format: "json",
+        patch: pluginManifest(project, operations),
       },
       {
         kind: "region",

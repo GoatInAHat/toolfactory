@@ -33,8 +33,8 @@ describe("codex", () => {
   it("makes the repository its own single-plugin marketplace, and validates with the real codex CLI", () => {
     const files = codex.plan(project(["codex", "mcp"]));
     const marketplace = files.find((entry) => entry.path === ".agents/plugins/marketplace.json");
-    if (marketplace?.kind !== "file") throw new Error("expected a whole file");
-    expect(JSON.parse(marketplace.content)).toMatchObject({
+    if (marketplace?.kind !== "merge") throw new Error("expected a merge manifest");
+    expect(marketplace.patch).toMatchObject({
       name: "hello",
       interface: { displayName: "Hello" },
       plugins: [
@@ -64,17 +64,17 @@ describe("codex", () => {
     const target = project(["skill", "codex"]);
     target.tool.runtime = "none";
     const manifest = codex.plan(target).find((entry) => entry.path === ".codex-plugin/plugin.json");
-    if (manifest?.kind !== "file") throw new Error("expected a manifest");
-    expect(JSON.parse(manifest.content)).toMatchObject({ skills: "./skills/" });
-    expect(JSON.parse(manifest.content)).not.toHaveProperty("mcpServers");
+    if (manifest?.kind !== "merge") throw new Error("expected a manifest");
+    expect(manifest.patch).toMatchObject({ skills: "./skills/" });
+    expect(manifest.patch).not.toHaveProperty("mcpServers");
   });
 
   it("can omit the eager MCP server while retaining the plugin skill", () => {
     const target = project(["skill", "codex", "mcp"]);
     target.tool.codex = { mcp: false };
     const manifest = codex.plan(target).find((entry) => entry.path === ".codex-plugin/plugin.json");
-    if (manifest?.kind !== "file") throw new Error("expected a manifest");
-    const parsed = JSON.parse(manifest.content);
+    if (manifest?.kind !== "merge") throw new Error("expected a manifest");
+    const parsed = manifest.patch;
     expect(parsed.skills).toBe("./skills/");
     expect(parsed).not.toHaveProperty("mcpServers");
   });

@@ -1,7 +1,11 @@
 import { execFileSync } from "node:child_process";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { scaffoldDrift } from "../hosts/openclaw.js";
 import type { Operation, Project } from "../model.js";
+import { apply } from "../project/apply.js";
 import { computeCoverage, renderCoverageMarkdown } from "../report/coverage.js";
 import { HOST_DIR, OPENCLAW_ADDITIONS, OPENCLAW_SCAFFOLD, surface } from "./openclaw-native.js";
 
@@ -82,6 +86,39 @@ function emitted(target: Project): Record<string, string> {
 }
 
 describe("openclaw-native", () => {
+  it("keeps hand-authored package and manifest extensions through regeneration", () => {
+    const root = mkdtempSync(join(tmpdir(), "toolfactory-openclaw-"));
+    const target = { ...project(), root };
+    apply(root, surface.plan(target), "0.1.0");
+    const packagePath = join(root, HOST_DIR, "package.json");
+    const manifestPath = join(root, HOST_DIR, "openclaw.plugin.json");
+    writeFileSync(
+      packagePath,
+      JSON.stringify({
+        ...JSON.parse(readFileSync(packagePath, "utf8")),
+        scripts: { custom: "node custom.mjs" },
+        exports: { "./native": "./src/native.ts" },
+      }),
+    );
+    writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        ...JSON.parse(readFileSync(manifestPath, "utf8")),
+        contracts: { customProviders: ["native"] },
+        nativeField: true,
+      }),
+    );
+    apply(root, surface.plan(target), "0.1.0");
+    expect(JSON.parse(readFileSync(packagePath, "utf8"))).toMatchObject({
+      scripts: { custom: "node custom.mjs" },
+      exports: { "./native": "./src/native.ts" },
+    });
+    expect(JSON.parse(readFileSync(manifestPath, "utf8"))).toMatchObject({
+      contracts: { customProviders: ["native"] },
+      nativeField: true,
+    });
+  });
+
   it("projects only the operations OpenClaw can run and pins the scaffold in one place", () => {
     const files = emitted(project());
     const manifest = JSON.parse(files[`${HOST_DIR}/openclaw.plugin.json`] ?? "{}");

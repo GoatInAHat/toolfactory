@@ -23,6 +23,10 @@ export const LockSchema = z.object({
        * patch — or deselecting the surface that added it — uninstalls it instead of stranding it.
        */
       keys: z.array(z.string()).optional(),
+      /** A keyed array's inverse: the entries Toolfactory owns at each dotted path. */
+      keyedArrays: z
+        .record(z.string(), z.object({ id: z.string(), values: z.array(z.string()) }))
+        .optional(),
       /**
        * A region file's inverse, exactly as `keys` is a merge file's: the marker pairs its
        * projector wrote. Regions the current plan no longer writes are emptied before the current
