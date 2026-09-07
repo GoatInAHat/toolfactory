@@ -142,7 +142,7 @@ function openBrowser(url: string): void {
 }
 
 /** The names this project declares; `/env` writes no other. */
-const SECRETS = ["NPM_TOKEN","CHROME_EXTENSION_ID","CHROME_PUBLISHER_ID","CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL","CHROME_SERVICE_ACCOUNT_PRIVATE_KEY","FIREFOX_EXTENSION_ID","FIREFOX_JWT_ISSUER","FIREFOX_JWT_SECRET","EDGE_PRODUCT_ID","EDGE_CLIENT_ID","EDGE_API_KEY"];
+const SECRETS = ["NPM_TOKEN"];
 const ENV_LINE = (name: string) => new RegExp(`^\\s*(export\\s+)?${name}\\s*=`);
 
 function envPath(): string {

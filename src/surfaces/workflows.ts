@@ -488,10 +488,7 @@ function releaseDocument(
       if: gated("npm"),
       "runs-on": "ubuntu-latest",
       permissions: { "id-token": "write", contents: "read" },
-      env: {
-        NPM_TOKEN: "${{ secrets.NPM_TOKEN }}",
-        NPM_TRUSTED_PUBLISHER: "${{ vars.NPM_TRUSTED_PUBLISHER }}",
-      },
+      env: { NPM_TRUSTED_PUBLISHER: "${{ vars.NPM_TRUSTED_PUBLISHER }}" },
       steps: [
         checkoutStep(RELEASE_SHA),
         ...SETUP_ACTIONS[project.packageManager ?? "npm"],
@@ -506,7 +503,10 @@ function releaseDocument(
         // after adding credentials leaves an already-published version alone.
         {
           name: "npm publish",
-          run: `if npm view ${npmName(project)}@${project.identity.version ?? "0.0.0"} version >/dev/null 2>&1; then echo "::notice::npm: ${npmName(project)}@${project.identity.version ?? "0.0.0"} already published; skipping immutable version."; elif [ -n "$NPM_TRUSTED_PUBLISHER" ]; then npm publish --access public; else NODE_AUTH_TOKEN="$NPM_TOKEN" npm publish --access public; fi`,
+          env: {
+            NPM_TOKEN: "${{ vars.NPM_TRUSTED_PUBLISHER != 'true' && secrets.NPM_TOKEN || '' }}",
+          },
+          run: `if npm view ${npmName(project)}@${project.identity.version ?? "0.0.0"} version >/dev/null 2>&1; then echo "::notice::npm: ${npmName(project)}@${project.identity.version ?? "0.0.0"} already published; skipping immutable version."; elif [ "$NPM_TRUSTED_PUBLISHER" = true ]; then npm publish --access public; else NODE_AUTH_TOKEN="$NPM_TOKEN" npm publish --access public; fi`,
         },
       ],
     });
@@ -608,7 +608,7 @@ function releaseDocument(
   ];
   if (clawhubSelected) {
     jobs["publish-clawhub"] = compact({
-      if: gated("clawhub-package"),
+      if: "${{ !cancelled() && needs.package.result == 'success' && !contains(needs.*.result, 'failure') && needs.gate.outputs.clawhub_package == 'true' }}",
       // Last (§7): content-fingerprint deduped by ClawHub, therefore safe to retry. The reusable
       // workflow has no build step, so it publishes the tarball the `package` job already built
       // rather than the repository subdirectory. It is a workflow call, so it has no `permissions`
@@ -686,15 +686,21 @@ function releaseDocument(
     permissions: { contents: "write", packages: "write", pages: "write", "id-token": "write" },
     env: {
       RELEASE_TAG: TAG_NAME,
-      GH_TOKEN: "${{ github.token }}",
-      ...Object.fromEntries(RELEASE_SECRET_NAMES.map((name) => [name, `\${{ secrets.${name} }}`])),
     },
     steps: [
       // The whole history: `unpublish` reads tool.json at the previous tag.
       checkoutStep(RELEASE_SHA, { "fetch-depth": 0 }),
       ...toolchainSteps(project, "24", RELEASE_SHA).slice(1),
       ...bootstrapSteps(project).map((step) => actionStep(step, false)),
-      actionStep(unpublishStep(project), false),
+      {
+        ...actionStep(unpublishStep(project), false),
+        env: {
+          GH_TOKEN: "${{ github.token }}",
+          ...Object.fromEntries(
+            RELEASE_SECRET_NAMES.map((name) => [name, `\${{ secrets.${name} }}`]),
+          ),
+        },
+      },
       {
         uses: "actions/download-artifact@v8",
         with: { name: RELEASE_ARTIFACT, path: RELEASE_ARTIFACT },

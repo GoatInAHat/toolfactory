@@ -208,10 +208,6 @@ const LEGAL_BUNDLE_PATHS = [
   "NOTICE.txt",
 ];
 
-function optionalBundleLegalFiles(): string {
-  return `$(for path in ${LEGAL_BUNDLE_PATHS.join(" ")}; do [ -f "$path" ] && printf '%s ' "$path"; done)`;
-}
-
 /**
  * The release assets, into `dist/release/`: the same list locally (`toolfactory package`) and in
  * the release workflow's `package` job, which uploads the directory as one artifact. Publishing
@@ -272,7 +268,7 @@ export function packageSteps(project: Project): GateStep[] {
   if (bundle.length) {
     steps.push({
       name: "plugin bundle",
-      run: `zip -qr ${RELEASE_DIR}/${name}-plugin.zip ${bundle.join(" ")} ${optionalBundleLegalFiles()}`,
+      run: `set -- ${bundle.join(" ")}; for path in ${LEGAL_BUNDLE_PATHS.join(" ")}; do if [ -f "$path" ]; then set -- "$@" "$path"; fi; done; zip -qr ${RELEASE_DIR}/${name}-plugin.zip "$@"`,
     });
   }
   if (has(project, "web")) {
@@ -463,7 +459,7 @@ export function registries(project: Project): Registry[] {
       // An existing package is only eligible for trusted publishing; it does not prove the
       // relationship was configured. OIDC is enabled explicitly after `npm trust` succeeds;
       // otherwise a token remains a valid fallback, including for the first publish.
-      gate: `[ -n "$NPM_TRUSTED_PUBLISHER" ] || [ -n "$NPM_TOKEN" ]`,
+      gate: `[ "$NPM_TRUSTED_PUBLISHER" = true ] || [ -n "$NPM_TOKEN" ]`,
       confirmVariable: "NPM_TRUSTED_PUBLISHER",
       // Reversible (an empty message undeprecates) and it never breaks an install, which
       // `npm unpublish` does; the destructive form is behind `--hard`.

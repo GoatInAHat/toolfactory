@@ -73,7 +73,7 @@
       "state": "generated"
     },
     ".env.example": {
-      "sha256": "677f1d93fd9c4d637d8d0780efeb51603c5f517be3a609737730d43506d0e652",
+      "sha256": "79b9ef78210f7387b6875518a2e162ce4b435abba9560d95bc254d16de6c152e",
       "state": "generated"
     },
     ".gitattributes": {
@@ -93,7 +93,7 @@
       "state": "generated"
     },
     ".github/workflows/release.yml": {
-      "sha256": "84d0f5138b720bfe629610c7bddce2e180322b70f1561f2ddedbc263a735c1eb",
+      "sha256": "2d63a396dcb0cb2effe766036782f953af6293b0bcb95a92f1d3cfd4a070c2b8",
       "state": "generated"
     },
     ".gitignore": {
@@ -107,7 +107,7 @@
       ]
     },
     "AGENTS.md": {
-      "sha256": "45241435cc68a7c92e9d0acec21c7116b128b5585d75320dedce26d43721ed7d",
+      "sha256": "d9370502c1d528f851150fd959493e29b0ba6ac28bb2e99ce7c2787aa6bad0be",
       "state": "generated",
       "regions": [
         {
@@ -121,11 +121,11 @@
       "state": "generated"
     },
     "COVERAGE.md": {
-      "sha256": "a2b3bf11c3ec0d54959aa4de568e14b3c3408547429cb73a27a0499a84bd8742",
+      "sha256": "52a1332c56f36b23d4fe407a5d75b251b2c479097c6bae3431e91438d4b5dc88",
       "state": "generated"
     },
     "dev.toolfactory/coverage.json": {
-      "sha256": "6ea1911a50d789804d797e65ea0ee9b91c559716343928055b2788bd10b9d059",
+      "sha256": "d29bb2cb3d4306d8227274534b6b9cb4d39c7ac8b713d573b15f2c717f2556c7",
       "state": "generated"
     },
     "dev.toolfactory/inspector.json": {
@@ -143,133 +143,6 @@
     "gemini-extension.json": {
       "sha256": "df86748e6c0188bf8b070ebaffadd287023bdf5cafae5334b439b4e5c49b2c64",
       "state": "generated"
-    },
-    "hosts/browser/.gitignore": {
-      "sha256": "b727faab67a7bdc19094e7915a3b0b343b3d8af60bbb0db49401e088ae9b06a5",
-      "state": "generated"
-    },
-    "hosts/browser/entrypoints/background.ts": {
-      "sha256": "37abc1913f07391e70c683fd06b5c5ec75bf483a43b613d3374a0d66d2ee4448",
-      "state": "generated",
-      "regions": [
-        {
-          "begin": "// tf:bg",
-          "end": "// /tf:bg"
-        }
-      ]
-    },
-    "hosts/browser/entrypoints/example.content.ts": {
-      "sha256": "af0ccf8dfdf49ee3740375b4eccd955a78decdfb227d31295b06b44be6bb8237",
-      "state": "generated",
-      "regions": [
-        {
-          "begin": "// tf:content",
-          "end": "// /tf:content"
-        }
-      ]
-    },
-    "hosts/browser/entrypoints/options/index.html": {
-      "sha256": "1d91728547796836a107407c6fcc73b54cd1b64fd45f2558e5c28abb45ba73ff",
-      "state": "generated"
-    },
-    "hosts/browser/entrypoints/options/main.tsx": {
-      "sha256": "6cd2ab7de7d5ae0bdd1a93557c9f457d169672270d81112604dc8d8f1922af1a",
-      "state": "generated"
-    },
-    "hosts/browser/entrypoints/popup/index.html": {
-      "sha256": "6e536385799dcb23bf15675d9f9cead9257713c961a04df2cb580a61cb3ce69e",
-      "state": "generated"
-    },
-    "hosts/browser/entrypoints/popup/main.tsx": {
-      "sha256": "ddb93802020a960bce920f03e16121e3d737e1afce5d53580a034239b2975407",
-      "state": "generated"
-    },
-    "hosts/browser/env.d.ts": {
-      "sha256": "6d0404c915bd7fe731348a2c9e7e570dcb24202c6d09c858a6f134a5ebfede6e",
-      "state": "generated"
-    },
-    "hosts/browser/package.json": {
-      "sha256": "f35f3055f882141160d5451c0e7dc1288ad5bbd0703e0bafc56f3e0447ebbadf",
-      "state": "generated",
-      "keys": [
-        "name",
-        "description",
-        "private",
-        "version",
-        "type",
-        "scripts.dev",
-        "scripts.dev:firefox",
-        "scripts.build",
-        "scripts.build:firefox",
-        "scripts.zip",
-        "scripts.zip:firefox",
-        "scripts.compile",
-        "scripts.postinstall",
-        "scripts.test",
-        "scripts.smoke",
-        "dependencies.react",
-        "dependencies.react-dom",
-        "devDependencies.@tailwindcss/vite",
-        "devDependencies.@types/react",
-        "devDependencies.@types/react-dom",
-        "devDependencies.@webext-core/fake-browser",
-        "devDependencies.@wxt-dev/module-react",
-        "devDependencies.playwright",
-        "devDependencies.typescript",
-        "devDependencies.vitest",
-        "devDependencies.web-ext",
-        "devDependencies.wxt"
-      ]
-    },
-    "hosts/browser/README.md": {
-      "sha256": "439dc282e49c9f14e2471681c5d1f7462eb2f9c2bd8962a8f46f02c96bedef75",
-      "state": "generated"
-    },
-    "hosts/browser/TARGETS.md": {
-      "sha256": "f1d994a778df7f69eed54f95b972718d263bfcd4cf0184747b41e13eff6cecf3",
-      "state": "generated"
-    },
-    "hosts/browser/tests/background.test.ts": {
-      "sha256": "54c6ddb6a780733e7a52d73d7d77dbee42292c99b17bbbaf4bc196b357a04759",
-      "state": "generated"
-    },
-    "hosts/browser/tests/smoke.mjs": {
-      "sha256": "7bcb472bed5b3082924edaa6d5dd8961f5ba147ea802027fd1022d580673d21e",
-      "state": "generated"
-    },
-    "hosts/browser/tsconfig.json": {
-      "sha256": "d0386e696869c0d4763d7073a9484a520c8cc51cac942cde4ff5472e2341718c",
-      "state": "generated"
-    },
-    "hosts/browser/utils/mcp.ts": {
-      "sha256": "5db29610f0797aa2f9b7aca30502664ba95581d449a7edc125a24e9d5cfb51de",
-      "state": "generated"
-    },
-    "hosts/browser/utils/page.css": {
-      "sha256": "ee4577b6dc02c07ecd89b7c10a0f79a11acf7289670b21c4af5d13a5479051a8",
-      "state": "generated"
-    },
-    "hosts/browser/utils/page.tsx": {
-      "sha256": "af26f005ba02d165f888f24196d01a95e8f8a1dd8fec708ff5b6de1d70817c0f",
-      "state": "generated"
-    },
-    "hosts/browser/vitest.config.ts": {
-      "sha256": "74b25baf668fb4cb3dc84e2bf0a273b9ca7b7937bb2982b595abaec298a4791c",
-      "state": "generated"
-    },
-    "hosts/browser/web-ext-config.mjs": {
-      "sha256": "161c171d08801e9f9efdfc2955888b2e2e115ff30e87c742a0ac23d00d292373",
-      "state": "generated"
-    },
-    "hosts/browser/wxt.config.ts": {
-      "sha256": "0432b14ec149a0c7f79883e68055f85250d6c25aebf946de61274a5b29822c19",
-      "state": "generated",
-      "regions": [
-        {
-          "begin": "// tf:config",
-          "end": "// /tf:config"
-        }
-      ]
     },
     "hosts/dsh/cordis.local.patch.yml": {
       "sha256": "1dc11e67d58aea8a0b5f3c90cceb2a90f319a41463abb20970cb6b5f96083fab",
@@ -380,7 +253,7 @@
       ]
     },
     "README.md": {
-      "sha256": "b8e4d33baf201cdfabee84205c209c23464acc551ba04341faa6fc90b61bfcbd",
+      "sha256": "6e00392add45d384e9cb4cd0aad0643d93c838d8cc5c6cf94ef57ce79d996374",
       "state": "generated",
       "regions": [
         {
@@ -426,7 +299,7 @@
       "state": "generated"
     },
     "src/toolfactory/mcp.ts": {
-      "sha256": "3ef8da15b33b046d1cc6083a56650b2ca611b1575cf9b3198afdedc5cd4b14ed",
+      "sha256": "a180a0d4dae88b0ac4bb9bb76b291828acb21e4c993343a05c70b6937db7a307",
       "state": "generated"
     },
     "src/toolfactory/types.ts": {

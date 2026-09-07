@@ -18,8 +18,7 @@
     "openclaw-native",
     "hermes-native",
     "web",
-    "dsh",
-    "browser-extension"
+    "dsh"
   ],
   "tests": {
     "examples": {

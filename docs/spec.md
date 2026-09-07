@@ -517,10 +517,13 @@ and every job that runs steps narrows it explicitly:
 toolfactory runs no publish itself. `bootstrap-repo` does what `gh` can — the secrets, the
 `live-tests` environment, enabling Pages with Source = GitHub Actions, and, once the package
 exists, `npm trust` from the maintainer's current logged-in 2FA npm session. npm@11.15+ requires
-that session and rejects granular bypass-2FA tokens for trust configuration; only after it
-succeeds does bootstrap set `NPM_TRUSTED_PUBLISHER`. The first npm publish, and any existing
+that session and rejects granular bypass-2FA tokens for trust configuration. Bootstrap inherits
+the interactive terminal for npm's 2FA prompt; noninteractive callers receive the exact manual
+command. Only after success does bootstrap set `NPM_TRUSTED_PUBLISHER=true`. The first npm publish, and any existing
 package without that confirmation, use `NPM_TOKEN` — and a retry skips an immutable version that
-is already published. `secrets status` prints
+is already published. The npm token is scoped to the publish/retraction steps, so dependency
+installation and build scripts do not inherit it; the npm publish step receives no token when
+trusted publishing is enabled. `secrets status` prints
 the rest: the `ghcr.io` image is **private on its first push whatever the repository's visibility**
 (a package inherits the repository's access permissions, not its visibility) and GitHub has no API
 to change that, so it is made public once by hand; PyPI's pending trusted publisher is web-only,

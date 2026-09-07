@@ -82,7 +82,9 @@ export function bootstrapRepo(project: Project, options: BootstrapOptions = {}):
       "bootstrap-repo needs a GitHub repository URL in the identity file to know which repo to prepare.",
     );
   }
-  const { reviewers = [], dryRun = false, releaseSecrets = [], manual = [] } = options;
+  const { reviewers = [], dryRun = false, releaseSecrets = [] } = options;
+  // npm setup below reports its actual result, replacing the generic status instructions.
+  const manual = (options.manual ?? []).filter((step) => !step.startsWith("npm:"));
   const envFile = options.envFile ?? join(project.root, ".env");
   const values = existsSync(envFile) ? parseEnv(readFileSync(envFile, "utf8")) : {};
   const keys = liveCredentials(project);
@@ -191,12 +193,16 @@ export function bootstrapRepo(project: Project, options: BootstrapOptions = {}):
         manual.push(
           `npm: did not run \`${trust}\` because npm ${npm.version} lacks npm@11.15+'s --allow-publish permission. Install npm@^11.15 in the logged-in 2FA session, then ${manualTrust.slice("npm: ".length)}`,
         );
+      } else if (!process.stdin.isTTY || !process.stdout.isTTY) {
+        manual.push(
+          `npm: run bootstrap-repo from an interactive terminal for npm's 2FA challenge. ${manualTrust.slice("npm: ".length)}`,
+        );
       } else {
         commands.push(trust);
-        const result = spawnSync("npm", trustArgs, { encoding: "utf8", timeout: 120_000 });
+        const result = spawnSync("npm", trustArgs, { stdio: "inherit", timeout: 120_000 });
         if (result.status !== 0) {
           manual.push(
-            `npm: \`${trust}\` exited ${result.status}: ${(result.stderr ?? "").trim().split("\n").at(-1) ?? "no output"}. ${manualTrust.slice("npm: ".length)}`,
+            `npm: \`${trust}\` exited ${result.status}. ${manualTrust.slice("npm: ".length)}`,
           );
         } else {
           commands.push(confirm);
