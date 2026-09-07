@@ -77,7 +77,7 @@ describe("readme", () => {
     expect(body).toContain("## Install");
     expect(body).toContain("`npx skills add GoatInAHat/Hello-Tool`");
     expect(body).toContain(
-      "[![skills.sh](https://skills.sh/b/GoatInAHat/Hello-Tool)](https://skills.sh/GoatInAHat/Hello-Tool)",
+      "[![Agent Skill](https://img.shields.io/badge/Agent_Skill-available-5B5BD6)](https://github.com/GoatInAHat/Hello-Tool)",
     );
     expect(body).toContain("`npx -y hello mcp`");
     // The MCP line carries both first-party install badges once a package registry is selected,
