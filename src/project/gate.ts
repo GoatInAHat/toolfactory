@@ -221,6 +221,14 @@ export function packageSteps(project: Project): GateStep[] {
     ...bootstrapSteps(project),
     outputsStep(project),
   ];
+  if (has(project, "web")) {
+    steps.push({
+      name: "web build",
+      // Build before packing: npm and MCPB both carry this same root-relative page.
+      env: { PAGES_BASE: "/" },
+      run: WEB_BUILD,
+    });
+  }
   if (has(project, "npm")) {
     steps.push({ name: "npm tarball", run: `npm pack --pack-destination ${RELEASE_DIR}` });
   }
@@ -230,7 +238,7 @@ export function packageSteps(project: Project): GateStep[] {
     // whatever ships to npm is exactly what ships to Claude Desktop. `--ignore-scripts` because
     // nothing in a bundle root may run a build; the tarball already carries `dist/`.
     const stage = "dist/mcpb";
-    const tarball = `${npmName(project).replace(/^@/, "").replace("/", "-")}-${project.identity.version ?? "0.0.0"}.tgz`;
+    const tarball = npmTarball(project);
     steps.push({
       name: "MCPB bundle",
       run: [
@@ -273,11 +281,8 @@ export function packageSteps(project: Project): GateStep[] {
   }
   if (has(project, "web")) {
     steps.push({
-      name: "web build",
-      // Root-relative: the tarball is a site anyone can serve from a domain root. The Pages job
-      // runs the same build with its own PAGES_BASE.
-      env: { PAGES_BASE: "/" },
-      run: `${WEB_BUILD} && tar -czf ${RELEASE_DIR}/${name}-web.tar.gz -C web/dist .`,
+      name: "web tarball",
+      run: `tar -czf ${RELEASE_DIR}/${name}-web.tar.gz -C web/dist .`,
     });
   }
   if (has(project, "browser-extension")) {
@@ -314,6 +319,11 @@ export function packageSteps(project: Project): GateStep[] {
     run: `cp COVERAGE.md ${RELEASE_DIR}/ && ${cli} coverage > ${RELEASE_DIR}/coverage.json`,
   });
   return steps;
+}
+
+/** npm's filename for the root package, including its flattened scope. */
+export function npmTarball(project: Project): string {
+  return `${npmName(project).replace(/^@/, "").replace("/", "-")}-${project.identity.version ?? "0.0.0"}.tgz`;
 }
 
 /** The ClawHub tarball `npm pack ./hosts/openclaw` writes, by name, inside the release artifact. */

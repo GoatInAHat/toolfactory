@@ -124,20 +124,22 @@ jobs:
         run: pnpm run --if-present build
       - name: toolfactory build (output files)
         run: npx toolfactory build
+      - name: web build
+        run: npm -C web ci && npm -C web run build
+        env:
+          PAGES_BASE: /
       - name: npm tarball
         run: npm pack --pack-destination dist/release
       - name: MCPB bundle
-        run: rm -rf dist/mcpb && mkdir -p dist/mcpb && tar -xzf dist/release/toolfactory-0.1.0.tgz -C dist/mcpb --strip-components=1 && npm --prefix dist/mcpb install --omit=dev --ignore-scripts && cp hosts/mcpb/manifest.json dist/mcpb/manifest.json && npx -y @anthropic-ai/mcpb@2.1.2 pack dist/mcpb dist/release/toolfactory.mcpb
+        run: rm -rf dist/mcpb && mkdir -p dist/mcpb && tar -xzf dist/release/toolfactory-0.1.1.tgz -C dist/mcpb --strip-components=1 && npm --prefix dist/mcpb install --omit=dev --ignore-scripts && cp hosts/mcpb/manifest.json dist/mcpb/manifest.json && npx -y @anthropic-ai/mcpb@2.1.2 pack dist/mcpb dist/release/toolfactory.mcpb
       - name: OpenClaw plugin tarball
         run: npm --prefix hosts/openclaw install && npm --prefix hosts/openclaw run build && npm pack ./hosts/openclaw --pack-destination dist/release
       - name: DSH bundle tarball
         run: npm pack ./hosts/dsh --pack-destination dist/release
       - name: plugin bundle
         run: set -- plugin.json mcp.json skills .claude-plugin .codex-plugin .cursor-plugin; for path in LICENSE LICENSE.md LICENSE.txt NOTICE NOTICE.md NOTICE.txt; do if [ -f "$path" ]; then set -- "$@" "$path"; fi; done; zip -qr dist/release/toolfactory-plugin.zip "$@"
-      - name: web build
-        run: npm -C web ci && npm -C web run build && tar -czf dist/release/toolfactory-web.tar.gz -C web/dist .
-        env:
-          PAGES_BASE: /
+      - name: web tarball
+        run: tar -czf dist/release/toolfactory-web.tar.gz -C web/dist .
       - name: coverage report
         run: cp COVERAGE.md dist/release/ && npx toolfactory coverage > dist/release/coverage.json
       - uses: actions/upload-artifact@v7
@@ -145,7 +147,9 @@ jobs:
           name: release-assets
           path: dist/release/
   publish-npm:
-    needs: gate
+    needs:
+      - gate
+      - package
     if: needs.gate.outputs.npm == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -157,16 +161,18 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.gate.outputs.sha }}
-      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
           registry-url: https://registry.npmjs.org
-      - run: pnpm install --frozen-lockfile && pnpm run --if-present build
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-assets
+          path: release-assets
       - name: npm publish
         env:
           NPM_TOKEN: ${{ vars.NPM_TRUSTED_PUBLISHER != 'true' && secrets.NPM_TOKEN || '' }}
-        run: 'if npm view toolfactory@0.1.0 version >/dev/null 2>&1; then echo "::notice::npm: toolfactory@0.1.0 already published; skipping immutable version."; elif [ "$NPM_TRUSTED_PUBLISHER" = true ]; then npm publish --access public; else NODE_AUTH_TOKEN="$NPM_TOKEN" npm publish --access public; fi'
+        run: 'if npm view toolfactory@0.1.1 version >/dev/null 2>&1; then echo "::notice::npm: toolfactory@0.1.1 already published; skipping immutable version."; elif [ "$NPM_TRUSTED_PUBLISHER" = true ]; then npm publish release-assets/toolfactory-0.1.1.tgz --access public; else NODE_AUTH_TOKEN="$NPM_TOKEN" npm publish release-assets/toolfactory-0.1.1.tgz --access public; fi'
   publish-oci:
     needs: gate
     if: needs.gate.outputs.oci == 'true'

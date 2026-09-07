@@ -502,7 +502,7 @@ and every job that runs steps narrows it explicitly:
 |---|---|---|---|---|
 | `gate` | always | — | `contents: read` | the tag assert, then `gateSteps` |
 | `package` | always | `gate` | `contents: read` | `packageSteps` → one `release-assets` artifact (`upload-artifact`): the npm tarball, `uv build`'s distributions, the built `hosts/openclaw` tarball, the `hosts/dsh` bundle tarball, the `.mcpb` bundle packed from `dist/mcpb/`, the plugin-bundle zip, the web tarball, the browser extension's `wxt zip` output for Chrome/Firefox/Edge plus the Firefox sources zip and, only when `FIREFOX_JWT_ISSUER`/`FIREFOX_JWT_SECRET` are set (this job's own `env:`), the Mozilla-signed self-hosted xpi `web-ext sign --channel=unlisted` writes alongside them, `COVERAGE.md` and a freshly computed `coverage.json` |
-| `publish-npm` | `npm` | `gate` | `id-token: write`, `contents: read` | skips an existing immutable version; otherwise `npm publish --access public` via the verified trusted publisher or `NPM_TOKEN`; no `--provenance`, which trusted publishing generates itself |
+| `publish-npm` | `npm` | `gate`, `package` | `id-token: write`, `contents: read` | skips an existing immutable version; otherwise publishes the exact npm tarball from `release-assets` via the verified trusted publisher or `NPM_TOKEN`; no `--provenance`, which trusted publishing generates itself |
 | `publish-pypi` | `pypi` | `gate` | `id-token: write` | `pypa/gh-action-pypi-publish`, environment `pypi` |
 | `publish-oci` | `mcp-registry` with a GitHub owner | `gate` | `contents: read`, `packages: write`, `attestations: write`, `id-token: write` | `docker/login-action` → `docker/metadata-action` (the image `server.json`'s `oci` entry names, `type=semver` for the tag, `LABEL io.modelcontextprotocol.server.name`) → `docker/build-push-action` |
 | `publish-mcp-registry` | `mcp-registry` | `gate` + every package leg | `id-token: write`, `contents: read` | `mcp-publisher login github-oidc`; last of the package legs because it validates each `packages[]` entry, `oci` included |
@@ -519,7 +519,7 @@ toolfactory runs no publish itself. `bootstrap-repo` does what `gh` can — the 
 exists, `npm trust` from the maintainer's current logged-in 2FA npm session. npm@11.15+ requires
 that session and rejects granular bypass-2FA tokens for trust configuration. Bootstrap inherits
 the interactive terminal for npm's 2FA prompt; noninteractive callers receive the exact manual
-command. Only after success does bootstrap set `NPM_TRUSTED_PUBLISHER=true`. The first npm publish, and any existing
+command. Only after success does bootstrap set `NPM_TRUSTED_PUBLISHER=true`. The package job builds the web page before packing npm and MCPB, so those artifacts include the same UI. The first npm publish, and any existing
 package without that confirmation, use `NPM_TOKEN` — and a retry skips an immutable version that
 is already published. The npm token is scoped to the publish/retraction steps, so dependency
 installation and build scripts do not inherit it; the npm publish step receives no token when

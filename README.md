@@ -22,7 +22,7 @@ generated and every surface still installs, builds and publishes.
 - **Gemini CLI extension** — `gemini extensions install https://github.com/GoatInAHat/toolfactory`
 - **OpenClaw plugin** — `openclaw plugins install --link hosts/openclaw` from a checkout
 - **Hermes plugin** — `hermes plugins install https://github.com/GoatInAHat/toolfactory#hosts/hermes/toolfactory_hermes`
-- **DSH plugin** (experimental) — `dsh plugin --profile <profile> add ./hosts/dsh` from a checkout, or the release tarball `toolfactory-dsh-0.1.0.tgz`
+- **DSH plugin** (experimental) — `dsh plugin --profile <profile> add ./hosts/dsh` from a checkout, or the release tarball `toolfactory-dsh-0.1.1.tgz`
 - **Web app** — `npx -y toolfactory mcp --http --open` serves the operations page beside the
   MCP endpoint on one port and opens it; over MCP or a skill, the `web` operation does the same and
   returns the URL.

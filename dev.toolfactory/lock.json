@@ -1,5 +1,5 @@
 {
-  "toolfactoryVersion": "0.1.0",
+  "toolfactoryVersion": "0.1.1",
   "files": {
     ".agents/mcp/servers.json": {
       "sha256": "09ea6f67acacefa8901eaea338b1cedd86e99a1fdad21eecb89e502b69a10789",
@@ -45,7 +45,7 @@
       "state": "generated"
     },
     ".claude-plugin/plugin.json": {
-      "sha256": "ba3dd55659fd1dd070c2c510554a8afcac6edc243414c5385c29ad4f4a60b150",
+      "sha256": "5631e641ae4964ba0888acd1a40708ca745b1ad7afdb11dd191a0a3eddc6f0fd",
       "state": "generated"
     },
     ".claude/settings.json": {
@@ -53,11 +53,11 @@
       "state": "generated"
     },
     ".codex-plugin/plugin.json": {
-      "sha256": "76b4491c803d9934d957a79019c9af74ecaa629919683df733a65eba92e728d8",
+      "sha256": "8c373a95d71b9b9d9ec34fced0b774b13aea7cd31a0362472ffc24f6ae53d95c",
       "state": "generated"
     },
     ".cursor-plugin/plugin.json": {
-      "sha256": "40def3ca731a1e29096d9c0aa5a8be4295746ab411a03beeead051247e1a9127",
+      "sha256": "40537e93242c9f4c3ebe5c28549f23bc235c9d6a4d38c69425a2f8d7af145242",
       "state": "generated"
     },
     ".cursor/environment.json": {
@@ -93,7 +93,7 @@
       "state": "generated"
     },
     ".github/workflows/release.yml": {
-      "sha256": "2d63a396dcb0cb2effe766036782f953af6293b0bcb95a92f1d3cfd4a070c2b8",
+      "sha256": "64ce078e8398969a24e29e438c3c587d08d97486d5ca0667b04c3337648c491d",
       "state": "generated"
     },
     ".gitignore": {
@@ -141,7 +141,7 @@
       "state": "generated"
     },
     "gemini-extension.json": {
-      "sha256": "df86748e6c0188bf8b070ebaffadd287023bdf5cafae5334b439b4e5c49b2c64",
+      "sha256": "b93f4320379cde3ccc877f0b95729dd419053d837a558b9c36a68ba3861aa0df",
       "state": "generated"
     },
     "hosts/dsh/cordis.local.patch.yml": {
@@ -149,15 +149,15 @@
       "state": "generated"
     },
     "hosts/dsh/cordis.patch.yml": {
-      "sha256": "63e8b34528f2f650a64af37013184419d663c39934e97a2dcbf6b1d159abc1f9",
+      "sha256": "a96ee6c6f7b97c4d598d3db47f88cfeff1f2711d9f147aabb9f7309d0568d6d7",
       "state": "generated"
     },
     "hosts/dsh/package.json": {
-      "sha256": "cd2b955a6d42e1c4cd1a264644009605113abc3adb50daa4c17c3051131b7c9f",
+      "sha256": "4d91565a1b3e3ef5d4b7731d4c9dad6cb4374c6d63587a13b3535d12894773db",
       "state": "generated"
     },
     "hosts/hermes/pyproject.toml": {
-      "sha256": "621de1c1306bfc091ea192f0b3da157ac62740268cb836f21f90fde1910785ac",
+      "sha256": "c0c92bbdc374bae2bfff196d4fbcc6bc055f6316ebb22c33b2efe9668d3f3315",
       "state": "generated"
     },
     "hosts/hermes/README.md": {
@@ -173,11 +173,11 @@
       "state": "generated"
     },
     "hosts/hermes/toolfactory_hermes/plugin.yaml": {
-      "sha256": "c0b7159354dc646dcbd72251aca559822f06e806eed28fd37af6197dcf1afe29",
+      "sha256": "477f394794f5df5219f75d1f4ccc0fcc4be43b4b4620b26f7352674054152b1f",
       "state": "generated"
     },
     "hosts/mcpb/manifest.json": {
-      "sha256": "41243555d62019576498407b2d37e868d8456963598b732d1c52c983ef0a4240",
+      "sha256": "e1bdaf9e2f4282d6542a79c096ed78968085dea80c774cb7bf6da0b87fd81cff",
       "state": "generated"
     },
     "hosts/openclaw/.npmrc": {
@@ -193,11 +193,11 @@
       "state": "generated"
     },
     "hosts/openclaw/openclaw.plugin.json": {
-      "sha256": "7420358b90f314342bf9abbaca256c0eb288122a1b6bf9e9f61a6e8f5fd72def",
+      "sha256": "77dfe9c7ba8b926f0b4db9072e170c212910ee83150eb55430b6590df87f18a3",
       "state": "generated"
     },
     "hosts/openclaw/package.json": {
-      "sha256": "12ec5a3c223265c9c0eb705e96ad6b6393c4aeb31d25bfff821bc9108f474c77",
+      "sha256": "12f72a067f055ff74b49ea801735f040d3748648d3902b971d85b274d5eb9eed",
       "state": "generated"
     },
     "hosts/openclaw/README.md": {
@@ -231,11 +231,11 @@
       "state": "generated"
     },
     "mcp.json": {
-      "sha256": "9606a3103a6c875fc946dd1103e680a478a953b3fcd01bb8085dcaa21b5f5ea1",
+      "sha256": "35eb69f16f35238e598c4a97f03dec1367276159817d299791d9ac896e679c23",
       "state": "generated"
     },
     "package.json": {
-      "sha256": "b3b4474defb66ee81b4fdb2639a900d92cb44b40164769c1196ca3c85ce189c5",
+      "sha256": "893a0e5d92edfe14139774526dcdc2880b7c7921e961c4e592a89594e97dcb2e",
       "state": "generated",
       "keys": [
         "name",
@@ -253,7 +253,7 @@
       ]
     },
     "README.md": {
-      "sha256": "6e00392add45d384e9cb4cd0aad0643d93c838d8cc5c6cf94ef57ce79d996374",
+      "sha256": "b447c8d06d33bace84943c25b1105e3e0c9a157c3eb6319dafd692f6cd368828",
       "state": "generated",
       "regions": [
         {
@@ -273,7 +273,7 @@
       ]
     },
     "server.json": {
-      "sha256": "638d3167b82724028dad98fbd27eddc0c7bb87e98f8ec28a903452dca195a3c3",
+      "sha256": "3baecb914f1a90b4be5175798fdb2e474670a7de50d9ad8c0222e1d64c3c6476",
       "state": "generated"
     },
     "skills/toolfactory/SKILL.md": {
@@ -291,7 +291,7 @@
       ]
     },
     "src/toolfactory/cli.ts": {
-      "sha256": "07675fb8668f559f978902674c762f776bdde45f423ba474364b953db22b509a",
+      "sha256": "65ab846b4cb6f2c45e98a5b7e5046ec78280fa6c00ce21515bc3f506250ee82e",
       "state": "generated"
     },
     "src/toolfactory/config.ts": {
@@ -299,7 +299,7 @@
       "state": "generated"
     },
     "src/toolfactory/mcp.ts": {
-      "sha256": "a180a0d4dae88b0ac4bb9bb76b291828acb21e4c993343a05c70b6937db7a307",
+      "sha256": "6ff7ae4e67712e56c5b6130a48a939d9338feb30105a942de17303323277f366",
       "state": "generated"
     },
     "src/toolfactory/types.ts": {
@@ -323,7 +323,7 @@
       "state": "generated"
     },
     "web/package.json": {
-      "sha256": "7b099b1b13d764cedd28c465f9a2aee40b527ea81f24d2c0aa570a7b4921ef42",
+      "sha256": "259591725ff82b8d5f4d6377c4d04f60448dd812fae6255d623379e1bcb5e097",
       "state": "generated",
       "keys": [
         "name",
@@ -383,7 +383,7 @@
       "state": "generated"
     },
     "web/src/ops.json": {
-      "sha256": "d36ed4316d074e4212b6499df25ef61b24268f4f8653172b64eefc2a73d7a3ed",
+      "sha256": "fe46f58bde214b83843ef8be2a6bbadfd6e55c64c12d6a46a4aed6a07330af06",
       "state": "generated"
     },
     "web/src/schema-form.tsx": {

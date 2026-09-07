@@ -33,6 +33,7 @@ import {
   gateSteps,
   gateVariable,
   MCP_PUBLISHER_FETCH,
+  npmTarball,
   openclawTarball,
   outputsStep,
   PACKAGE_MANAGER_COMMANDS,
@@ -433,7 +434,6 @@ function releaseDocument(
     return row?.gate ? `needs.gate.outputs.${gateVariable(row)} == 'true'` : undefined;
   };
 
-  const pm = PACKAGE_MANAGER_COMMANDS[project.packageManager ?? "npm"];
   const cli = toolfactoryCli(project);
   const assert = tagVersionAssert(project);
   const jobs: Record<string, unknown> = {
@@ -483,20 +483,23 @@ function releaseDocument(
   const priorLegs: string[] = [];
 
   if (npmSelected) {
+    const tarball = `${RELEASE_ARTIFACT}/${npmTarball(project)}`;
     jobs["publish-npm"] = compact({
-      needs: "gate",
+      needs: ["gate", "package"],
       if: gated("npm"),
       "runs-on": "ubuntu-latest",
       permissions: { "id-token": "write", contents: "read" },
       env: { NPM_TRUSTED_PUBLISHER: "${{ vars.NPM_TRUSTED_PUBLISHER }}" },
       steps: [
         checkoutStep(RELEASE_SHA),
-        ...SETUP_ACTIONS[project.packageManager ?? "npm"],
         {
           uses: "actions/setup-node@v7",
           with: { "node-version": "24", "registry-url": "https://registry.npmjs.org" },
         },
-        { run: `${pm.install} && ${pm.run("build")}` },
+        {
+          uses: "actions/download-artifact@v8",
+          with: { name: RELEASE_ARTIFACT, path: RELEASE_ARTIFACT },
+        },
         // OIDC is selected only after bootstrap-repo verified `npm trust` and set the repository
         // variable. A token remains the fallback for a new package and for an existing package
         // whose publisher was not configured. npm versions are immutable, so a dispatch retry
@@ -506,7 +509,7 @@ function releaseDocument(
           env: {
             NPM_TOKEN: "${{ vars.NPM_TRUSTED_PUBLISHER != 'true' && secrets.NPM_TOKEN || '' }}",
           },
-          run: `if npm view ${npmName(project)}@${project.identity.version ?? "0.0.0"} version >/dev/null 2>&1; then echo "::notice::npm: ${npmName(project)}@${project.identity.version ?? "0.0.0"} already published; skipping immutable version."; elif [ "$NPM_TRUSTED_PUBLISHER" = true ]; then npm publish --access public; else NODE_AUTH_TOKEN="$NPM_TOKEN" npm publish --access public; fi`,
+          run: `if npm view ${npmName(project)}@${project.identity.version ?? "0.0.0"} version >/dev/null 2>&1; then echo "::notice::npm: ${npmName(project)}@${project.identity.version ?? "0.0.0"} already published; skipping immutable version."; elif [ "$NPM_TRUSTED_PUBLISHER" = true ]; then npm publish ${tarball} --access public; else NODE_AUTH_TOKEN="$NPM_TOKEN" npm publish ${tarball} --access public; fi`,
         },
       ],
     });

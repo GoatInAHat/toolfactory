@@ -230,7 +230,11 @@ describe("workflows", () => {
       "pages-build",
       "pages-deploy",
     ]);
-    expect(release.jobs["publish-npm"].needs).toBe("gate");
+    expect(release.jobs["publish-npm"].needs).toEqual(["gate", "package"]);
+    expect(release.jobs["publish-npm"].steps).toContainEqual({
+      uses: "actions/download-artifact@v8",
+      with: { name: "release-assets", path: "release-assets" },
+    });
     expect(release.jobs["publish-npm"].env).not.toHaveProperty("NPM_TOKEN");
     for (const step of release.jobs["publish-npm"].steps) {
       if (step.name === "npm publish") {
@@ -319,9 +323,11 @@ describe("workflows", () => {
         (s) =>
           s.run?.includes("npm view hello@0.1.0 version") &&
           s.run?.includes(
-            'elif [ "$NPM_TRUSTED_PUBLISHER" = true ]; then npm publish --access public',
+            'elif [ "$NPM_TRUSTED_PUBLISHER" = true ]; then npm publish release-assets/hello-0.1.0.tgz --access public',
           ) &&
-          s.run?.includes('NODE_AUTH_TOKEN="$NPM_TOKEN" npm publish --access public'),
+          s.run?.includes(
+            'NODE_AUTH_TOKEN="$NPM_TOKEN" npm publish release-assets/hello-0.1.0.tgz --access public',
+          ),
       ),
     ).toBe(true);
     // The oci leg pushes the very image server.json's oci entry names.
@@ -591,7 +597,13 @@ describe("gate", () => {
     expect(runs).toContain(
       'set -- skills .claude-plugin; for path in LICENSE LICENSE.md LICENSE.txt NOTICE NOTICE.md NOTICE.txt; do if [ -f "$path" ]; then set -- "$@" "$path"; fi; done; zip -qr dist/release/hello-plugin.zip "$@"',
     );
-    expect(runs.some((run) => run.includes("hello-web.tar.gz"))).toBe(true);
+    const webBuild = runs.findIndex((run) => run.includes("npm -C web run build"));
+    const npmPack = runs.indexOf("npm pack --pack-destination dist/release");
+    const webArchive = runs.findIndex((run) => run.includes("hello-web.tar.gz"));
+    expect(webBuild).toBeGreaterThan(-1);
+    expect(webBuild).toBeLessThan(npmPack);
+    // Keep the release archive out of the npm tarball's dist directory.
+    expect(webArchive).toBeGreaterThan(npmPack);
     // wxt zip -b <browser> per store, copied into dist/release under zipName()'s own names, plus
     // the Firefox sources zip `wxt zip -b firefox` writes alongside it.
     const zipStep = runs.find((run) => run.includes("wxt zip hosts/browser -b chrome"));
