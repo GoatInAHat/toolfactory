@@ -409,15 +409,6 @@ function allSet(names: string[]): string {
   return names.map((name) => `[ -n "$${name}" ]`).join(" && ");
 }
 
-/**
- * Exit 0 iff the package name is already on the npm registry. Two consumers, one command: the npm
- * row's `gate` (a name that exists can have a trusted publisher; a new one can only be published
- * with a token) and the publish leg, which asks again at publish time to pick OIDC or the token.
- */
-export function npmPackageExists(project: Project): string {
-  return `npm view ${npmName(project)} version >/dev/null 2>&1`;
-}
-
 const CHROME_SECRETS = [
   "CHROME_EXTENSION_ID",
   "CHROME_PUBLISHER_ID",
@@ -469,9 +460,11 @@ export function registries(project: Project): Registry[] {
       url: "https://www.npmjs.com/settings/~/tokens",
       probe: npmAuthed("npm whoami"),
       exists: `npm view ${pkg}@${version} version >/dev/null 2>&1`,
-      // The package existing means trusted publishing can have been configured for it (`npm trust`
-      // refuses a name that is not on the registry yet); before that only a token can publish.
-      gate: `${npmPackageExists(project)} || [ -n "$NPM_TOKEN" ]`,
+      // An existing package is only eligible for trusted publishing; it does not prove the
+      // relationship was configured. OIDC is enabled explicitly after `npm trust` succeeds;
+      // otherwise a token remains a valid fallback, including for the first publish.
+      gate: `[ -n "$NPM_TRUSTED_PUBLISHER" ] || [ -n "$NPM_TOKEN" ]`,
+      confirmVariable: "NPM_TRUSTED_PUBLISHER",
       // Reversible (an empty message undeprecates) and it never breaks an install, which
       // `npm unpublish` does; the destructive form is behind `--hard`.
       retract: npmAuthed(`npm deprecate ${pkg}@'*' "${why}"`),
@@ -658,6 +651,11 @@ export function manualSteps(project: Project): string[] {
   if (has_("pypi")) {
     steps.push(
       `PyPI: register a pending trusted publisher (repository, \`release.yml\`, environment \`pypi\`) at https://pypi.org/manage/account/publishing/, then \`gh variable set PYPI_TRUSTED_PUBLISHER -b true${slug ? ` -R ${slug}` : ""}\`.`,
+    );
+  }
+  if (has_("npm")) {
+    steps.push(
+      `npm: after the package exists, use npm@11.15+ from a logged-in 2FA session to run \`npm trust github ${npmName(project)} --file release.yml --repo ${slug ?? "<owner/repo>"} --allow-publish -y\`; granular access tokens with bypass 2FA are unsupported. After it succeeds, set \`gh variable set NPM_TRUSTED_PUBLISHER -b true${slug ? ` -R ${slug}` : ""}\`. Until then, NPM_TOKEN is the release fallback.`,
     );
   }
   for (const id of ["chrome", "firefox", "edge", "safari"] as const) {

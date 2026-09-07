@@ -67,6 +67,14 @@ function gh(args: string[], stdin?: string, cwd?: string): string {
   }).trim();
 }
 
+/** npm trust's direct-publish permission flags landed in npm 11.15.0. */
+function supportsNpmTrust(): { ok: boolean; version: string } {
+  const result = spawnSync("npm", ["--version"], { encoding: "utf8", timeout: 10_000 });
+  const version = result.status === 0 ? result.stdout.trim() : "unavailable";
+  const [major = 0, minor = 0] = version.split(".").map(Number);
+  return { ok: major > 11 || (major === 11 && minor >= 15), version };
+}
+
 export function bootstrapRepo(project: Project, options: BootstrapOptions = {}): BootstrapResult {
   const repository = options.repository ?? githubSlug(project.identity.repository);
   if (!repository) {
@@ -142,35 +150,63 @@ export function bootstrapRepo(project: Project, options: BootstrapOptions = {}):
     if (!dryRun && !try_(() => gh(read))) try_(() => gh(create));
   }
 
-  // npm trusted publishing, so the release stops needing a stored token — but only once the
-  // package exists, which `npm trust` requires and a brand-new name cannot satisfy.
+  // npm trusted publishing, so the release can use OIDC — but only once the package exists.
+  // npm trust requires an interactive, logged-in 2FA session; granular bypass-2FA tokens are
+  // explicitly unsupported, so never smuggle NPM_TOKEN into this command.
   if (releaseSecrets.includes("NPM_TOKEN")) {
     const pkg = npmName(project);
-    const trust = `npm trust github ${pkg} --file release.yml --repo ${repository} --allow-publish -y`;
+    const trustArgs = [
+      "trust",
+      "github",
+      pkg,
+      "--file",
+      "release.yml",
+      "--repo",
+      repository,
+      "--allow-publish",
+      "-y",
+    ];
+    const trust = `npm ${trustArgs.join(" ")}`;
+    const confirmArgs = [
+      "variable",
+      "set",
+      "NPM_TRUSTED_PUBLISHER",
+      "-b",
+      "true",
+      "--repo",
+      repository,
+    ];
+    const confirm = `gh ${confirmArgs.join(" ")}`;
+    const manualTrust = `npm: \`${trust}\` requires npm@11.15+, a package that already exists, and a logged-in 2FA session; granular access tokens with bypass 2FA are unsupported. Run it from that session, then \`${confirm}\`. Until it succeeds, NPM_TOKEN is the release fallback.`;
     const published =
-      dryRun ||
+      !dryRun &&
       spawnSync("npm", ["view", pkg, "version"], { stdio: "ignore", timeout: 60_000 }).status === 0;
     if (!published) {
       manual.push(
-        `npm: \`npm trust\` needs the package to exist on the registry first, so the very first publish runs on NPM_TOKEN; afterwards run \`${trust}\` and the release publishes over OIDC.`,
+        `npm: the first publish uses NPM_TOKEN because \`npm trust\` requires the package to exist. Afterwards ${manualTrust.slice("npm: ".length)}`,
       );
-    } else if (values.NPM_TOKEN || dryRun) {
-      commands.push(trust);
-      if (!dryRun) {
-        const result = spawnSync("npm", trust.split(" ").slice(1), {
-          encoding: "utf8",
-          timeout: 120_000,
-          env: {
-            ...process.env,
-            "npm_config_//registry.npmjs.org/:_authToken": values.NPM_TOKEN as string,
-          },
-        });
+    } else {
+      const npm = supportsNpmTrust();
+      if (!npm.ok) {
+        manual.push(
+          `npm: did not run \`${trust}\` because npm ${npm.version} lacks npm@11.15+'s --allow-publish permission. Install npm@^11.15 in the logged-in 2FA session, then ${manualTrust.slice("npm: ".length)}`,
+        );
+      } else {
+        commands.push(trust);
+        const result = spawnSync("npm", trustArgs, { encoding: "utf8", timeout: 120_000 });
         if (result.status !== 0) {
-          // Unverified upstream: a granular token may not be enough for `npm trust` (it may want a
-          // 2FA session). Report the exit rather than assume it worked.
           manual.push(
-            `npm: \`${trust}\` exited ${result.status}: ${(result.stderr ?? "").trim().split("\n").at(-1) ?? "no output"}. Configure the trusted publisher on npmjs.com if the token is not enough.`,
+            `npm: \`${trust}\` exited ${result.status}: ${(result.stderr ?? "").trim().split("\n").at(-1) ?? "no output"}. ${manualTrust.slice("npm: ".length)}`,
           );
+        } else {
+          commands.push(confirm);
+          try {
+            gh(confirmArgs);
+          } catch {
+            manual.push(
+              `npm: trusted publishing was configured, but \`${confirm}\` did not succeed. Run it before relying on OIDC; NPM_TOKEN remains the release fallback until then.`,
+            );
+          }
         }
       }
     }

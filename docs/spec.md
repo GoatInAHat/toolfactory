@@ -469,7 +469,7 @@ SHA-locked file behind `build`'s back and fail the next `check`.
 **`release.yml` is always emitted, and a tag with no secrets is green.** Its `gate` job decides
 once, in one step, which registries this tag can publish to — each row's `gate` from
 `registries(project)` runs with that row's secrets and confirm variable in its environment (npm:
-the package exists, so trusted publishing applies, or `NPM_TOKEN` for the first publish; PyPI: a
+`vars.NPM_TRUSTED_PUBLISHER` after a verified `npm trust`, or `NPM_TOKEN` as the fallback; PyPI: a
 published release or `vars.PYPI_TRUSTED_PUBLISHER`; the MCP registry: every `packages[]` entry
 can publish; ClawHub and the stores: their tokens; Pages: the site exists) — and writes the answer
 as job outputs, because `secrets` and `env` are unreadable in a job-level `if` and the
@@ -502,21 +502,25 @@ and every job that runs steps narrows it explicitly:
 |---|---|---|---|---|
 | `gate` | always | — | `contents: read` | the tag assert, then `gateSteps` |
 | `package` | always | `gate` | `contents: read` | `packageSteps` → one `release-assets` artifact (`upload-artifact`): the npm tarball, `uv build`'s distributions, the built `hosts/openclaw` tarball, the `hosts/dsh` bundle tarball, the `.mcpb` bundle packed from `dist/mcpb/`, the plugin-bundle zip, the web tarball, the browser extension's `wxt zip` output for Chrome/Firefox/Edge plus the Firefox sources zip and, only when `FIREFOX_JWT_ISSUER`/`FIREFOX_JWT_SECRET` are set (this job's own `env:`), the Mozilla-signed self-hosted xpi `web-ext sign --channel=unlisted` writes alongside them, `COVERAGE.md` and a freshly computed `coverage.json` |
-| `publish-npm` | `npm` | `gate` | `id-token: write`, `contents: read` | `npm publish --access public`; no `--provenance`, which trusted publishing generates itself |
+| `publish-npm` | `npm` | `gate` | `id-token: write`, `contents: read` | skips an existing immutable version; otherwise `npm publish --access public` via the verified trusted publisher or `NPM_TOKEN`; no `--provenance`, which trusted publishing generates itself |
 | `publish-pypi` | `pypi` | `gate` | `id-token: write` | `pypa/gh-action-pypi-publish`, environment `pypi` |
 | `publish-oci` | `mcp-registry` with a GitHub owner | `gate` | `contents: read`, `packages: write`, `attestations: write`, `id-token: write` | `docker/login-action` → `docker/metadata-action` (the image `server.json`'s `oci` entry names, `type=semver` for the tag, `LABEL io.modelcontextprotocol.server.name`) → `docker/build-push-action` |
-| `publish-mcp-registry` | `mcp-registry` | every package leg | `id-token: write`, `contents: read` | `mcp-publisher login github-oidc`; last of the package legs because it validates each `packages[]` entry, `oci` included |
-| `publish-clawhub` | `clawhub` + `openclaw-native` | `package` + prior legs | inherited | `openclaw/clawhub/.github/workflows/package-publish.yml`, fed the built tarball from the artifact (`package_artifact_name`/`package_artifact_path`) — the reusable workflow has no build step, so publishing the subdirectory would ship a package whose entry does not exist. Content-fingerprint deduplicated and retry-safe; needs a stored `CLAWHUB_TOKEN`, since its OIDC path covers `workflow_dispatch` only |
+| `publish-mcp-registry` | `mcp-registry` | `gate` + every package leg | `id-token: write`, `contents: read` | `mcp-publisher login github-oidc`; last of the package legs because it validates each `packages[]` entry, `oci` included |
+| `publish-clawhub` | `clawhub` + `openclaw-native` | `gate` + `package` + prior legs | inherited | `openclaw/clawhub/.github/workflows/package-publish.yml`, fed the built tarball from the artifact (`package_artifact_name`/`package_artifact_path`) — the reusable workflow has no build step, so publishing the subdirectory would ship a package whose entry does not exist. Content-fingerprint deduplicated and retry-safe; needs a stored `CLAWHUB_TOKEN`, since its OIDC path covers `workflow_dispatch` only |
 | `publish-clawhub-skill` | `clawhub` + `skill` | `gate` | inherited | ClawHub's skill catalog is a separate track from the plugin catalog above: `openclaw/clawhub/.github/workflows/skill-publish.yml`, fed `skill_path: skills/<N>` straight from the checkout — no built artifact to wait on, so it needs only `gate`, independent of `openclaw-native`. The reusable workflow derives slug/name from `SKILL.md` and dedupes by content fingerprint (new skill → `1.0.0`, changed → next patch), retry-safe like the leg above; V1 skill publishing has no OIDC path either, so it reuses the same stored `CLAWHUB_TOKEN` |
 | `publish-browser-ext` | `browser-extension` | `gate` + `package` | `contents: read` | `wxt submit --dry-run` (every push and pull request: auth plus zip check, no listing mutation) then, only `if: github.event_name == 'push'` (a tag), the real `wxt submit`, downloading `package`'s own zips from the artifact rather than rebuilding. Env-gated per store on that store's own secrets — Chrome via Web Store API **v2** (service-account auth: `CHROME_EXTENSION_ID`/`CHROME_PUBLISHER_ID`/`CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL`/`CHROME_SERVICE_ACCOUNT_PRIVATE_KEY`; v1/v1.1 shuts off 15 Oct 2026 and used a different client-id/secret/refresh-token shape), Firefox (`FIREFOX_EXTENSION_ID`/`FIREFOX_JWT_ISSUER`/`FIREFOX_JWT_SECRET`), Edge (`EDGE_PRODUCT_ID`/`EDGE_CLIENT_ID`/`EDGE_API_KEY`) — a store left unconfigured is skipped, never a failure, so the leg is green with zero store secrets configured. None of the three stores supports GitHub OIDC, so — like `publish-clawhub` — this is a stored-secrets leg |
 | `publish-browser-ext-safari` (opt-in) | `browser-extension` + `tool.json` `browserExtension.safari` | `gate` | `contents: read` | the macOS host-native leg, `runs-on: macos-latest`, never in the default matrix: `xcrun safari-web-extension-converter` on the `wxt build -b safari` payload, then an Xcode archive/export signed with an App Store Connect API key (`ASC_KEY_ID`/`ASC_ISSUER_ID`/`ASC_PRIVATE_KEY`). Submits to App Store Connect, not `dist/release/`, so it never gates `release` |
-| `release` | always | `package` + every publish leg | `contents: write` | `download-artifact` → `softprops/action-gh-release` with `generate_release_notes`, so the tag's release carries the same assets the registries got |
+| `release` | always | `gate` + `package` + every publish leg | `contents: write` | `download-artifact` → `softprops/action-gh-release` with `generate_release_notes`, so the tag's release carries the same assets the registries got |
 | `pages-build` | `web` | `gate` | `contents: read` | `configure-pages`, the web build with `PAGES_BASE=/<repo>/` (a project page is not served from the domain root), `tool.schema.json` + `COVERAGE.md` + `coverage.json` copied in, `upload-pages-artifact` |
 | `pages-deploy` | `web` | `pages-build` | `pages: write`, `id-token: write` | `deploy-pages`, environment `github-pages` |
 
 toolfactory runs no publish itself. `bootstrap-repo` does what `gh` can — the secrets, the
-`live-tests` environment, enabling Pages with Source = GitHub Actions, and `npm trust` once the
-package exists (the very first npm publish can only use a token) — and `secrets status` prints
+`live-tests` environment, enabling Pages with Source = GitHub Actions, and, once the package
+exists, `npm trust` from the maintainer's current logged-in 2FA npm session. npm@11.15+ requires
+that session and rejects granular bypass-2FA tokens for trust configuration; only after it
+succeeds does bootstrap set `NPM_TRUSTED_PUBLISHER`. The first npm publish, and any existing
+package without that confirmation, use `NPM_TOKEN` — and a retry skips an immutable version that
+is already published. `secrets status` prints
 the rest: the `ghcr.io` image is **private on its first push whatever the repository's visibility**
 (a package inherits the repository's access permissions, not its visibility) and GitHub has no API
 to change that, so it is made public once by hand; PyPI's pending trusted publisher is web-only,

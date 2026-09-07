@@ -103,6 +103,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TRUSTED_PUBLISHER: ${{ vars.NPM_TRUSTED_PUBLISHER }}
           CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
           CHROME_PUBLISHER_ID: ${{ secrets.CHROME_PUBLISHER_ID }}
           CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL: ${{ secrets.CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL }}
@@ -114,7 +115,7 @@ jobs:
           EDGE_CLIENT_ID: ${{ secrets.EDGE_CLIENT_ID }}
           EDGE_API_KEY: ${{ secrets.EDGE_API_KEY }}
         run: |-
-          npm=false; if npm view toolfactory version >/dev/null 2>&1 || [ -n "$NPM_TOKEN" ]; then npm=true; else echo "::notice::npm: not published at this tag — https://www.npmjs.com/settings/~/tokens"; fi; echo "npm=$npm" >> "$GITHUB_OUTPUT"
+          npm=false; if [ -n "$NPM_TRUSTED_PUBLISHER" ] || [ -n "$NPM_TOKEN" ]; then npm=true; else echo "::notice::npm: not published at this tag — https://www.npmjs.com/settings/~/tokens"; fi; echo "npm=$npm" >> "$GITHUB_OUTPUT"
           oci=false; if echo "::notice::ghcr.io publishes a private image on the first push whatever the repository's visibility; make it public once at https://github.com/goatinahat?tab=packages -> Package settings -> Danger Zone."; then oci=true; else echo "::notice::oci: not published at this tag — https://github.com/settings/packages"; fi; echo "oci=$oci" >> "$GITHUB_OUTPUT"
           mcp_registry=false; if [ "$npm" = true ] && [ "$oci" = true ]; then mcp_registry=true; else echo "::notice::mcp-registry: not published at this tag — https://registry.modelcontextprotocol.io"; fi; echo "mcp_registry=$mcp_registry" >> "$GITHUB_OUTPUT"
           pages=false; if gh api repos/GoatInAHat/toolfactory/pages >/dev/null 2>&1; then pages=true; else echo "::notice::pages: not published at this tag — https://github.com/GoatInAHat/toolfactory/settings/pages"; fi; echo "pages=$pages" >> "$GITHUB_OUTPUT"
@@ -180,6 +181,7 @@ jobs:
       contents: read
     env:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      NPM_TRUSTED_PUBLISHER: ${{ vars.NPM_TRUSTED_PUBLISHER }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -191,7 +193,7 @@ jobs:
           registry-url: https://registry.npmjs.org
       - run: pnpm install --frozen-lockfile && pnpm run --if-present build
       - name: npm publish
-        run: if npm view toolfactory version >/dev/null 2>&1; then npm publish --access public; else NODE_AUTH_TOKEN="$NPM_TOKEN" npm publish --access public; fi
+        run: 'if npm view toolfactory@0.1.0 version >/dev/null 2>&1; then echo "::notice::npm: toolfactory@0.1.0 already published; skipping immutable version."; elif [ -n "$NPM_TRUSTED_PUBLISHER" ]; then npm publish --access public; else NODE_AUTH_TOKEN="$NPM_TOKEN" npm publish --access public; fi'
   publish-oci:
     needs: gate
     if: needs.gate.outputs.oci == 'true'
@@ -224,6 +226,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
   publish-mcp-registry:
     needs:
+      - gate
       - publish-npm
       - publish-oci
     if: needs.gate.outputs.mcp_registry == 'true'
@@ -290,6 +293,7 @@ jobs:
           npm --prefix hosts/browser exec --no -- wxt submit $flags
   release:
     needs:
+      - gate
       - package
       - publish-npm
       - publish-oci

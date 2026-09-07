@@ -184,12 +184,14 @@ describe("workflows", () => {
       release.jobs.gate.steps as { id?: string; run?: string; env?: Record<string, string> }[]
     ).find((s) => s.id === "presence");
     expect(presence?.env?.NPM_TOKEN).toBe("${{ secrets.NPM_TOKEN }}");
+    expect(presence?.env?.NPM_TRUSTED_PUBLISHER).toBe("${{ vars.NPM_TRUSTED_PUBLISHER }}");
     expect(presence?.run).toContain('echo "npm=$npm" >> "$GITHUB_OUTPUT"');
     expect(presence?.run).toContain('[ "$npm" = true ] && [ "$oci" = true ]');
     // Skipped legs never skip the Release; failed ones do. It retracts dropped registries first.
     expect(release.jobs.release.if).toBe(
       "${{ !cancelled() && needs.package.result == 'success' && !contains(needs.*.result, 'failure') }}",
     );
+    expect(release.jobs.release.needs).toContain("gate");
     const releaseSteps = release.jobs.release.steps as {
       run?: string;
       with?: Record<string, unknown>;
@@ -227,10 +229,15 @@ describe("workflows", () => {
     ]);
     expect(release.jobs["publish-npm"].needs).toBe("gate");
     expect(release.jobs["publish-oci"].needs).toBe("gate");
-    expect(release.jobs["publish-mcp-registry"].needs).toEqual(["publish-npm", "publish-oci"]);
+    expect(release.jobs["publish-mcp-registry"].needs).toEqual([
+      "gate",
+      "publish-npm",
+      "publish-oci",
+    ]);
     // The ClawHub leg publishes the tarball `package` built, not the repository subdirectory:
     // the reusable workflow has no build step of its own.
     expect(release.jobs["publish-clawhub"].needs).toEqual([
+      "gate",
       "package",
       "publish-npm",
       "publish-oci",
@@ -291,10 +298,17 @@ describe("workflows", () => {
       gateRuns.indexOf("npx toolfactory validate"),
     );
     expect(gateRuns.some((r) => r?.includes("openclaw plugins build"))).toBe(false);
-    // npm generates provenance itself under trusted publishing; --provenance is redundant.
+    // npm generates provenance itself under trusted publishing; --provenance is redundant. A
+    // configured publisher selects OIDC; otherwise the stored token is a fallback. A re-dispatch
+    // after adding either credential must not attempt to republish an immutable version.
     expect(
-      (release.jobs["publish-npm"].steps as { run?: string }[]).some((s) =>
-        s.run?.includes('NODE_AUTH_TOKEN="$NPM_TOKEN" npm publish --access public'),
+      (release.jobs["publish-npm"].steps as { run?: string }[]).some(
+        (s) =>
+          s.run?.includes("npm view hello@0.1.0 version") &&
+          s.run?.includes(
+            'elif [ -n "$NPM_TRUSTED_PUBLISHER" ]; then npm publish --access public',
+          ) &&
+          s.run?.includes('NODE_AUTH_TOKEN="$NPM_TOKEN" npm publish --access public'),
       ),
     ).toBe(true);
     // The oci leg pushes the very image server.json's oci entry names.
@@ -458,6 +472,10 @@ describe("bootstrap-repo", () => {
     expect(release.commands).toContain(
       "gh secret set NPM_TOKEN --repo acme/hello  # value from /repo/.env, on stdin",
     );
+    expect(release.manual.join(" ")).toContain(
+      "granular access tokens with bypass 2FA are unsupported",
+    );
+    expect(release.manual.join(" ")).toContain("NPM_TRUSTED_PUBLISHER");
   });
 });
 
