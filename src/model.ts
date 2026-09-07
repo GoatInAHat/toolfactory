@@ -314,10 +314,15 @@ export interface RegionFile {
 export interface MergeFile {
   kind: "merge";
   path: string;
-  format: "json" | "toml";
+  format: "json" | "toml" | "yaml";
   patch: Record<string, unknown>;
   /** Dotted paths inside `patch` whose object toolfactory owns whole: replaced, never merged. */
   owned?: string[];
+  /**
+   * Arrays whose entries are shared by a stable identifier. Toolfactory replaces only entries it
+   * previously wrote, preserves the author's other entries, and rejects an id collision.
+   */
+  keyedArrays?: Record<string, string>;
 }
 
 export type PlannedFile = FullFile | RegionFile | MergeFile;

@@ -10,7 +10,7 @@
 
 import { projectName } from "../identity/name.js";
 import type { Surface } from "../model.js";
-import { compact, has, json, kernelLaunch, mcpVerdict } from "./shared.js";
+import { compact, has, kernelLaunch, mcpVerdict } from "./shared.js";
 
 /** The Codex CLI (`@openai/codex`) `validate()` is proven against — pin for a deterministic gate. */
 export const CODEX_PIN = "0.152.1";
@@ -65,8 +65,13 @@ export const surface: Surface = {
       ],
     });
     return [
-      { kind: "file", path: ".codex-plugin/plugin.json", content: json(manifest) },
-      { kind: "file", path: ".agents/plugins/marketplace.json", content: json(marketplace) },
+      { kind: "merge", path: ".codex-plugin/plugin.json", format: "json", patch: manifest },
+      {
+        kind: "merge",
+        path: ".agents/plugins/marketplace.json",
+        format: "json",
+        patch: marketplace,
+      },
     ];
   },
   validate(project) {

@@ -1,11 +1,12 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { parse as parseToml } from "smol-toml";
+import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
 import { describe, expect, it } from "vitest";
-import { parse as parseYaml } from "yaml";
+import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import type { Operation, Project } from "../model.js";
+import { apply } from "../project/apply.js";
 import { HOST_DIR, pluginDir, surface } from "./hermes-native.js";
 
 const echo: Operation = {
@@ -61,13 +62,45 @@ function project(overrides: Partial<Project> = {}): Project {
 
 function emitted(target: Project): Record<string, string> {
   return Object.fromEntries(
-    surface.plan(target).map((file) => [file.path, file.kind === "file" ? file.content : ""]),
+    surface
+      .plan(target)
+      .map((file) => [
+        file.path,
+        file.kind === "file"
+          ? file.content
+          : file.kind === "merge"
+            ? file.format === "yaml"
+              ? stringifyYaml(file.patch)
+              : file.format === "toml"
+                ? stringifyToml(file.patch)
+                : JSON.stringify(file.patch)
+            : file.regions.map((region) => region.content).join(""),
+      ]),
   );
 }
 
 const python = project({ tool: { ...project().tool, binding: "python" } });
 
 describe("hermes-native", () => {
+  it("keeps native registrations in the author hook while refreshing generated registrations", () => {
+    const root = mkdtempSync(join(tmpdir(), "toolfactory-hermes-region-"));
+    const target = { ...project(), root };
+    apply(root, surface.plan(target), "0.1.0");
+    const path = join(root, pluginDir(target), "__init__.py");
+    writeFileSync(
+      path,
+      readFileSync(path, "utf8").replace(
+        "    pass\n",
+        '    ctx.register_tool(name="native", toolset="native", schema={}, handler=lambda _: "{}")\n',
+      ),
+    );
+    apply(root, surface.plan({ ...target, operations: [echo] }), "0.1.0");
+    const text = readFileSync(path, "utf8");
+    expect(text).toContain('name="native"');
+    expect(text).toContain("def _register_generated(ctx: Any)");
+    expect(text).toContain("_register_generated(ctx)\n    register_native(ctx)");
+  });
+
   it("projects the manifest Hermes parses and the credentials it prompts for", () => {
     const files = emitted(project());
     const manifest = parseYaml(files[`${pluginDir(project())}/plugin.yaml`] ?? "") as Record<

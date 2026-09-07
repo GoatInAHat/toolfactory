@@ -22,7 +22,7 @@ import { Scalar, stringify as yamlStringify } from "yaml";
 import { getBinding } from "../bindings/index.js";
 import { projectName } from "../identity/name.js";
 import type { Project, Surface } from "../model.js";
-import { compact, configProperties, envName, json, kernelLaunch, mcpVerdict } from "./shared.js";
+import { compact, configProperties, envName, kernelLaunch, mcpVerdict } from "./shared.js";
 
 /**
  * The `@deepseek-ai/dsh` release `validate()` boots. Pinned, not `@alpha`: npm's `latest` tag
@@ -40,6 +40,8 @@ export const PATCH_FILE = "cordis.patch.yml";
  * passes to `dsh --patch` to drive the working tree.
  */
 export const LOCAL_PATCH_FILE = "cordis.local.patch.yml";
+const PATCH_BEGIN = "# tf:mcp";
+const PATCH_END = "# /tf:mcp";
 
 /** DSH's first-party MCP bridge; the only plugin the bundle names. */
 const MCP_CLIENT = "@deepseek-ai/dsh-mcp-client";
@@ -91,6 +93,10 @@ function patch(project: Project, launch: { command: string; args: string[] }): s
   return yamlStringify([{ insert: [row] }], { lineWidth: 0 });
 }
 
+function patchTemplate(): string {
+  return `${PATCH_BEGIN}\n${PATCH_END}\n\n# Yours: add Cordis rows or local code configuration below this marker.\n`;
+}
+
 /** The public name a bridged MCP tool takes in DSH; `mcp__<serverName>__<rawName>` is its contract. */
 export function toolName(project: Project, operation: string): string {
   return `mcp__${projectName.dshServer(project.identity.name)}__${operation}`;
@@ -120,20 +126,34 @@ export const surface: Surface = {
       dsh: { bundle: { patch: `./${PATCH_FILE}` } },
     });
     return [
-      { kind: "file", path: `${HOST_DIR}/package.json`, content: json(manifest) },
+      { kind: "merge", path: `${HOST_DIR}/package.json`, format: "json", patch: manifest },
       {
-        kind: "file",
+        kind: "region",
         path: `${HOST_DIR}/${PATCH_FILE}`,
         // `cwd` is deliberately absent: an installed bundle has no path to point at, and the
         // published launch resolves through the registry from wherever DSH is running.
-        content: patch(project, kernelLaunch(project, ".")),
+        regions: [
+          {
+            begin: PATCH_BEGIN,
+            end: PATCH_END,
+            content: patch(project, kernelLaunch(project, ".")),
+          },
+        ],
+        template: patchTemplate(),
       },
       {
-        kind: "file",
+        kind: "region",
         path: `${HOST_DIR}/${LOCAL_PATCH_FILE}`,
         // The kernel as `introspect` and `inspector.json` spawn it: repo-relative, so it resolves
         // against the directory DSH itself was started in.
-        content: patch(project, getBinding(project.tool.binding).kernelCommand(project)),
+        regions: [
+          {
+            begin: PATCH_BEGIN,
+            end: PATCH_END,
+            content: patch(project, getBinding(project.tool.binding).kernelCommand(project)),
+          },
+        ],
+        template: patchTemplate(),
       },
     ];
   },

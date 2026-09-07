@@ -34,8 +34,8 @@ const project: Project = {
 };
 
 const [manifestFile, ...rest] = gemini.plan(project);
-if (manifestFile?.kind !== "file") throw new Error("expected one whole file");
-const manifest = JSON.parse(manifestFile.content) as Record<string, unknown>;
+if (manifestFile?.kind !== "merge") throw new Error("expected one merge file");
+const manifest = manifestFile.patch as Record<string, unknown>;
 
 describe("gemini", () => {
   it("is one root manifest: a dashed name, the kernel launch, AGENTS.md as the context file", () => {
@@ -58,7 +58,7 @@ describe("gemini", () => {
       ],
     });
     // `skills/` and `commands/` are auto-discovered from the extension root; no key names them.
-    expect(manifestFile.content).not.toContain('"skills"');
+    expect(JSON.stringify(manifestFile.patch)).not.toContain('"skills"');
   });
 
   it("validates through Gemini's own manifest validator, and carries only MCP tool calls", () => {

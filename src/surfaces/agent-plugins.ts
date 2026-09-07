@@ -4,7 +4,7 @@
  * Validation is Ajv against the cached official schemas; the spec forbids fetching at load.
  */
 import type { Project, Surface } from "../model.js";
-import { json, kernelLaunch, mcpVerdict } from "./shared.js";
+import { kernelLaunch, mcpVerdict } from "./shared.js";
 
 export const MCP_SCHEMA_ID = "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json";
 export const PLUGIN_SCHEMA_ID = "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json";
@@ -24,12 +24,13 @@ export const surface: Surface = {
     const launch = kernelLaunch(project, "${PLUGIN_ROOT}");
     return [
       {
-        kind: "file",
+        kind: "merge",
         path: "mcp.json",
-        content: json({
+        format: "json",
+        patch: {
           $schema: MCP_SCHEMA_ID,
           mcpServers: { [project.identity.name]: { type: "stdio", ...launch } },
-        }),
+        },
       },
     ];
   },

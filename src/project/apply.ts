@@ -17,6 +17,7 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
+import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import type { MergeFile, PlannedFile, Region } from "../model.js";
 import { LOCK_PATH, type Lock, type Markers, readLock, serializeLock, sha256 } from "./lock.js";
 
@@ -114,17 +115,157 @@ export function pickPatch(
   return out;
 }
 
+function valueAt(document: Record<string, unknown>, path: string): unknown {
+  return path
+    .split(".")
+    .reduce<unknown>((value, part) => (isRecord(value) ? value[part] : undefined), document);
+}
+
+function setAt(document: Record<string, unknown>, path: string, value: unknown): void {
+  const parts = path.split(".");
+  let target = document;
+  for (const part of parts.slice(0, -1)) {
+    const next = target[part];
+    if (isRecord(next)) target = next;
+    else {
+      const created: Record<string, unknown> = {};
+      target[part] = created;
+      target = created;
+    }
+  }
+  target[parts.at(-1) as string] = value;
+}
+
+function omitKeyedArrays(
+  patch: Record<string, unknown>,
+  keyedArrays: Record<string, string>,
+  prefix = "",
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(patch)) {
+    const path = prefix ? `${prefix}.${key}` : key;
+    if (path in keyedArrays) continue;
+    out[key] = isRecord(value) ? omitKeyedArrays(value, keyedArrays, path) : value;
+  }
+  return out;
+}
+
+function keyedArrayEntries(value: unknown, id: string, path: string): Record<string, unknown>[] {
+  if (
+    !Array.isArray(value) ||
+    value.some((entry) => !isRecord(entry) || typeof entry[id] !== "string")
+  ) {
+    throw new Error(`${path} must be an array of objects with a string ${id} field.`);
+  }
+  return value as Record<string, unknown>[];
+}
+
+function keyedArrayState(
+  file: MergeFile,
+): Record<string, { id: string; values: string[] }> | undefined {
+  if (!file.keyedArrays || Object.keys(file.keyedArrays).length === 0) return undefined;
+  return Object.fromEntries(
+    Object.entries(file.keyedArrays).map(([path, id]) => [
+      path,
+      {
+        id,
+        values: keyedArrayEntries(valueAt(file.patch, path), id, path).map(
+          (entry) => entry[id] as string,
+        ),
+      },
+    ]),
+  );
+}
+
+function mergeKeyedArrays(
+  document: Record<string, unknown>,
+  file: MergeFile,
+  previous: Lock,
+): boolean {
+  let changed = false;
+  for (const [path, id] of Object.entries(file.keyedArrays ?? {})) {
+    const desired = keyedArrayEntries(valueAt(file.patch, path), id, path);
+    const previousIds = new Set(previous.files[file.path]?.keyedArrays?.[path]?.values ?? []);
+    const current = valueAt(document, path);
+    const entries = current === undefined ? [] : keyedArrayEntries(current, id, path);
+    const desiredById = new Map(desired.map((entry) => [entry[id] as string, entry]));
+    const retained: Record<string, unknown>[] = [];
+    for (const entry of entries) {
+      const key = entry[id] as string;
+      const replacement = desiredById.get(key);
+      if (previousIds.has(key)) {
+        changed = true;
+        continue;
+      }
+      // Migration from a formerly whole generated file: an identical entry is ours already.
+      if (replacement && JSON.stringify(entry) === JSON.stringify(replacement)) {
+        changed = true;
+        continue;
+      }
+      if (replacement)
+        throw new Error(`${file.path} ${path} already has author entry ${id}=${key}.`);
+      retained.push(entry);
+    }
+    const next = [...retained, ...desired];
+    if (JSON.stringify(entries) !== JSON.stringify(next)) changed = true;
+    setAt(document, path, next);
+  }
+  return changed;
+}
+
+function removeKeyedArrayEntries(
+  document: Record<string, unknown>,
+  keyedArrays: Record<string, { id: string; values: string[] }> | undefined,
+): boolean {
+  let changed = false;
+  for (const [path, state] of Object.entries(keyedArrays ?? {})) {
+    const current = valueAt(document, path);
+    if (!Array.isArray(current)) continue;
+    const next = current.filter(
+      (entry) => !isRecord(entry) || !state.values.includes(entry[state.id] as string),
+    );
+    if (next.length !== current.length) {
+      setAt(document, path, next);
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+function pickMerge(document: Record<string, unknown>, file: MergeFile): Record<string, unknown> {
+  const picked = pickPatch(
+    document,
+    omitKeyedArrays(file.patch, file.keyedArrays ?? {}),
+    file.owned,
+  );
+  for (const [path, id] of Object.entries(file.keyedArrays ?? {})) {
+    const desired = keyedArrayEntries(valueAt(file.patch, path), id, path);
+    const current = Array.isArray(valueAt(document, path))
+      ? (valueAt(document, path) as unknown[])
+      : [];
+    const byId = new Map(current.filter(isRecord).map((entry) => [entry[id] as string, entry]));
+    setAt(
+      picked,
+      path,
+      desired.map((entry) => byId.get(entry[id] as string)),
+    );
+  }
+  return picked;
+}
+
 /** The dotted paths a patch writes: one per leaf value, and one per object it owns whole. */
 export function patchKeys(
   patch: Record<string, unknown>,
   owned: string[] = [],
+  keyedArrays: Record<string, string> = {},
   prefix = "",
 ): string[] {
   const keys: string[] = [];
   for (const [key, value] of Object.entries(patch)) {
     const path = prefix ? `${prefix}.${key}` : key;
+    if (path in keyedArrays) continue;
     if (isRecord(value) && !owned.includes(path) && Object.keys(value).length > 0) {
-      keys.push(...patchKeys(value, owned, path));
+      keys.push(...patchKeys(value, owned, keyedArrays, path));
     } else {
       keys.push(path);
     }
@@ -167,13 +308,15 @@ export function removeKeys(document: Record<string, unknown>, keys: readonly str
 }
 
 function parseDocument(text: string, format: MergeFile["format"]): Record<string, unknown> {
-  return (format === "toml" ? parseToml(text) : JSON.parse(text)) as Record<string, unknown>;
+  return (
+    format === "toml" ? parseToml(text) : format === "yaml" ? parseYaml(text) : JSON.parse(text)
+  ) as Record<string, unknown>;
 }
 
 function serializeDocument(document: Record<string, unknown>, format: MergeFile["format"]): string {
-  return format === "toml"
-    ? `${stringifyToml(document)}\n`
-    : `${JSON.stringify(document, null, 2)}\n`;
+  if (format === "toml") return `${stringifyToml(document)}\n`;
+  if (format === "yaml") return stringifyYaml(document);
+  return `${JSON.stringify(document, null, 2)}\n`;
 }
 
 /** The content toolfactory manages, as one string for hashing and comparison. */
@@ -199,12 +342,16 @@ function currentManagedContent(root: string, file: PlannedFile): string | undefi
   const text = readFileSync(path, "utf8");
   if (file.kind === "file") return text;
   if (file.kind === "region") return extractRegions(text, file)?.join(" ");
-  return JSON.stringify(pickPatch(parseDocument(text, file.format), file.patch, file.owned));
+  return JSON.stringify(pickMerge(parseDocument(text, file.format), file));
 }
 
 /** The two structured formats merge files use; the extension is the only discriminator needed. */
 function documentFormat(path: string): MergeFile["format"] {
-  return path.endsWith(".toml") ? "toml" : "json";
+  return path.endsWith(".toml")
+    ? "toml"
+    : path.endsWith(".yaml") || path.endsWith(".yml")
+      ? "yaml"
+      : "json";
 }
 
 /** The keys the lock recorded for a path that the current patch no longer writes. */
@@ -217,6 +364,22 @@ function stranded(root: string, path: string, keys: string[]): boolean {
   if (keys.length === 0 || !existsSync(join(root, path))) return false;
   const document = parseDocument(readFileSync(join(root, path), "utf8"), documentFormat(path));
   return keys.some((key) => hasKey(document, key));
+}
+
+function keyedEntriesRemain(
+  root: string,
+  path: string,
+  keyedArrays: Record<string, { id: string; values: string[] }> | undefined,
+): boolean {
+  if (!keyedArrays || !existsSync(join(root, path))) return false;
+  const document = parseDocument(readFileSync(join(root, path), "utf8"), documentFormat(path));
+  return Object.entries(keyedArrays).some(([arrayPath, state]) => {
+    const current = valueAt(document, arrayPath);
+    return (
+      Array.isArray(current) &&
+      current.some((entry) => isRecord(entry) && state.values.includes(entry[state.id] as string))
+    );
+  });
 }
 
 /** The marker pairs the lock recorded for a path that the current plan no longer writes. */
@@ -271,7 +434,12 @@ export function check(root: string, plan: PlannedFile[], toolfactoryVersion: str
     const entry = lock.files[path];
     if (planned.has(path) || entry?.state !== "generated" || !present(root, path)) continue;
     // A merge file toolfactory stops writing loses its keys, not its existence.
-    if (entry.keys && !stranded(root, path, entry.keys)) continue;
+    if (
+      (entry.keys || entry.keyedArrays) &&
+      !stranded(root, path, entry.keys ?? []) &&
+      !keyedEntriesRemain(root, path, entry.keyedArrays)
+    )
+      continue;
     // A region file likewise loses its regions: once they are empty, nothing of ours is stranded.
     if (entry.regions && !filled(root, path, entry.regions)) continue;
     drift.push({ path, kind: "orphan" });
@@ -298,23 +466,32 @@ function render(root: string, file: PlannedFile, previous: Lock): string {
     }
     return replaceRegions(file.template, file) ?? file.template;
   }
-  if (!existsSync(path)) return serializeDocument(deepMerge({}, file.patch), file.format);
+  if (!existsSync(path)) {
+    const document = deepMerge({}, omitKeyedArrays(file.patch, file.keyedArrays ?? {}), file.owned);
+    mergeKeyedArrays(document, file, previous);
+    return serializeDocument(document, file.format);
+  }
   const text = readFileSync(path, "utf8");
   const document = parseDocument(text, file.format);
   // The patch's inverse first: keys a previous patch wrote and this one dropped are uninstalled.
   const uninstalled = removeKeys(
     document,
-    staleKeys(previous, file.path, patchKeys(file.patch, file.owned)),
+    staleKeys(previous, file.path, patchKeys(file.patch, file.owned, file.keyedArrays)),
   );
+  const arraysChanged = mergeKeyedArrays(document, file, previous);
   // A document that already carries the patch is left byte-for-byte alone, so a rebuild never
   // reserializes the author's file (and, for TOML, never drops their comments).
   if (
     !uninstalled &&
-    JSON.stringify(pickPatch(document, file.patch, file.owned)) === JSON.stringify(file.patch)
+    !arraysChanged &&
+    JSON.stringify(pickMerge(document, file)) === JSON.stringify(file.patch)
   ) {
     return text;
   }
-  return serializeDocument(deepMerge(document, file.patch, file.owned), file.format);
+  return serializeDocument(
+    deepMerge(document, omitKeyedArrays(file.patch, file.keyedArrays ?? {}), file.owned),
+    file.format,
+  );
 }
 
 /** Write a plan to the tree and refresh the lock. */
@@ -336,7 +513,9 @@ export function apply(root: string, plan: PlannedFile[], toolfactoryVersion: str
       result.manual.push(file.path);
       continue;
     }
-    const keys = file.kind === "merge" ? patchKeys(file.patch, file.owned) : undefined;
+    const keys =
+      file.kind === "merge" ? patchKeys(file.patch, file.owned, file.keyedArrays) : undefined;
+    const keyedArrays = file.kind === "merge" ? keyedArrayState(file) : undefined;
     const regions =
       file.kind === "region" ? file.regions.map(({ begin, end }) => ({ begin, end })) : undefined;
     if (isLink(file)) {
@@ -363,6 +542,7 @@ export function apply(root: string, plan: PlannedFile[], toolfactoryVersion: str
       sha256: sha256(managedContent(file)),
       state: "generated",
       keys,
+      keyedArrays,
       regions,
     };
   }
@@ -373,11 +553,14 @@ export function apply(root: string, plan: PlannedFile[], toolfactoryVersion: str
       continue;
     }
     if (!present(root, path)) continue;
-    if (entry.keys) {
+    if (entry.keys || entry.keyedArrays) {
       // The inverse of a merge file is its keys: the author keeps the file and everything else in it.
       const format = documentFormat(path);
       const document = parseDocument(readFileSync(join(root, path), "utf8"), format);
-      if (removeKeys(document, entry.keys)) {
+      if (
+        removeKeys(document, entry.keys ?? []) ||
+        removeKeyedArrayEntries(document, entry.keyedArrays)
+      ) {
         writeFileSync(join(root, path), serializeDocument(document, format));
         result.written.push(path);
       }

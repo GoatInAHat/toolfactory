@@ -36,8 +36,14 @@ const project: Project = {
 
 const files = Object.fromEntries(
   dsh.plan(project).map((file) => {
-    if (file.kind !== "file") throw new Error("expected whole files only");
-    return [file.path, file.content];
+    return [
+      file.path,
+      file.kind === "file"
+        ? file.content
+        : file.kind === "merge"
+          ? JSON.stringify(file.patch)
+          : file.regions.map((region) => region.content).join(""),
+    ];
   }),
 );
 
