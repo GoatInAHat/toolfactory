@@ -235,14 +235,17 @@ describe("readme", () => {
     expect(body).toContain(
       "download `hello.mcpb` from the GitHub Release and double-click to install",
     );
-    // The extension's three channels — unpacked from a checkout, the release assets (only the
-    // signed xpi installs itself), the store listings — and the pairing step that ends each.
+    // The extension's three channels — unpacked from a checkout, release assets (including an
+    // optional signed XPI), and store listings — and the pairing step that ends each.
     expect(body).toContain("Load unpacked → `hosts/browser/.output/chrome-mv3`");
     expect(body).toContain("web-ext run");
     expect(body).toContain(
       "`hello-0.1.0-chrome.zip`, `hello-0.1.0-firefox.zip`, `hello-0.1.0-edge.zip`",
     );
-    expect(body).toContain("Mozilla-signed `.xpi`");
+    expect(body).toContain(
+      "When Firefox signing credentials are configured, it also attaches a\n  Mozilla-signed `.xpi`",
+    );
+    expect(body).not.toContain("Chrome no longer keeps side-loaded unpacked");
     expect(body).toContain("`npx -y hello mcp --http --pair`");
   });
 

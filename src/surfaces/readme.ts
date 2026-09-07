@@ -142,8 +142,8 @@ function installLines(project: Project): string[] {
   }
   if (has(project, "browser-extension")) {
     // Three channels, in the order a reader needs them: build-and-load from a checkout, the
-    // release assets (only Mozilla's signed xpi is a real self-hosted install — Chrome drops
-    // side-loaded unpacked extensions), the store listings. Pairing is the last step of each.
+    // release assets (the signed Firefox XPI depends on configured signing credentials), and
+    // store listings. Pairing is the last step of each.
     const zips = (["chrome", "firefox", "edge"] as const).map(
       (browser) => `\`${zipName(project, browser)}\``,
     );
@@ -152,9 +152,8 @@ function installLines(project: Project): string[] {
         `- **Browser extension** — from a checkout: \`npm --prefix ${BROWSER_HOST_DIR} install && npm --prefix ${BROWSER_HOST_DIR} exec --no -- wxt build\`,`,
         `  then \`chrome://extensions\` → developer mode → Load unpacked → \`${BROWSER_HOST_DIR}/.output/chrome-mv3\``,
         `  (Firefox: \`npm --prefix ${BROWSER_HOST_DIR} exec --no -- web-ext run\`). Each GitHub Release attaches the`,
-        `  store uploads ${zips.join(", ")}, and the Mozilla-signed \`.xpi\`,`,
-        "  which is the only download-and-install channel now that Chrome no longer keeps side-loaded unpacked",
-        "  extensions; the Chrome Web Store, Firefox Add-ons and Edge Add-ons listings appear once the release's",
+        `  store uploads ${zips.join(", ")}. When Firefox signing credentials are configured, it also attaches a`,
+        "  Mozilla-signed `.xpi`; the Chrome Web Store, Firefox Add-ons and Edge Add-ons listings appear once the release's",
         `  submit step has each store's credentials. Then pair it: \`${mcpCommand(project)} --http --pair\``,
         "  prints the `<url>#<token>` the extension's options page accepts.",
       ].join("\n"),
