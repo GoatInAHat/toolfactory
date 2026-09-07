@@ -129,7 +129,17 @@ export const ToolConfigSchema = z
       .default({ examples: {} })
       .describe("Example arguments per operation, used by the generated surface-smoke tests."),
     npm: z.object({ scope: z.string().optional() }).optional(),
-    codex: z.object({ interface: jsonObject.optional() }).optional(),
+    codex: z
+      .object({
+        interface: jsonObject.optional(),
+        mcp: z
+          .boolean()
+          .default(true)
+          .describe(
+            "Whether the Codex plugin manifest eagerly configures the generated MCP server.",
+          ),
+      })
+      .optional(),
     browserExtension: z
       .object({
         endpoint: z

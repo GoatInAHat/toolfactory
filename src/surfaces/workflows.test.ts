@@ -158,13 +158,23 @@ describe("workflows", () => {
       {
         name: "Publish package distributions to PyPI",
         uses: "pypa/gh-action-pypi-publish@release/v1",
-        with: { "packages-dir": "release-assets/" },
+        with: { "packages-dir": "release-assets/pypi/" },
       },
     ]);
     expect(packageSteps(python).find((step) => step.name === "web build")).toBeDefined();
     expect(packageSteps(python).find((step) => step.name === "python distributions")?.run).toBe(
-      "uv build --out-dir dist/release",
+      "uv build --out-dir dist/release/pypi",
     );
+    const mcpbPython = project(["pypi", "mcp", "mcpb", "web"], {
+      tool: {
+        ...project([]).tool,
+        binding: "python",
+        surfaces: ["pypi", "mcp", "mcpb", "web"],
+      },
+    });
+    const mcpb = packageSteps(mcpbPython).find((step) => step.name === "MCPB bundle")?.run;
+    expect(mcpb).toContain("cp -R src dist/mcpb/src");
+    expect(mcpb).toContain("cp -R web/dist dist/mcpb/web/dist");
   });
 
   it("release.yml runs the legs in the forced order npm -> oci -> mcp-registry -> clawhub, each gated on what the gate decided", () => {
@@ -616,7 +626,7 @@ describe("gate", () => {
     ]);
     const runs = packageSteps(target).map((step) => step.run);
     expect(runs).toContain("npm pack --pack-destination dist/release");
-    expect(runs).toContain("uv build --out-dir dist/release");
+    expect(runs).toContain("uv build --out-dir dist/release/pypi");
     expect(runs.some((run) => run.includes("npm pack ./hosts/openclaw"))).toBe(true);
     expect(runs).toContain(
       'set -- skills .claude-plugin; for path in LICENSE LICENSE.md LICENSE.txt NOTICE NOTICE.md NOTICE.txt; do if [ -f "$path" ]; then set -- "$@" "$path"; fi; done; zip -qr dist/release/hello-plugin.zip "$@"',

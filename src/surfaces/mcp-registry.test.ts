@@ -65,6 +65,14 @@ describe("mcp-registry Dockerfile", () => {
 
     const py = files(project({ tool: { ...project().tool, binding: "python" } }));
     expect(py.Dockerfile).toContain('ENTRYPOINT ["python","-m","hello.toolfactory.mcp"]');
+
+    const pythonWeb = files(
+      project({
+        tool: { ...project().tool, binding: "python", surfaces: ["mcp-registry", "web"] },
+      }),
+    );
+    expect(pythonWeb.Dockerfile).toContain("FROM node:24-alpine AS web");
+    expect(pythonWeb.Dockerfile).toContain("COPY --from=web /app/web/dist ./src/hello/web");
   });
 });
 

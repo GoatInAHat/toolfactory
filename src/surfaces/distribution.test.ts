@@ -3,7 +3,7 @@ import type { Operation, Project, SurfaceId } from "../model.js";
 import { buildPlan } from "../project/plan.js";
 import { surface as claude } from "./claude.js";
 import { surface as npm } from "./npm.js";
-import { MCP_NAME_BEGIN, MCP_NAME_END } from "./pypi.js";
+import { MCP_NAME_BEGIN, MCP_NAME_END, surface as pypi } from "./pypi.js";
 import { INSTALL_BEGIN, INSTALL_END, surface as readme } from "./readme.js";
 
 const echo: Operation = { name: "echo", inputSchema: { type: "object" }, requires: [] };
@@ -74,6 +74,29 @@ describe("npm", () => {
     expect(region(python)).toContain(
       "requires `uv`, and `hello` delegates to `uvx --from hello==0.1.0 hello`",
     );
+  });
+
+  it("ships the built web page in Python's prebuilt wheel before release publication", () => {
+    const python = project(["pypi", "web"], {
+      tool: { ...project([]).tool, binding: "python", surfaces: ["pypi", "web"] },
+    });
+    const [file] = pypi.plan(python);
+    if (file?.kind !== "merge") throw new Error("expected Python package metadata");
+    expect(file.patch).toMatchObject({
+      tool: {
+        hatch: {
+          build: {
+            targets: {
+              wheel: {
+                "only-include": ["src/hello", "web/dist"],
+                sources: { src: "", "web/dist": "hello/web" },
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(JSON.stringify(file.patch)).not.toContain("force-include");
   });
 });
 

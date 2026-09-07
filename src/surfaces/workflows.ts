@@ -530,7 +530,7 @@ function releaseDocument(
         {
           name: "Publish package distributions to PyPI",
           uses: "pypa/gh-action-pypi-publish@release/v1",
-          with: { "packages-dir": `${RELEASE_ARTIFACT}/` },
+          with: { "packages-dir": `${RELEASE_ARTIFACT}/pypi/` },
         },
       ],
     });
