@@ -173,8 +173,20 @@ describe("workflows", () => {
       },
     });
     const mcpb = packageSteps(mcpbPython).find((step) => step.name === "MCPB bundle")?.run;
-    expect(mcpb).toContain("cp -R src dist/mcpb/src");
-    expect(mcpb).toContain("cp -R web/dist dist/mcpb/web/dist");
+    expect(packageSteps(mcpbPython).map((step) => step.name)).toEqual(
+      expect.arrayContaining(["python distributions", "MCPB bundle"]),
+    );
+    expect(
+      packageSteps(mcpbPython)
+        .map((step) => step.name)
+        .indexOf("python distributions"),
+    ).toBeLessThan(
+      packageSteps(mcpbPython)
+        .map((step) => step.name)
+        .indexOf("MCPB bundle"),
+    );
+    expect(mcpb).toContain("tar -xzf dist/release/pypi/*.tar.gz -C dist/mcpb --strip-components=1");
+    expect(mcpb).not.toContain("cp -R src dist/mcpb/src");
   });
 
   it("release.yml runs the legs in the forced order npm -> oci -> mcp-registry -> clawhub, each gated on what the gate decided", () => {

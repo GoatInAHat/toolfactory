@@ -28,7 +28,6 @@ import {
   npmName,
   pypiName,
 } from "../surfaces/shared.js";
-import { WEB_DIR } from "../surfaces/web.js";
 
 export interface GateStep {
   /** Step label: the CI step name, and the banner the shell script echoes. */
@@ -233,6 +232,12 @@ export function packageSteps(project: Project): GateStep[] {
   if (has(project, "npm")) {
     steps.push({ name: "npm tarball", run: `npm pack --pack-destination ${RELEASE_DIR}` });
   }
+  if (has(project, "pypi")) {
+    // Keep the wheel and sdist apart from the release's npm tarballs, plugin bundles and web
+    // archive: PyPA's publisher accepts only Python distribution files. The MCPB stage below
+    // unpacks this same canonical sdist rather than reproducing its source-file selection.
+    steps.push({ name: "python distributions", run: `uv build --out-dir ${RELEASE_DIR}/pypi` });
+  }
   if (has(project, "mcpb")) {
     const stage = "dist/mcpb";
     steps.push({
@@ -241,12 +246,7 @@ export function packageSteps(project: Project): GateStep[] {
         project.tool.binding === "python"
           ? [
               `rm -rf ${stage} && mkdir -p ${stage}`,
-              `cp pyproject.toml ${stage}/pyproject.toml`,
-              `[ ! -f uv.lock ] || cp uv.lock ${stage}/uv.lock`,
-              `cp -R src ${stage}/src`,
-              ...(has(project, "web")
-                ? [`mkdir -p ${stage}/web && cp -R ${WEB_DIR}/dist ${stage}/web/dist`]
-                : []),
+              `tar -xzf ${RELEASE_DIR}/pypi/*.tar.gz -C ${stage} --strip-components=1`,
               `cp ${MCPB_MANIFEST_PATH} ${stage}/manifest.json`,
               `npx -y @anthropic-ai/mcpb@${MCPB_PIN} pack ${stage} ${RELEASE_DIR}/${name}.mcpb`,
             ].join(" && ")
@@ -260,11 +260,6 @@ export function packageSteps(project: Project): GateStep[] {
               `npx -y @anthropic-ai/mcpb@${MCPB_PIN} pack ${stage} ${RELEASE_DIR}/${name}.mcpb`,
             ].join(" && "),
     });
-  }
-  if (has(project, "pypi")) {
-    // Keep the wheel and sdist apart from the release's npm tarballs, plugin bundles and web
-    // archive: PyPA's publisher accepts only Python distribution files.
-    steps.push({ name: "python distributions", run: `uv build --out-dir ${RELEASE_DIR}/pypi` });
   }
   if (has(project, "openclaw-native")) {
     // ClawHub's reusable workflow has no build step of its own, so the tarball it publishes has
