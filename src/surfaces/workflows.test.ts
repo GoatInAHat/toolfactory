@@ -143,6 +143,41 @@ describe("workflows", () => {
     expect(steps.some((s) => s.run === "uv run --with pytest pytest -q")).toBe(true);
   });
 
+  it("installs a native Python core into Hermes only in validation jobs", () => {
+    const python = project(["cli", "mcp", "hermes-native"], {
+      tool: {
+        ...project(["cli"]).tool,
+        binding: "python",
+        surfaces: ["cli", "mcp", "hermes-native"],
+      },
+    });
+    const files = emitted(python);
+    const ci = yamlParse(files[".github/workflows/ci.yml"]);
+    const release = yamlParse(files[".github/workflows/release.yml"]);
+    const command =
+      'uv pip install --python "$HOME/.hermes/hermes-agent/venv/bin/python" --editable .';
+    const ciRuns = ci.jobs.test.steps.map((step: { run?: string }) => step.run);
+    const gateRuns = release.jobs.gate.steps.map((step: { run?: string }) => step.run);
+    const packageRuns = release.jobs.package.steps.map((step: { run?: string }) => step.run);
+    const ciValidate = ciRuns.findIndex((run: string | undefined) => run?.endsWith(" validate"));
+    const gateValidate = gateRuns.findIndex((run: string | undefined) =>
+      run?.endsWith(" validate"),
+    );
+
+    expect(ciRuns.indexOf(command)).toBeGreaterThan(ciRuns.indexOf("uv sync"));
+    expect(ciRuns.indexOf(command)).toBeLessThan(ciValidate);
+    expect(gateRuns.indexOf(command)).toBeGreaterThan(gateRuns.indexOf("uv sync"));
+    expect(gateRuns.indexOf(command)).toBeLessThan(gateValidate);
+    expect(packageRuns).not.toContain(command);
+
+    const withoutHermes = project(["cli", "mcp"], {
+      tool: { ...project(["cli"]).tool, binding: "python", surfaces: ["cli", "mcp"] },
+    });
+    const typescriptHermes = project(["cli", "mcp", "hermes-native"]);
+    expect(emitted(withoutHermes)[".github/workflows/ci.yml"]).not.toContain(command);
+    expect(emitted(typescriptHermes)[".github/workflows/ci.yml"]).not.toContain(command);
+  });
+
   it("publishes the package job's prebuilt Python distributions", () => {
     const python = project(["pypi", "web"], {
       tool: { ...project([]).tool, binding: "python", surfaces: ["pypi", "web"] },
