@@ -67,6 +67,11 @@ describe("mcp-registry Dockerfile", () => {
     expect(py.Dockerfile).toContain('ENTRYPOINT ["python","-m","hello.toolfactory.mcp"]');
     expect(py.Dockerfile).toContain("COPY . .\nRUN uv sync --no-dev");
     expect(py.Dockerfile).not.toContain("COPY pyproject.toml ./");
+    expect(py.Dockerfile).toContain(
+      'for path in README README.md README.rst LICENSE LICENSE.md LICENSE.txt NOTICE NOTICE.md NOTICE.txt; do if [ -f "$path" ]; then cp "$path" /app/runtime/; fi; done',
+    );
+    expect(py.Dockerfile).toContain("COPY --from=build /app/runtime/ ./");
+    expect(py.Dockerfile).not.toContain("COPY --from=build /app .");
 
     const pythonWeb = files(
       project({
@@ -75,6 +80,19 @@ describe("mcp-registry Dockerfile", () => {
     );
     expect(pythonWeb.Dockerfile).toContain("FROM node:24-alpine AS web");
     expect(pythonWeb.Dockerfile).toContain("COPY --from=web /app/web/dist ./src/hello/web");
+  });
+
+  it("ships an author-extensible Docker ignore region without excluding source metadata", () => {
+    const ignore = surface.plan(project()).find((file) => file.path === ".dockerignore");
+    if (ignore?.kind !== "region") throw new Error("expected a Docker ignore region");
+    expect(ignore.template).toContain("# tf:dockerignore\n# /tf:dockerignore");
+    expect(ignore.regions[0]?.content).toContain(".git/");
+    expect(ignore.regions[0]?.content).toContain(".env.*");
+    expect(ignore.regions[0]?.content).toContain("!.env.example");
+    expect(ignore.regions[0]?.content).toContain("**/node_modules/");
+    expect(ignore.regions[0]?.content).toContain("**/.venv/");
+    expect(ignore.regions[0]?.content).not.toContain("README");
+    expect(ignore.regions[0]?.content).not.toContain("web/");
   });
 });
 
