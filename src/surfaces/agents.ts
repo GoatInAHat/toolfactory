@@ -688,6 +688,22 @@ function devcontainer(project: Project): string {
   return `${JSON.stringify({ ...document, features }, null, 2)}\n`;
 }
 
+/** The vendor-owned workflow gains the Python prerequisite it cannot know. */
+function agentConfigWorkflow(project: Project): string {
+  const path = ".github/workflows/agent-config.yml";
+  const workflow = TEMPLATE_FILES[path] ?? "";
+  if (isInstructionOnly(project.tool) || project.tool.binding !== "python") return workflow;
+  const setup = "      - name: Run the shared setup entry point\n";
+  if (!workflow.includes(setup))
+    throw new Error(`${path} no longer has the setup step; re-vendor before adding uv.`);
+  return workflow.replace(
+    setup,
+    "      - name: Install uv\n" +
+      "        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0\n\n" +
+      setup,
+  );
+}
+
 /** Whole-file carriers: no per-project content, `adopt` is the escape hatch. */
 function vendored(project: Project): PlannedFile[] {
   const skip = new Set([SETUP_PATH, IGNORE_PATH, ".devcontainer/devcontainer.json"]);
@@ -698,7 +714,8 @@ function vendored(project: Project): PlannedFile[] {
         ([path, content]): PlannedFile => ({
           kind: "file",
           path,
-          content,
+          content:
+            path === ".github/workflows/agent-config.yml" ? agentConfigWorkflow(project) : content,
           ...(path.endsWith("sync.py") ? { mode: 0o755 } : {}),
         }),
       ),

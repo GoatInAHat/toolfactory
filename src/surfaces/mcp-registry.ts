@@ -110,8 +110,9 @@ RUN npm -C web run build
     : ""
 }FROM ${UV_IMAGE} AS build
 WORKDIR /app
-COPY pyproject.toml ./
-COPY src ./src
+# pyproject metadata can name README, license, and other package assets; copy the project without
+# assuming optional metadata files exist.
+COPY . .
 RUN uv sync --no-dev
 
 FROM ${PYTHON_IMAGE}
