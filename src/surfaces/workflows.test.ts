@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { parse as yamlParse } from "yaml";
 import { bootstrapRepo } from "../hosts/github.js";
 import type { Operation, Project, SurfaceId } from "../model.js";
-import { gateSteps, packageSteps } from "../project/gate.js";
+import { gateSteps, packageSteps, registries } from "../project/gate.js";
 import { sourcesZipName, zipName } from "./browser-extension.js";
 import { surface } from "./workflows.js";
 
@@ -178,18 +178,23 @@ describe("workflows", () => {
     expect(release.jobs["publish-mcp-registry"].if).toBe(
       "needs.gate.outputs.mcp_registry == 'true'",
     );
-    expect(release.jobs["publish-clawhub"].if).toBe("needs.gate.outputs.clawhub_package == 'true'");
+    expect(release.jobs["publish-clawhub"].if).toBe(
+      "${{ !cancelled() && needs.package.result == 'success' && !contains(needs.*.result, 'failure') && needs.gate.outputs.clawhub_package == 'true' }}",
+    );
     expect(release.jobs["pages-build"].if).toBe("needs.gate.outputs.pages == 'true'");
     const presence = (
       release.jobs.gate.steps as { id?: string; run?: string; env?: Record<string, string> }[]
     ).find((s) => s.id === "presence");
     expect(presence?.env?.NPM_TOKEN).toBe("${{ secrets.NPM_TOKEN }}");
+    expect(presence?.env?.NPM_TRUSTED_PUBLISHER).toBe("${{ vars.NPM_TRUSTED_PUBLISHER }}");
     expect(presence?.run).toContain('echo "npm=$npm" >> "$GITHUB_OUTPUT"');
     expect(presence?.run).toContain('[ "$npm" = true ] && [ "$oci" = true ]');
     // Skipped legs never skip the Release; failed ones do. It retracts dropped registries first.
     expect(release.jobs.release.if).toBe(
       "${{ !cancelled() && needs.package.result == 'success' && !contains(needs.*.result, 'failure') }}",
     );
+    expect(release.jobs.release.needs).toContain("gate");
+    expect(release.jobs.release.env).not.toHaveProperty("NPM_TOKEN");
     const releaseSteps = release.jobs.release.steps as {
       run?: string;
       with?: Record<string, unknown>;
@@ -225,12 +230,31 @@ describe("workflows", () => {
       "pages-build",
       "pages-deploy",
     ]);
-    expect(release.jobs["publish-npm"].needs).toBe("gate");
+    expect(release.jobs["publish-npm"].needs).toEqual(["gate", "package"]);
+    expect(release.jobs["publish-npm"].steps).toContainEqual({
+      uses: "actions/download-artifact@v8",
+      with: { name: "release-assets", path: "release-assets" },
+    });
+    expect(release.jobs["publish-npm"].env).not.toHaveProperty("NPM_TOKEN");
+    for (const step of release.jobs["publish-npm"].steps) {
+      if (step.name === "npm publish") {
+        expect(step.env.NPM_TOKEN).toBe(
+          "${{ vars.NPM_TRUSTED_PUBLISHER != 'true' && secrets.NPM_TOKEN || '' }}",
+        );
+      } else {
+        expect(step.env ?? {}).not.toHaveProperty("NPM_TOKEN");
+      }
+    }
     expect(release.jobs["publish-oci"].needs).toBe("gate");
-    expect(release.jobs["publish-mcp-registry"].needs).toEqual(["publish-npm", "publish-oci"]);
+    expect(release.jobs["publish-mcp-registry"].needs).toEqual([
+      "gate",
+      "publish-npm",
+      "publish-oci",
+    ]);
     // The ClawHub leg publishes the tarball `package` built, not the repository subdirectory:
     // the reusable workflow has no build step of its own.
     expect(release.jobs["publish-clawhub"].needs).toEqual([
+      "gate",
       "package",
       "publish-npm",
       "publish-oci",
@@ -291,10 +315,19 @@ describe("workflows", () => {
       gateRuns.indexOf("npx toolfactory validate"),
     );
     expect(gateRuns.some((r) => r?.includes("openclaw plugins build"))).toBe(false);
-    // npm generates provenance itself under trusted publishing; --provenance is redundant.
+    // npm generates provenance itself under trusted publishing; --provenance is redundant. A
+    // configured publisher selects OIDC; otherwise the stored token is a fallback. A re-dispatch
+    // after adding either credential must not attempt to republish an immutable version.
     expect(
-      (release.jobs["publish-npm"].steps as { run?: string }[]).some((s) =>
-        s.run?.includes('NODE_AUTH_TOKEN="$NPM_TOKEN" npm publish --access public'),
+      (release.jobs["publish-npm"].steps as { run?: string }[]).some(
+        (s) =>
+          s.run?.includes("npm view hello@0.1.0 version") &&
+          s.run?.includes(
+            'elif [ "$NPM_TRUSTED_PUBLISHER" = true ]; then npm publish release-assets/hello-0.1.0.tgz --access public',
+          ) &&
+          s.run?.includes(
+            'NODE_AUTH_TOKEN="$NPM_TOKEN" npm publish release-assets/hello-0.1.0.tgz --access public',
+          ),
       ),
     ).toBe(true);
     // The oci leg pushes the very image server.json's oci entry names.
@@ -381,6 +414,50 @@ describe("workflows", () => {
 });
 
 /** Real invocation: an offline GitHub Actions linter, when one happens to be on PATH. */
+describe("npm release authentication", () => {
+  it("executes token, OIDC, disabled, and already-published branches without registry writes", () => {
+    const target = project(["npm"]);
+    const release = yamlParse(emitted(target)[".github/workflows/release.yml"]);
+    const publish = (release.jobs["publish-npm"].steps as { name?: string; run?: string }[]).find(
+      (step) => step.name === "npm publish",
+    )?.run;
+    const gate = registries(target).find((registry) => registry.id === "npm")?.gate;
+    expect(publish).toBeDefined();
+    expect(gate).toBeDefined();
+    for (const scenario of [
+      { trust: "", token: "", exists: false, enabled: false, output: "" },
+      { trust: "false", token: "", exists: false, enabled: false, output: "" },
+      {
+        trust: "false",
+        token: "test-token",
+        exists: false,
+        enabled: true,
+        output: "publish:test-token",
+      },
+      { trust: "true", token: "test-token", exists: false, enabled: true, output: "publish:oidc" },
+      { trust: "true", token: "", exists: true, enabled: true, output: "already published" },
+    ]) {
+      const env = {
+        ...process.env,
+        NPM_TRUSTED_PUBLISHER: scenario.trust,
+        NPM_TOKEN: scenario.token,
+        NODE_AUTH_TOKEN: "",
+      };
+      const gated = spawnSync("bash", ["-c", gate as string], { env });
+      expect(gated.status === 0).toBe(scenario.enabled);
+      if (!scenario.enabled) continue;
+      // Stub the upstream CLI at the shell boundary; never contact or write to npm.
+      const stub = `npm() { if [ "$1" = view ]; then return ${scenario.exists ? 0 : 1}; fi; printf 'publish:%s\\n' "\${NODE_AUTH_TOKEN:-oidc}"; };`;
+      const output = execFileSync("bash", ["-c", `${stub}\n${publish}`], {
+        env,
+        encoding: "utf8",
+      });
+      expect(output).toContain(scenario.output);
+      if (scenario.exists) expect(output).not.toContain("publish:");
+    }
+  });
+});
+
 function actionlintAvailable(): boolean {
   try {
     execFileSync("actionlint", ["-version"], { stdio: "ignore" });
@@ -453,11 +530,20 @@ describe("bootstrap-repo", () => {
     // No live credential is not "nothing to do": the release tokens still land, at repository scope.
     const noCredential = project(["cli"], { identity: target.identity });
     noCredential.tool.config = { ...noCredential.tool.config, required: [] };
-    const release = bootstrapRepo(noCredential, { dryRun: true, releaseSecrets: ["NPM_TOKEN"] });
+    const release = bootstrapRepo(noCredential, {
+      dryRun: true,
+      releaseSecrets: ["NPM_TOKEN"],
+      manual: ["npm: generic instructions replaced by the bootstrap outcome"],
+    });
     expect(release.secrets).toEqual(["NPM_TOKEN"]);
     expect(release.commands).toContain(
       "gh secret set NPM_TOKEN --repo acme/hello  # value from /repo/.env, on stdin",
     );
+    expect(release.manual.join(" ")).toContain(
+      "granular access tokens with bypass 2FA are unsupported",
+    );
+    expect(release.manual.join(" ")).toContain("NPM_TRUSTED_PUBLISHER");
+    expect(release.manual.filter((step) => step.startsWith("npm:"))).toHaveLength(1);
   });
 });
 
@@ -509,9 +595,15 @@ describe("gate", () => {
     expect(runs).toContain("uv build --out-dir dist/release");
     expect(runs.some((run) => run.includes("npm pack ./hosts/openclaw"))).toBe(true);
     expect(runs).toContain(
-      'zip -qr dist/release/hello-plugin.zip skills .claude-plugin $(for path in LICENSE LICENSE.md LICENSE.txt NOTICE NOTICE.md NOTICE.txt; do [ -f "$path" ] && printf \'%s \' "$path"; done)',
+      'set -- skills .claude-plugin; for path in LICENSE LICENSE.md LICENSE.txt NOTICE NOTICE.md NOTICE.txt; do if [ -f "$path" ]; then set -- "$@" "$path"; fi; done; zip -qr dist/release/hello-plugin.zip "$@"',
     );
-    expect(runs.some((run) => run.includes("hello-web.tar.gz"))).toBe(true);
+    const webBuild = runs.findIndex((run) => run.includes("npm -C web run build"));
+    const npmPack = runs.indexOf("npm pack --pack-destination dist/release");
+    const webArchive = runs.findIndex((run) => run.includes("hello-web.tar.gz"));
+    expect(webBuild).toBeGreaterThan(-1);
+    expect(webBuild).toBeLessThan(npmPack);
+    // Keep the release archive out of the npm tarball's dist directory.
+    expect(webArchive).toBeGreaterThan(npmPack);
     // wxt zip -b <browser> per store, copied into dist/release under zipName()'s own names, plus
     // the Firefox sources zip `wxt zip -b firefox` writes alongside it.
     const zipStep = runs.find((run) => run.includes("wxt zip hosts/browser -b chrome"));

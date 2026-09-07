@@ -7,11 +7,6 @@
 # since the previous tag published to (git is the ledger; `toolfactory unpublish`), and
 # `toolfactory secrets status` / `bootstrap-repo` cover the one-time steps that are left.
 #
-# None of Chrome Web Store, Firefox Add-ons or Edge Add-ons supports GitHub OIDC — like
-# CLAWHUB_TOKEN above, publish-browser-ext is a stored-secrets leg, gated per store on that
-# store's own secrets (nine names across the three stores); a store left unconfigured is
-# skipped, never a failure, and the leg's own dry run runs on every push and pull request.
-#
 # Pages must be enabled with Source = GitHub Actions once (`toolfactory bootstrap-repo` does
 # it through gh); until then the gate skips the Pages pair with a notice.
 
@@ -42,9 +37,6 @@ jobs:
       oci: ${{ steps.presence.outputs.oci }}
       mcp_registry: ${{ steps.presence.outputs.mcp_registry }}
       pages: ${{ steps.presence.outputs.pages }}
-      chrome: ${{ steps.presence.outputs.chrome }}
-      firefox: ${{ steps.presence.outputs.firefox }}
-      edge: ${{ steps.presence.outputs.edge }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -103,32 +95,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
-          CHROME_PUBLISHER_ID: ${{ secrets.CHROME_PUBLISHER_ID }}
-          CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL: ${{ secrets.CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL }}
-          CHROME_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CHROME_SERVICE_ACCOUNT_PRIVATE_KEY }}
-          FIREFOX_EXTENSION_ID: ${{ secrets.FIREFOX_EXTENSION_ID }}
-          FIREFOX_JWT_ISSUER: ${{ secrets.FIREFOX_JWT_ISSUER }}
-          FIREFOX_JWT_SECRET: ${{ secrets.FIREFOX_JWT_SECRET }}
-          EDGE_PRODUCT_ID: ${{ secrets.EDGE_PRODUCT_ID }}
-          EDGE_CLIENT_ID: ${{ secrets.EDGE_CLIENT_ID }}
-          EDGE_API_KEY: ${{ secrets.EDGE_API_KEY }}
+          NPM_TRUSTED_PUBLISHER: ${{ vars.NPM_TRUSTED_PUBLISHER }}
         run: |-
-          npm=false; if npm view toolfactory version >/dev/null 2>&1 || [ -n "$NPM_TOKEN" ]; then npm=true; else echo "::notice::npm: not published at this tag — https://www.npmjs.com/settings/~/tokens"; fi; echo "npm=$npm" >> "$GITHUB_OUTPUT"
+          npm=false; if [ "$NPM_TRUSTED_PUBLISHER" = true ] || [ -n "$NPM_TOKEN" ]; then npm=true; else echo "::notice::npm: not published at this tag — https://www.npmjs.com/settings/~/tokens"; fi; echo "npm=$npm" >> "$GITHUB_OUTPUT"
           oci=false; if echo "::notice::ghcr.io publishes a private image on the first push whatever the repository's visibility; make it public once at https://github.com/goatinahat?tab=packages -> Package settings -> Danger Zone."; then oci=true; else echo "::notice::oci: not published at this tag — https://github.com/settings/packages"; fi; echo "oci=$oci" >> "$GITHUB_OUTPUT"
           mcp_registry=false; if [ "$npm" = true ] && [ "$oci" = true ]; then mcp_registry=true; else echo "::notice::mcp-registry: not published at this tag — https://registry.modelcontextprotocol.io"; fi; echo "mcp_registry=$mcp_registry" >> "$GITHUB_OUTPUT"
           pages=false; if gh api repos/GoatInAHat/toolfactory/pages >/dev/null 2>&1; then pages=true; else echo "::notice::pages: not published at this tag — https://github.com/GoatInAHat/toolfactory/settings/pages"; fi; echo "pages=$pages" >> "$GITHUB_OUTPUT"
-          chrome=false; if [ -n "$CHROME_EXTENSION_ID" ] && [ -n "$CHROME_PUBLISHER_ID" ] && [ -n "$CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL" ] && [ -n "$CHROME_SERVICE_ACCOUNT_PRIVATE_KEY" ]; then chrome=true; else echo "::notice::chrome: not published at this tag — https://chrome.google.com/webstore/devconsole"; fi; echo "chrome=$chrome" >> "$GITHUB_OUTPUT"
-          firefox=false; if [ -n "$FIREFOX_EXTENSION_ID" ] && [ -n "$FIREFOX_JWT_ISSUER" ] && [ -n "$FIREFOX_JWT_SECRET" ]; then firefox=true; else echo "::notice::firefox: not published at this tag — https://addons.mozilla.org/developers/addon/api/key/"; fi; echo "firefox=$firefox" >> "$GITHUB_OUTPUT"
-          edge=false; if [ -n "$EDGE_PRODUCT_ID" ] && [ -n "$EDGE_CLIENT_ID" ] && [ -n "$EDGE_API_KEY" ]; then edge=true; else echo "::notice::edge: not published at this tag — https://partner.microsoft.com/dashboard/microsoftedge/publishapi"; fi; echo "edge=$edge" >> "$GITHUB_OUTPUT"
   package:
     needs: gate
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    env:
-      FIREFOX_JWT_ISSUER: ${{ secrets.FIREFOX_JWT_ISSUER }}
-      FIREFOX_JWT_SECRET: ${{ secrets.FIREFOX_JWT_SECRET }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -147,24 +124,22 @@ jobs:
         run: pnpm run --if-present build
       - name: toolfactory build (output files)
         run: npx toolfactory build
+      - name: web build
+        run: npm -C web ci && npm -C web run build
+        env:
+          PAGES_BASE: /
       - name: npm tarball
         run: npm pack --pack-destination dist/release
       - name: MCPB bundle
-        run: rm -rf dist/mcpb && mkdir -p dist/mcpb && tar -xzf dist/release/toolfactory-0.1.0.tgz -C dist/mcpb --strip-components=1 && npm --prefix dist/mcpb install --omit=dev --ignore-scripts && cp hosts/mcpb/manifest.json dist/mcpb/manifest.json && npx -y @anthropic-ai/mcpb@2.1.2 pack dist/mcpb dist/release/toolfactory.mcpb
+        run: rm -rf dist/mcpb && mkdir -p dist/mcpb && tar -xzf dist/release/toolfactory-0.1.1.tgz -C dist/mcpb --strip-components=1 && npm --prefix dist/mcpb install --omit=dev --ignore-scripts && cp hosts/mcpb/manifest.json dist/mcpb/manifest.json && npx -y @anthropic-ai/mcpb@2.1.2 pack dist/mcpb dist/release/toolfactory.mcpb
       - name: OpenClaw plugin tarball
         run: npm --prefix hosts/openclaw install && npm --prefix hosts/openclaw run build && npm pack ./hosts/openclaw --pack-destination dist/release
       - name: DSH bundle tarball
         run: npm pack ./hosts/dsh --pack-destination dist/release
       - name: plugin bundle
-        run: zip -qr dist/release/toolfactory-plugin.zip plugin.json mcp.json skills .claude-plugin .codex-plugin .cursor-plugin $(for path in LICENSE LICENSE.md LICENSE.txt NOTICE NOTICE.md NOTICE.txt; do [ -f "$path" ] && printf '%s ' "$path"; done)
-      - name: web build
-        run: npm -C web ci && npm -C web run build && tar -czf dist/release/toolfactory-web.tar.gz -C web/dist .
-        env:
-          PAGES_BASE: /
-      - name: browser extension zips
-        run: npm --prefix hosts/browser install && npm --prefix hosts/browser exec --no -- wxt zip hosts/browser -b chrome && npm --prefix hosts/browser exec --no -- wxt zip hosts/browser -b firefox && npm --prefix hosts/browser exec --no -- wxt zip hosts/browser -b edge && cp hosts/browser/.output/toolfactory-0.1.0-chrome.zip dist/release/ && cp hosts/browser/.output/toolfactory-0.1.0-firefox.zip dist/release/ && cp hosts/browser/.output/toolfactory-0.1.0-edge.zip dist/release/ && cp hosts/browser/.output/toolfactory-0.1.0-sources.zip dist/release/
-      - name: Firefox signed xpi (only when FIREFOX_JWT_ISSUER/FIREFOX_JWT_SECRET are set)
-        run: if [ -n "$FIREFOX_JWT_ISSUER" ] && [ -n "$FIREFOX_JWT_SECRET" ]; then npm --prefix hosts/browser exec --no -- web-ext sign --channel=unlisted --api-key="$FIREFOX_JWT_ISSUER" --api-secret="$FIREFOX_JWT_SECRET" --source-dir hosts/browser/.output/firefox-mv2 --artifacts-dir dist/release; fi
+        run: set -- plugin.json mcp.json skills .claude-plugin .codex-plugin .cursor-plugin; for path in LICENSE LICENSE.md LICENSE.txt NOTICE NOTICE.md NOTICE.txt; do if [ -f "$path" ]; then set -- "$@" "$path"; fi; done; zip -qr dist/release/toolfactory-plugin.zip "$@"
+      - name: web tarball
+        run: tar -czf dist/release/toolfactory-web.tar.gz -C web/dist .
       - name: coverage report
         run: cp COVERAGE.md dist/release/ && npx toolfactory coverage > dist/release/coverage.json
       - uses: actions/upload-artifact@v7
@@ -172,26 +147,32 @@ jobs:
           name: release-assets
           path: dist/release/
   publish-npm:
-    needs: gate
+    needs:
+      - gate
+      - package
     if: needs.gate.outputs.npm == 'true'
     runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
     env:
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      NPM_TRUSTED_PUBLISHER: ${{ vars.NPM_TRUSTED_PUBLISHER }}
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.gate.outputs.sha }}
-      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
           registry-url: https://registry.npmjs.org
-      - run: pnpm install --frozen-lockfile && pnpm run --if-present build
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-assets
+          path: release-assets
       - name: npm publish
-        run: if npm view toolfactory version >/dev/null 2>&1; then npm publish --access public; else NODE_AUTH_TOKEN="$NPM_TOKEN" npm publish --access public; fi
+        env:
+          NPM_TOKEN: ${{ vars.NPM_TRUSTED_PUBLISHER != 'true' && secrets.NPM_TOKEN || '' }}
+        run: 'if npm view toolfactory@0.1.1 version >/dev/null 2>&1; then echo "::notice::npm: toolfactory@0.1.1 already published; skipping immutable version."; elif [ "$NPM_TRUSTED_PUBLISHER" = true ]; then npm publish release-assets/toolfactory-0.1.1.tgz --access public; else NODE_AUTH_TOKEN="$NPM_TOKEN" npm publish release-assets/toolfactory-0.1.1.tgz --access public; fi'
   publish-oci:
     needs: gate
     if: needs.gate.outputs.oci == 'true'
@@ -224,6 +205,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
   publish-mcp-registry:
     needs:
+      - gate
       - publish-npm
       - publish-oci
     if: needs.gate.outputs.mcp_registry == 'true'
@@ -237,64 +219,13 @@ jobs:
           ref: ${{ needs.gate.outputs.sha }}
       - run: curl -sL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
       - run: ./mcp-publisher login github-oidc && ./mcp-publisher publish
-  publish-browser-ext:
-    needs:
-      - gate
-      - package
-    if: needs.gate.outputs.chrome == 'true' || needs.gate.outputs.firefox == 'true' || needs.gate.outputs.edge == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    env:
-      CHROME_API_VERSION: v2
-      CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
-      CHROME_PUBLISHER_ID: ${{ secrets.CHROME_PUBLISHER_ID }}
-      CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL: ${{ secrets.CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL }}
-      CHROME_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CHROME_SERVICE_ACCOUNT_PRIVATE_KEY }}
-      FIREFOX_EXTENSION_ID: ${{ secrets.FIREFOX_EXTENSION_ID }}
-      FIREFOX_JWT_ISSUER: ${{ secrets.FIREFOX_JWT_ISSUER }}
-      FIREFOX_JWT_SECRET: ${{ secrets.FIREFOX_JWT_SECRET }}
-      EDGE_PRODUCT_ID: ${{ secrets.EDGE_PRODUCT_ID }}
-      EDGE_CLIENT_ID: ${{ secrets.EDGE_CLIENT_ID }}
-      EDGE_API_KEY: ${{ secrets.EDGE_API_KEY }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ needs.gate.outputs.sha }}
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v7
-        with:
-          node-version: "24"
-          cache: pnpm
-      - uses: astral-sh/setup-uv@v6
-      - run: npm --prefix hosts/browser install
-      - uses: actions/download-artifact@v8
-        with:
-          name: release-assets
-          path: release-assets
-      - name: wxt submit --dry-run (zips, plus a live credential read for Chrome and Firefox)
-        run: |-
-          flags=""
-          if [ -n "$CHROME_EXTENSION_ID" ] && [ -n "$CHROME_PUBLISHER_ID" ] && [ -n "$CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL" ] && [ -n "$CHROME_SERVICE_ACCOUNT_PRIVATE_KEY" ]; then flags="$flags --chrome-zip release-assets/toolfactory-0.1.0-chrome.zip"; fi
-          if [ -n "$FIREFOX_EXTENSION_ID" ] && [ -n "$FIREFOX_JWT_ISSUER" ] && [ -n "$FIREFOX_JWT_SECRET" ]; then flags="$flags --firefox-zip release-assets/toolfactory-0.1.0-firefox.zip --firefox-sources-zip release-assets/toolfactory-0.1.0-sources.zip"; fi
-          if [ -n "$EDGE_PRODUCT_ID" ] && [ -n "$EDGE_CLIENT_ID" ] && [ -n "$EDGE_API_KEY" ]; then flags="$flags --edge-zip release-assets/toolfactory-0.1.0-edge.zip"; fi
-          if [ -z "$flags" ]; then echo "No browser store credentials configured; skipping wxt submit."; exit 0; fi
-          npm --prefix hosts/browser exec --no -- wxt submit --dry-run $flags
-      - name: wxt submit
-        run: |-
-          flags=""
-          if [ -n "$CHROME_EXTENSION_ID" ] && [ -n "$CHROME_PUBLISHER_ID" ] && [ -n "$CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL" ] && [ -n "$CHROME_SERVICE_ACCOUNT_PRIVATE_KEY" ]; then flags="$flags --chrome-zip release-assets/toolfactory-0.1.0-chrome.zip"; fi
-          if [ -n "$FIREFOX_EXTENSION_ID" ] && [ -n "$FIREFOX_JWT_ISSUER" ] && [ -n "$FIREFOX_JWT_SECRET" ]; then flags="$flags --firefox-zip release-assets/toolfactory-0.1.0-firefox.zip --firefox-sources-zip release-assets/toolfactory-0.1.0-sources.zip"; fi
-          if [ -n "$EDGE_PRODUCT_ID" ] && [ -n "$EDGE_CLIENT_ID" ] && [ -n "$EDGE_API_KEY" ]; then flags="$flags --edge-zip release-assets/toolfactory-0.1.0-edge.zip"; fi
-          if [ -z "$flags" ]; then echo "No browser store credentials configured; skipping wxt submit."; exit 0; fi
-          npm --prefix hosts/browser exec --no -- wxt submit $flags
   release:
     needs:
+      - gate
       - package
       - publish-npm
       - publish-oci
       - publish-mcp-registry
-      - publish-browser-ext
     if: ${{ !cancelled() && needs.package.result == 'success' && !contains(needs.*.result, 'failure') }}
     runs-on: ubuntu-latest
     permissions:
@@ -304,22 +235,6 @@ jobs:
       id-token: write
     env:
       RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
-      GH_TOKEN: ${{ github.token }}
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-      CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
-      CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
-      CHROME_PUBLISHER_ID: ${{ secrets.CHROME_PUBLISHER_ID }}
-      CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL: ${{ secrets.CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL }}
-      CHROME_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CHROME_SERVICE_ACCOUNT_PRIVATE_KEY }}
-      FIREFOX_EXTENSION_ID: ${{ secrets.FIREFOX_EXTENSION_ID }}
-      FIREFOX_JWT_ISSUER: ${{ secrets.FIREFOX_JWT_ISSUER }}
-      FIREFOX_JWT_SECRET: ${{ secrets.FIREFOX_JWT_SECRET }}
-      EDGE_PRODUCT_ID: ${{ secrets.EDGE_PRODUCT_ID }}
-      EDGE_CLIENT_ID: ${{ secrets.EDGE_CLIENT_ID }}
-      EDGE_API_KEY: ${{ secrets.EDGE_API_KEY }}
-      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-      ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -337,6 +252,23 @@ jobs:
         run: pnpm run --if-present build
       - name: unpublish dropped registries
         run: npx toolfactory unpublish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
+          CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+          CHROME_PUBLISHER_ID: ${{ secrets.CHROME_PUBLISHER_ID }}
+          CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL: ${{ secrets.CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL }}
+          CHROME_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CHROME_SERVICE_ACCOUNT_PRIVATE_KEY }}
+          FIREFOX_EXTENSION_ID: ${{ secrets.FIREFOX_EXTENSION_ID }}
+          FIREFOX_JWT_ISSUER: ${{ secrets.FIREFOX_JWT_ISSUER }}
+          FIREFOX_JWT_SECRET: ${{ secrets.FIREFOX_JWT_SECRET }}
+          EDGE_PRODUCT_ID: ${{ secrets.EDGE_PRODUCT_ID }}
+          EDGE_CLIENT_ID: ${{ secrets.EDGE_CLIENT_ID }}
+          EDGE_API_KEY: ${{ secrets.EDGE_API_KEY }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
       - uses: actions/download-artifact@v8
         with:
           name: release-assets

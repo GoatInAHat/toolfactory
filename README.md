@@ -22,15 +22,7 @@ generated and every surface still installs, builds and publishes.
 - **Gemini CLI extension** — `gemini extensions install https://github.com/GoatInAHat/toolfactory`
 - **OpenClaw plugin** — `openclaw plugins install --link hosts/openclaw` from a checkout
 - **Hermes plugin** — `hermes plugins install https://github.com/GoatInAHat/toolfactory#hosts/hermes/toolfactory_hermes`
-- **DSH plugin** (experimental) — `dsh plugin --profile <profile> add ./hosts/dsh` from a checkout, or the release tarball `toolfactory-dsh-0.1.0.tgz`
-- **Browser extension** — from a checkout: `npm --prefix hosts/browser install && npm --prefix hosts/browser exec --no -- wxt build`,
-  then `chrome://extensions` → developer mode → Load unpacked → `hosts/browser/.output/chrome-mv3`
-  (Firefox: `npm --prefix hosts/browser exec --no -- web-ext run`). Each GitHub Release attaches the
-  store uploads `toolfactory-0.1.0-chrome.zip`, `toolfactory-0.1.0-firefox.zip`, `toolfactory-0.1.0-edge.zip`, and the Mozilla-signed `.xpi`,
-  which is the only download-and-install channel now that Chrome no longer keeps side-loaded unpacked
-  extensions; the Chrome Web Store, Firefox Add-ons and Edge Add-ons listings appear once the release's
-  submit step has each store's credentials. Then pair it: `npx -y toolfactory mcp --http --pair`
-  prints the `<url>#<token>` the extension's options page accepts.
+- **DSH plugin** (experimental) — `dsh plugin --profile <profile> add ./hosts/dsh` from a checkout, or the release tarball `toolfactory-dsh-0.1.1.tgz`
 - **Web app** — `npx -y toolfactory mcp --http --open` serves the operations page beside the
   MCP endpoint on one port and opens it; over MCP or a skill, the `web` operation does the same and
   returns the URL.

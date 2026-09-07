@@ -33,7 +33,7 @@ import {
   gateSteps,
   gateVariable,
   MCP_PUBLISHER_FETCH,
-  npmPackageExists,
+  npmTarball,
   openclawTarball,
   outputsStep,
   PACKAGE_MANAGER_COMMANDS,
@@ -58,6 +58,7 @@ import {
   has,
   isSensitive,
   liveCredentials,
+  npmName,
   requiredConfig,
 } from "./shared.js";
 import { skillPath } from "./skill.js";
@@ -433,7 +434,6 @@ function releaseDocument(
     return row?.gate ? `needs.gate.outputs.${gateVariable(row)} == 'true'` : undefined;
   };
 
-  const pm = PACKAGE_MANAGER_COMMANDS[project.packageManager ?? "npm"];
   const cli = toolfactoryCli(project);
   const assert = tagVersionAssert(project);
   const jobs: Record<string, unknown> = {
@@ -483,27 +483,33 @@ function releaseDocument(
   const priorLegs: string[] = [];
 
   if (npmSelected) {
+    const tarball = `${RELEASE_ARTIFACT}/${npmTarball(project)}`;
     jobs["publish-npm"] = compact({
-      needs: "gate",
+      needs: ["gate", "package"],
       if: gated("npm"),
       "runs-on": "ubuntu-latest",
       permissions: { "id-token": "write", contents: "read" },
-      env: { NPM_TOKEN: "${{ secrets.NPM_TOKEN }}" },
+      env: { NPM_TRUSTED_PUBLISHER: "${{ vars.NPM_TRUSTED_PUBLISHER }}" },
       steps: [
         checkoutStep(RELEASE_SHA),
-        ...SETUP_ACTIONS[project.packageManager ?? "npm"],
         {
           uses: "actions/setup-node@v7",
           with: { "node-version": "24", "registry-url": "https://registry.npmjs.org" },
         },
-        { run: `${pm.install} && ${pm.run("build")}` },
-        // A name already on the registry publishes through trusted publishing (OIDC; npm generates
-        // the provenance itself, so no `--provenance`). A brand-new name cannot — `npm trust`
-        // refuses it — so only that branch exports the token, and setup-node's placeholder
-        // NODE_AUTH_TOKEN never masquerades as one.
+        {
+          uses: "actions/download-artifact@v8",
+          with: { name: RELEASE_ARTIFACT, path: RELEASE_ARTIFACT },
+        },
+        // OIDC is selected only after bootstrap-repo verified `npm trust` and set the repository
+        // variable. A token remains the fallback for a new package and for an existing package
+        // whose publisher was not configured. npm versions are immutable, so a dispatch retry
+        // after adding credentials leaves an already-published version alone.
         {
           name: "npm publish",
-          run: `if ${npmPackageExists(project)}; then npm publish --access public; else NODE_AUTH_TOKEN="$NPM_TOKEN" npm publish --access public; fi`,
+          env: {
+            NPM_TOKEN: "${{ vars.NPM_TRUSTED_PUBLISHER != 'true' && secrets.NPM_TOKEN || '' }}",
+          },
+          run: `if npm view ${npmName(project)}@${project.identity.version ?? "0.0.0"} version >/dev/null 2>&1; then echo "::notice::npm: ${npmName(project)}@${project.identity.version ?? "0.0.0"} already published; skipping immutable version."; elif [ "$NPM_TRUSTED_PUBLISHER" = true ]; then npm publish ${tarball} --access public; else NODE_AUTH_TOKEN="$NPM_TOKEN" npm publish ${tarball} --access public; fi`,
         },
       ],
     });
@@ -582,7 +588,7 @@ function releaseDocument(
       // After every package leg (§7): mcp-publisher validates that each `packages[]` entry
       // already exists in its own registry, the oci image included — so the gate lets it run only
       // when every package leg does.
-      needs: needsOf(priorLegs.length ? priorLegs : ["gate"]),
+      needs: needsOf(["gate", ...priorLegs]),
       if: gated("mcp-registry"),
       "runs-on": "ubuntu-latest",
       permissions: { "id-token": "write", contents: "read" },
@@ -605,12 +611,12 @@ function releaseDocument(
   ];
   if (clawhubSelected) {
     jobs["publish-clawhub"] = compact({
-      if: gated("clawhub-package"),
+      if: "${{ !cancelled() && needs.package.result == 'success' && !contains(needs.*.result, 'failure') && needs.gate.outputs.clawhub_package == 'true' }}",
       // Last (§7): content-fingerprint deduped by ClawHub, therefore safe to retry. The reusable
       // workflow has no build step, so it publishes the tarball the `package` job already built
       // rather than the repository subdirectory. It is a workflow call, so it has no `permissions`
       // block of its own and inherits the file's `contents: read`.
-      needs: needsOf(["package", ...priorLegs]),
+      needs: needsOf(["gate", "package", ...priorLegs]),
       uses: "openclaw/clawhub/.github/workflows/package-publish.yml@main",
       with: {
         package_artifact_name: RELEASE_ARTIFACT,
@@ -675,7 +681,7 @@ function releaseDocument(
   jobs.release = {
     // The tag's own release, after every leg: the assets are the same ones the registries got.
     // Skipped legs must not skip it, only failed ones; hence the explicit condition.
-    needs: needsOf(["package", ...priorLegs]),
+    needs: needsOf(["gate", "package", ...priorLegs]),
     if: "${{ !cancelled() && needs.package.result == 'success' && !contains(needs.*.result, 'failure') }}",
     "runs-on": "ubuntu-latest",
     // Retraction needs what publishing needed: packages and pages to delete, OIDC for the MCP
@@ -683,15 +689,21 @@ function releaseDocument(
     permissions: { contents: "write", packages: "write", pages: "write", "id-token": "write" },
     env: {
       RELEASE_TAG: TAG_NAME,
-      GH_TOKEN: "${{ github.token }}",
-      ...Object.fromEntries(RELEASE_SECRET_NAMES.map((name) => [name, `\${{ secrets.${name} }}`])),
     },
     steps: [
       // The whole history: `unpublish` reads tool.json at the previous tag.
       checkoutStep(RELEASE_SHA, { "fetch-depth": 0 }),
       ...toolchainSteps(project, "24", RELEASE_SHA).slice(1),
       ...bootstrapSteps(project).map((step) => actionStep(step, false)),
-      actionStep(unpublishStep(project), false),
+      {
+        ...actionStep(unpublishStep(project), false),
+        env: {
+          GH_TOKEN: "${{ github.token }}",
+          ...Object.fromEntries(
+            RELEASE_SECRET_NAMES.map((name) => [name, `\${{ secrets.${name} }}`]),
+          ),
+        },
+      },
       {
         uses: "actions/download-artifact@v8",
         with: { name: RELEASE_ARTIFACT, path: RELEASE_ARTIFACT },
