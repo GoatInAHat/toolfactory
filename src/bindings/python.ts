@@ -236,7 +236,7 @@ def env_route(token: "str | None") -> Route:
   return `
 
 def web_dist() -> "Path | None":
-    """The built page: the wheel force-includes \`${WEB_DIR}/dist\` here, a checkout has it in place."""
+    """The wheel maps \`${WEB_DIR}/dist\` here at package time; a checkout has it in place."""
     package = Path(__file__).resolve().parent.parent
     for candidate in (package / "${WEB_DIR}", package.parent.parent / "${WEB_DIR}" / "dist"):
         if candidate.is_dir():

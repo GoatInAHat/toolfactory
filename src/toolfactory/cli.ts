@@ -13,7 +13,7 @@ const operations = [...authored, web];
 const program = new Command()
   .name("toolfactory")
   .description("Build an agent tool once; ship it as Agent Skills, MCP servers, Agent Plugins / Claude / Codex / Cursor bundles, OpenClaw and Hermes plugins, CLIs, and packages, with the tests and releases to match.")
-  .version("0.1.1");
+  .version("0.1.2");
 
 for (const op of operations) {
   if (!serves(op, "cli")) continue;

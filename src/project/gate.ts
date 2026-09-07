@@ -28,6 +28,7 @@ import {
   npmName,
   pypiName,
 } from "../surfaces/shared.js";
+import { WEB_DIR } from "../surfaces/web.js";
 
 export interface GateStep {
   /** Step label: the CI step name, and the banner the shell script echoes. */
@@ -243,6 +244,9 @@ export function packageSteps(project: Project): GateStep[] {
               `cp pyproject.toml ${stage}/pyproject.toml`,
               `[ ! -f uv.lock ] || cp uv.lock ${stage}/uv.lock`,
               `cp -R src ${stage}/src`,
+              ...(has(project, "web")
+                ? [`mkdir -p ${stage}/web && cp -R ${WEB_DIR}/dist ${stage}/web/dist`]
+                : []),
               `cp ${MCPB_MANIFEST_PATH} ${stage}/manifest.json`,
               `npx -y @anthropic-ai/mcpb@${MCPB_PIN} pack ${stage} ${RELEASE_DIR}/${name}.mcpb`,
             ].join(" && ")
@@ -258,7 +262,9 @@ export function packageSteps(project: Project): GateStep[] {
     });
   }
   if (has(project, "pypi")) {
-    steps.push({ name: "python distributions", run: `uv build --out-dir ${RELEASE_DIR}` });
+    // Keep the wheel and sdist apart from the release's npm tarballs, plugin bundles and web
+    // archive: PyPA's publisher accepts only Python distribution files.
+    steps.push({ name: "python distributions", run: `uv build --out-dir ${RELEASE_DIR}/pypi` });
   }
   if (has(project, "openclaw-native")) {
     // ClawHub's reusable workflow has no build step of its own, so the tarball it publishes has

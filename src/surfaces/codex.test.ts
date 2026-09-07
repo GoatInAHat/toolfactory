@@ -68,4 +68,14 @@ describe("codex", () => {
     expect(JSON.parse(manifest.content)).toMatchObject({ skills: "./skills/" });
     expect(JSON.parse(manifest.content)).not.toHaveProperty("mcpServers");
   });
+
+  it("can omit the eager MCP server while retaining the plugin skill", () => {
+    const target = project(["skill", "codex", "mcp"]);
+    target.tool.codex = { mcp: false };
+    const manifest = codex.plan(target).find((entry) => entry.path === ".codex-plugin/plugin.json");
+    if (manifest?.kind !== "file") throw new Error("expected a manifest");
+    const parsed = JSON.parse(manifest.content);
+    expect(parsed.skills).toBe("./skills/");
+    expect(parsed).not.toHaveProperty("mcpServers");
+  });
 });

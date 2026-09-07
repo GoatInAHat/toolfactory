@@ -43,9 +43,10 @@ export const surface: Surface = {
       license: identity.license,
       keywords: identity.keywords,
       skills: has(project, "skill") ? "./skills/" : undefined,
-      mcpServers: has(project, "mcp")
-        ? { [identity.name]: kernelLaunch(project, "${PLUGIN_ROOT}") }
-        : undefined,
+      mcpServers:
+        has(project, "mcp") && project.tool.codex?.mcp !== false
+          ? { [identity.name]: kernelLaunch(project, "${PLUGIN_ROOT}") }
+          : undefined,
       interface: codexInterface,
     });
     // `source: "local"` + `path: "."` is the marketplace root itself: one repository, one

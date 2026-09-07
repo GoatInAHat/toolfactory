@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "toolfactory",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Build an agent tool once; ship it as Agent Skills, MCP servers, Agent Plugins / Claude / Codex / Cursor bundles, OpenClaw and Hermes plugins, CLIs, and packages, with the tests and releases to match.",
   "author": { "name": "GoatInAHat" },
   "homepage": "https://github.com/GoatInAHat/toolfactory",

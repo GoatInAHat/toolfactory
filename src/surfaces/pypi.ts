@@ -29,8 +29,9 @@ export const surface: Surface = {
           ? { [project.identity.name]: cliEntryPoint(project) }
           : undefined,
       }),
-      // The kernel serves the built page from inside its own package, so the wheel has to
-      // carry it: `packages` only copies the package tree, `force-include` maps anything else.
+      // Hatch ignores a missing `only-include` path, unlike `force-include`, which makes
+      // `uv sync` work in a fresh checkout before the optional page is built. At package time,
+      // the gate builds `web/dist` first and Hatch maps it into the installed package.
       ...(has(project, "web")
         ? {
             tool: {
@@ -38,7 +39,9 @@ export const surface: Surface = {
                 build: {
                   targets: {
                     wheel: {
-                      "force-include": {
+                      "only-include": [`src/${pythonPackage(project)}`, `${WEB_DIR}/dist`],
+                      sources: {
+                        src: "",
                         [`${WEB_DIR}/dist`]: `${pythonPackage(project)}/${WEB_DIR}`,
                       },
                     },

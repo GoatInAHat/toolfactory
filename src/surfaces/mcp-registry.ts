@@ -18,6 +18,7 @@ import {
   pypiName,
   requiredConfig,
 } from "./shared.js";
+import { WEB_DIR } from "./web.js";
 
 export const SERVER_SCHEMA_ID =
   "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json";
@@ -94,8 +95,20 @@ const DOCKER_PACKAGE_MANAGERS: Record<
  */
 export function dockerfileTemplate(project: Project, label: string): string {
   if (project.tool.binding === "python") {
+    const web = has(project, "web");
     return `# syntax=docker/dockerfile:1
-FROM ${UV_IMAGE} AS build
+${
+  web
+    ? `FROM ${NODE_IMAGE} AS web
+WORKDIR /app
+COPY web/package.json web/package-lock.json ./web/
+RUN npm -C web ci
+COPY web ./web
+RUN npm -C web run build
+
+`
+    : ""
+}FROM ${UV_IMAGE} AS build
 WORKDIR /app
 COPY pyproject.toml ./
 COPY src ./src
@@ -107,7 +120,12 @@ WORKDIR /app
 COPY --from=build /app/.venv ./.venv
 COPY --from=build /app/src ./src
 COPY --from=build /app/pyproject.toml ./
-ENV PATH="/app/.venv/bin:$PATH"
+${
+  web
+    ? `COPY --from=web /app/web/dist ./src/${pythonPackage(project)}/${WEB_DIR}
+`
+    : ""
+}ENV PATH="/app/.venv/bin:$PATH"
 ENTRYPOINT ${JSON.stringify(dockerEntrypoint(project))}
 `;
   }

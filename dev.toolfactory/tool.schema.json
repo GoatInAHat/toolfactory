@@ -144,6 +144,11 @@
             "type": "string"
           },
           "additionalProperties": {}
+        },
+        "mcp": {
+          "default": true,
+          "description": "Whether the Codex plugin manifest eagerly configures the generated MCP server.",
+          "type": "boolean"
         }
       }
     },

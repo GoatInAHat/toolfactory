@@ -1,6 +1,6 @@
 {
   "name": "toolfactory-dsh",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "DSH bundle for toolfactory: attaches its MCP server through @deepseek-ai/dsh-mcp-client.",
   "license": "MIT",
   "files": [
