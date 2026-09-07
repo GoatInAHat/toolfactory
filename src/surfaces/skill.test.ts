@@ -81,6 +81,14 @@ describe("skill surface", () => {
     expect(body).not.toContain("### notify");
   });
 
+  it("leaves the operations region empty for an instruction-only skill", () => {
+    const target = project({
+      tool: { ...project().tool, runtime: "none", surfaces: ["skill", "codex"] },
+      operations: [],
+    });
+    expect(renderOperations(target)).toBe("");
+  });
+
   it("validate runs the upstream agentskills validator against skills/<name>", () => {
     const commands = surface.validate?.(project()) ?? [];
     expect(commands).toEqual([

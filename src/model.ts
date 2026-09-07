@@ -85,6 +85,12 @@ export const ToolConfigSchema = z
         "Repo-relative path of the authored identity file (plugin.json, package.json, pyproject.toml, or a host manifest).",
       ),
     binding: z.enum(BINDINGS).describe("Language of the core logic and its kernel surfaces."),
+    runtime: z
+      .enum(["kernel", "none"])
+      .optional()
+      .describe(
+        "Whether this project has an executable kernel. `none` is for an instruction-only Codex skill/plugin and permits only the skill and codex surfaces.",
+      ),
     surfaces: z
       .array(z.enum(SURFACE_IDS))
       .min(1)
@@ -202,8 +208,26 @@ export const ToolConfigSchema = z
       })
       .optional(),
   })
+  .superRefine((tool, context) => {
+    if (tool.runtime !== "none") return;
+    const unsupported = tool.surfaces.filter(
+      (surface) => surface !== "skill" && surface !== "codex",
+    );
+    if (unsupported.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["surfaces"],
+        message: `runtime "none" supports only skill and codex surfaces; unsupported: ${unsupported.join(", ")}.`,
+      });
+    }
+  })
   .strict();
 export type ToolConfig = z.infer<typeof ToolConfigSchema>;
+
+/** An instruction-only plugin has author prose but no generated executable or MCP server. */
+export function isInstructionOnly(tool: ToolConfig): boolean {
+  return tool.runtime === "none";
+}
 
 export interface Author {
   name?: string;

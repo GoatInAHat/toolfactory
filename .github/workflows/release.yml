@@ -156,7 +156,7 @@ jobs:
       - name: DSH bundle tarball
         run: npm pack ./hosts/dsh --pack-destination dist/release
       - name: plugin bundle
-        run: zip -qr dist/release/toolfactory-plugin.zip plugin.json mcp.json skills .claude-plugin .codex-plugin .cursor-plugin
+        run: zip -qr dist/release/toolfactory-plugin.zip plugin.json mcp.json skills .claude-plugin .codex-plugin .cursor-plugin $(for path in LICENSE LICENSE.md LICENSE.txt NOTICE NOTICE.md NOTICE.txt; do [ -f "$path" ] && printf '%s ' "$path"; done)
       - name: web build
         run: npm -C web ci && npm -C web run build && tar -czf dist/release/toolfactory-web.tar.gz -C web/dist .
         env:

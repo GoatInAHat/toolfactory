@@ -58,6 +58,14 @@ Add `--repo <owner>/<name>` and it creates that GitHub repository through `gh` a
 live-tests environment when a `.env` is there. `--dryRun` prints the `gh` invocations instead.
 None of it is required: with no GitHub, plain git or no git at all, everything below still works.
 
+### Instruction-only Codex plugin
+
+Use `--runtime none --surfaces skill,codex` when a plugin is only SKILL.md instructions for
+Codex. ToolFactory then emits no MCP server, operation snapshot, language scaffold, or consumer
+runtime dependency. `binding` remains required for config compatibility but is unused in this
+mode. Until this change is released, CI must invoke the checked-out ToolFactory source rather
+than resolve the published npm package.
+
 1. Write operations in `src/ops.ts` (TypeScript) or `src/<pkg>/ops.py` (Python). Each one is a
    name, a description, an input schema, an optional output schema, an optional `requires`
    list, and a handler.

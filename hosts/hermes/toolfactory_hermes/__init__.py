@@ -195,6 +195,14 @@ TOOLS = json.loads(
           ],
           "description": "Language of the core logic: typescript or python"
         },
+        "runtime": {
+          "description": "`none` creates an instruction-only skill/Codex plugin with no executable payload",
+          "type": "string",
+          "enum": [
+            "kernel",
+            "none"
+          ]
+        },
         "surfaces": {
           "description": "Surfaces to generate. Default: the skills-first minimum — skill, agent-plugins, mcp, cli and the binding's package registry; every host-specific plugin is opt-in.",
           "minItems": 1,

@@ -6,6 +6,7 @@ import { readIdentityFile } from "../identity/read.js";
 import {
   CAPABILITIES,
   type Capability,
+  isInstructionOnly,
   type Operation,
   PACKAGE_MANAGERS,
   type PackageManager,
@@ -96,7 +97,7 @@ export function loadProject(rootInput = "."): Project {
     tool,
     identity: identityFile.identity,
     identityExtra: identityFile.extra,
-    operations: readOps(root),
+    operations: isInstructionOnly(tool) ? [] : readOps(root),
     toolfactoryVersion: TOOLFACTORY_VERSION,
     packageManager: readPackageManager(root),
   };

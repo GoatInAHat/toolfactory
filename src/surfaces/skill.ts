@@ -6,7 +6,14 @@
  * (and `npx skills add` reads both): a symbolic link there is the one directory that serves all.
  */
 import { stringify as yaml } from "yaml";
-import type { Capability, Operation, Project, Surface, Verdict } from "../model.js";
+import {
+  type Capability,
+  isInstructionOnly,
+  type Operation,
+  type Project,
+  type Surface,
+  type Verdict,
+} from "../model.js";
 import { compact, has, skillVerdict } from "./shared.js";
 
 export const OPERATIONS_BEGIN = "<!-- tf:operations -->";
@@ -42,6 +49,7 @@ const GUIDANCE: Partial<Record<Capability, string>> = {
 };
 
 export function renderOperations(project: Project): string {
+  if (isInstructionOnly(project.tool)) return "";
   const lines = ["", "## Operations", ""];
   if (project.operations.length === 0) {
     lines.push("_No operations yet: run `toolfactory introspect` after adding one to the kernel._");

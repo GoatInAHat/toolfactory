@@ -15,7 +15,7 @@ import { execArgv } from "node:process";
 import { getBinding } from "../bindings/index.js";
 import { DRIFT_ENTRY } from "../hosts/template.js";
 import { projectName } from "../identity/name.js";
-import type { PlannedFile, Project, Surface } from "../model.js";
+import { isInstructionOnly, type PlannedFile, type Project, type Surface } from "../model.js";
 import { TEMPLATE_FILES } from "./agents.template.js";
 import { HOST_DIR as BROWSER_HOST_DIR } from "./browser-extension.js";
 import {
@@ -131,6 +131,16 @@ export function reloadLine(environment: NodeJS.ProcessEnv): string {
 }
 
 function commandsSection(project: Project): string[] {
+  if (isInstructionOnly(project.tool)) {
+    return [
+      "## Commands",
+      "",
+      "- `npx toolfactory build` — regenerate the plugin metadata after changing `dev.toolfactory/tool.json`.",
+      "- `npx toolfactory check` — fail when generated plugin metadata drifted.",
+      "- `npx toolfactory validate` — validate the Skill and Codex plugin installation.",
+      "",
+    ];
+  }
   const typescript = project.tool.binding === "typescript";
   const pm = project.packageManager ?? "npm";
   const testCmd = typescript ? `${pm} test` : "uv run --with pytest pytest -q";
@@ -155,6 +165,15 @@ function commandsSection(project: Project): string[] {
 }
 
 function layoutSection(project: Project): string[] {
+  if (isInstructionOnly(project.tool)) {
+    return [
+      "## Layout",
+      "",
+      `- \`skills/${project.identity.name}/SKILL.md\` — the author-owned instructions Codex follows; only its frontmatter is generated.`,
+      "- `dev.toolfactory/` — toolfactory configuration, generated metadata and the generation lock; never hand-edit generated files.",
+      "",
+    ];
+  }
   const typescript = project.tool.binding === "typescript";
   const opsPath = typescript
     ? "src/ops.ts"
@@ -445,7 +464,7 @@ function agentsTemplate(project: Project): string {
     "config automatic and deletes this notice.",
     "<!-- /setup -->",
     "",
-    `One paragraph: what an agent working in this repo should know before touching \`${project.tool.binding === "typescript" ? "src/ops.ts" : "the operation module"}\` — the tool's domain, and anything not obvious from the layout below.`,
+    `One paragraph: what an agent working in this repo should know before ${isInstructionOnly(project.tool) ? "editing the Skill instructions" : `touching \`${project.tool.binding === "typescript" ? "src/ops.ts" : "the operation module"}\``} — the tool's domain, and anything not obvious from the layout below.`,
     "",
     AGENTS_BEGIN,
     AGENTS_END,
@@ -466,6 +485,9 @@ function kernelServerName(project: Project): string | undefined {
  * exactly the names it puts there and every entry whole (`owned`), never field by field.
  */
 function servers(project: Project): PlannedFile {
+  if (isInstructionOnly(project.tool)) {
+    return { kind: "merge", path: SERVERS_PATH, format: "json", patch: {} };
+  }
   const own = kernelServerName(project);
   const patch: Record<string, unknown> = {};
   if (own) patch[own] = getBinding(project.tool.binding).kernelCommand(project);
@@ -522,8 +544,11 @@ function outputPaths(project: Project): string[] {
  */
 function ignoreRegion(project: Project): string {
   const blocks = ignoreBlocks();
-  const binding =
-    project.tool.binding === "python" ? [".venv/", "__pycache__/"] : ["node_modules/"];
+  const binding = isInstructionOnly(project.tool)
+    ? []
+    : project.tool.binding === "python"
+      ? [".venv/", "__pycache__/"]
+      : ["node_modules/"];
   return [
     "",
     blocks.get("Agent local state") ?? "",
@@ -571,8 +596,9 @@ function ignoreTemplate(project: Project): string {
  * where the template's own sentinel comment puts them.
  */
 function setupTail(project: Project): string {
-  const install =
-    project.tool.binding === "python"
+  const install = isInstructionOnly(project.tool)
+    ? []
+    : project.tool.binding === "python"
       ? [
           "if command -v uv >/dev/null 2>&1; then",
           "    uv sync",
@@ -649,7 +675,7 @@ function devcontainer(project: Project): string {
     features?: Record<string, unknown>;
   };
   const features =
-    project.tool.binding === "typescript"
+    !isInstructionOnly(project.tool) && project.tool.binding === "typescript"
       ? { "ghcr.io/devcontainers/features/node:1": { version: "22" }, ...document.features }
       : document.features;
   return `${JSON.stringify({ ...document, features }, null, 2)}\n`;

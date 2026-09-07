@@ -25,6 +25,12 @@ export const operations = [
         .string()
         .describe("Tool name: lowercase letters, digits, hyphens, dots (Agent Plugins rule)"),
       binding: z.enum(BINDINGS).describe("Language of the core logic: typescript or python"),
+      runtime: z
+        .enum(["kernel", "none"])
+        .optional()
+        .describe(
+          "`none` creates an instruction-only skill/Codex plugin with no executable payload",
+        ),
       surfaces: z
         .array(surfaceId)
         .min(1)

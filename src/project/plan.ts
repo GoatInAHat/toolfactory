@@ -6,7 +6,7 @@
 import { z } from "zod";
 import { getBinding } from "../bindings/index.js";
 import type { PlannedFile, Project, RegionFile, Surface } from "../model.js";
-import { ToolConfigSchema } from "../model.js";
+import { isInstructionOnly, ToolConfigSchema } from "../model.js";
 import { computeCoverage, renderCoverageMarkdown } from "../report/coverage.js";
 import { assertSurfaceRequirements, getSurface, selectedSurfaces } from "../surfaces/registry.js";
 import { json } from "../surfaces/shared.js";
@@ -77,10 +77,11 @@ export function buildPlan(
     ? withAgents
     : [...withAgents, getSurface("readme")];
   const files = withReadme.flatMap((surface) => surface.plan(project));
-  // The kernel exists for every tool: it is what the author's operation module imports and
-  // what `introspect` spawns, whether or not the mcp surface ships it.
-  files.push(...getBinding(project.tool.binding).kernel(project));
-  files.push(...getBinding(project.tool.binding).liveTest(project));
+  // Instruction-only plugins are consumed as skill prose by Codex and have no executable payload.
+  if (!isInstructionOnly(project.tool)) {
+    files.push(...getBinding(project.tool.binding).kernel(project));
+    files.push(...getBinding(project.tool.binding).liveTest(project));
+  }
   files.push({ kind: "file", path: TOOL_SCHEMA_PATH, content: json(toolJsonSchema()) });
   const coverage = computeCoverage(project, surfaces);
   // The machine-readable half of the coverage report is a build output; COVERAGE.md is the
