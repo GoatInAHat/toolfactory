@@ -6,7 +6,7 @@
  * around the region — what the tool is, how to use it — is the author's, forever.
  *
  * Every line works from a plain checkout; the ones that need a GitHub repository (`npx skills
- * add`, the skills.sh badge, the marketplace and Hermes clone URLs) appear only once the
+ * add`, the Agent Skill badge, the marketplace and Hermes clone URLs) appear only once the
  * identity file carries one, so a tool built without GitHub still gets an accurate section.
  *
  * When `mcp` is selected alongside a package registry, the MCP line also carries the two
@@ -26,6 +26,12 @@ import { envName, has, npmName, pypiName, requiredConfig } from "./shared.js";
 export const README_PATH = "README.md";
 export const INSTALL_BEGIN = "<!-- tf:install -->";
 export const INSTALL_END = "<!-- /tf:install -->";
+
+/** A stable label for repositories that ship an Agent Skill; unlike skills.sh's live count badge,
+ * it does not depend on a separate registry index. */
+function skillBadge(slug: string): string {
+  return `[![Agent Skill](https://img.shields.io/badge/Agent_Skill-available-5B5BD6)](https://github.com/${slug})`;
+}
 
 /**
  * The kernel MCP server's published launch, unpinned — `{command, args}`, plus an `env` map of
@@ -171,10 +177,7 @@ function installLines(project: Project): string[] {
 /** The content of the generated region — everything between the markers, not the markers. */
 export function installContent(project: Project): string {
   const slug = githubSlug(project.identity.repository);
-  const badge =
-    has(project, "skill") && slug
-      ? [`[![skills.sh](https://skills.sh/b/${slug})](https://skills.sh/${slug})`, ""]
-      : [];
+  const badge = has(project, "skill") && slug ? [skillBadge(slug), ""] : [];
   const lines = installLines(project);
   return `${[
     "",

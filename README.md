@@ -12,7 +12,7 @@ generated and every surface still installs, builds and publishes.
 <!-- tf:install -->
 ## Install
 
-[![skills.sh](https://skills.sh/b/GoatInAHat/toolfactory)](https://skills.sh/GoatInAHat/toolfactory)
+[![Agent Skill](https://img.shields.io/badge/Agent_Skill-available-5B5BD6)](https://github.com/GoatInAHat/toolfactory)
 
 - **Agent Skill** — `npx skills add GoatInAHat/toolfactory`
 - **MCP server** — `npx -y toolfactory mcp` [![Install in VS Code](https://img.shields.io/badge/VS_Code-Install_Server-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://vscode.dev/redirect/mcp/install?name=toolfactory&config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22toolfactory%22%2C%22mcp%22%5D%7D) [![Install in Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=toolfactory&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsInRvb2xmYWN0b3J5IiwibWNwIl19)
@@ -129,7 +129,7 @@ and an MCP server cannot give it (a gateway tab, browser capability, a store lis
 | `browser-extension` | `hosts/browser/`, one WXT extension built for Chromium, Firefox and Safari: the worker calls your kernel over loopback MCP, the popup is the `web` app, and the operations that need a page are yours to write in `entrypoints/` | `wxt build`, `web-ext lint`, Playwright against a real Chromium |
 | `dsh` (experimental) | `hosts/dsh/`, a zero-code DSH (DeepSeek Harness) bundle: one Cordis patch row attaching your MCP server through `@deepseek-ai/dsh-mcp-client` | a keyless `dsh --profile headless` boot |
 | workflows (always) | `ci.yml`, `release.yml` (gate → package → publish legs → GitHub Release, plus Pages), `compose.toolfactory.yaml`, `.env.example`, `renovate.json`; every step is one `toolfactory gate` / `toolfactory package` runs without GitHub | the workflow itself |
-| readme (always) | the Install section of `README.md` (a marked region): one install line per selected surface, plus the skills.sh badge | — |
+| readme (always) | the Install section of `README.md` (a marked region): one install line per selected surface, plus a static Agent Skill badge | — |
 
 ## Driving toolfactory from an agent
 
