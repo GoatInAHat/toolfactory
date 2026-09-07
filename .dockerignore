@@ -1,0 +1,22 @@
+# tf:dockerignore
+.git/
+.env
+.env.*
+!.env.example
+node_modules/
+**/node_modules/
+.venv/
+**/.venv/
+dist/
+coverage/
+test-results/
+playwright-report/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+__pycache__/
+**/__pycache__/
+.vscode-test/
+# /tf:dockerignore
+
+# Add local build inputs to exclude below.

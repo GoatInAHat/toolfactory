@@ -1,6 +1,6 @@
 {
   "name": "toolfactory",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Build an agent tool once; ship it as Agent Skills, MCP servers, Agent Plugins / Claude / Codex / Cursor bundles, OpenClaw and Hermes plugins, CLIs, and packages, with the tests and releases to match.",
   "author": {
     "name": "GoatInAHat"
@@ -25,7 +25,7 @@
       "command": "npx",
       "args": [
         "-y",
-        "toolfactory@0.1.2",
+        "toolfactory@0.2.0",
         "mcp"
       ]
     }

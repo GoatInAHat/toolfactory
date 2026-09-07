@@ -56,11 +56,11 @@ describe("native package configuration", () => {
     ]);
     expect(steps[0]?.run).toContain("= '1.2.3'");
     expect(steps[1]?.run).toContain("cargo package --manifest-path 'native/cli/Cargo.toml'");
-    expect(steps[1]?.run).toContain("--target-dir 'dist/release/native/cargo/target'");
+    expect(steps[1]?.run).toContain("--target-dir 'dist/native-build/cargo'");
     expect(steps[1]?.run).not.toContain("/repo");
   });
 
-  it("uses ecosystem commands that need no Node runtime for default versions", () => {
+  it("reads structured Cargo metadata and the raw MSBuild version", () => {
     const cargoDefault = {
       id: "cargo",
       path: "native/cli",
@@ -77,7 +77,7 @@ describe("native package configuration", () => {
     expect(steps[0]?.run).toContain(
       "cargo metadata --no-deps --format-version 1 --manifest-path 'Cargo.toml'",
     );
-    expect(steps[0]?.run).not.toContain("node -e");
+    expect(steps[0]?.run).toContain("JSON.parse(s).packages.find");
     expect(steps[2]?.run).toContain("dotnet msbuild 'Tool.csproj' -nologo -getProperty:Version");
     expect(steps[2]?.run).not.toContain("sed -n");
   });

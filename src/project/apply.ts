@@ -291,11 +291,7 @@ function removeKeyedArrayEntries(
 }
 
 function pickMerge(document: Record<string, unknown>, file: MergeFile): Record<string, unknown> {
-  const picked = pickPatch(
-    document,
-    omitKeyedArrays(file.patch, file.keyedArrays ?? {}),
-    file.owned,
-  );
+  const picked = pickPatch(document, file.patch, file.owned);
   for (const [path, id] of Object.entries(file.keyedArrays ?? {})) {
     const desired = keyedArrayEntries(valueAt(file.patch, path), id, path);
     const current = Array.isArray(valueAt(document, path))

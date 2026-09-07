@@ -400,7 +400,14 @@
               "readme",
               "gemini",
               "mcpb",
-              "browser-extension"
+              "browser-extension",
+              "vscode-extension",
+              "cargo",
+              "nuget",
+              "maven-central",
+              "rubygems",
+              "packagist",
+              "go-module"
             ]
           }
         },
@@ -546,7 +553,14 @@
                 "readme",
                 "gemini",
                 "mcpb",
-                "browser-extension"
+                "browser-extension",
+                "vscode-extension",
+                "cargo",
+                "nuget",
+                "maven-central",
+                "rubygems",
+                "packagist",
+                "go-module"
               ]
             }
           },
@@ -1034,7 +1048,14 @@
                 "readme",
                 "gemini",
                 "mcpb",
-                "browser-extension"
+                "browser-extension",
+                "vscode-extension",
+                "cargo",
+                "nuget",
+                "maven-central",
+                "rubygems",
+                "packagist",
+                "go-module"
               ]
             }
           },
@@ -1133,7 +1154,14 @@
               "readme",
               "gemini",
               "mcpb",
-              "browser-extension"
+              "browser-extension",
+              "vscode-extension",
+              "cargo",
+              "nuget",
+              "maven-central",
+              "rubygems",
+              "packagist",
+              "go-module"
             ]
           }
         },

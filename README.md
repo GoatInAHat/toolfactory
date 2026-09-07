@@ -22,7 +22,7 @@ generated and every surface still installs, builds and publishes.
 - **Gemini CLI extension** — `gemini extensions install https://github.com/GoatInAHat/toolfactory`
 - **OpenClaw plugin** — `openclaw plugins install --link hosts/openclaw` from a checkout
 - **Hermes plugin** — `hermes plugins install https://github.com/GoatInAHat/toolfactory#hosts/hermes/toolfactory_hermes`
-- **DSH plugin** (experimental) — `dsh plugin --profile <profile> add ./hosts/dsh` from a checkout, or the release tarball `toolfactory-dsh-0.1.2.tgz`
+- **DSH plugin** (experimental) — `dsh plugin --profile <profile> add ./hosts/dsh` from a checkout, or the release tarball `toolfactory-dsh-0.2.0.tgz`
 - **Web app** — `npx -y toolfactory mcp --http --open` serves the operations page beside the
   MCP endpoint on one port and opens it; over MCP or a skill, the `web` operation does the same and
   returns the URL.
@@ -120,15 +120,38 @@ and an MCP server cannot give it (a gateway tab, browser capability, a store lis
 | `gemini` | root `gemini-extension.json` — a Gemini CLI extension installable straight from the repo, reading your `AGENTS.md` and `skills/` | `gemini extensions validate` |
 | `mcp`, `cli` | the kernel MCP server (stdio, or `--http`) and a CLI over your operations; each lists only the operations it can run | MCP Inspector, `--help` |
 | `npm`, `pypi` | package metadata merged into `package.json` / `pyproject.toml` | `npm pack`, `uv build` |
+| `cargo`, `nuget`, `maven-central`, `rubygems`, `packagist`, `go-module` | releases for author-owned native packages alongside the tool; metadata stays in its native format | Cargo, .NET, Maven, RubyGems, Composer, Go |
+| `homebrew`, `winget`, `scoop`, `chocolatey`, `apt`, `rpm` | native packaging and catalog/repository distribution on the appropriate OS | the manager's own tooling |
 | `mcp-registry` | `server.json` | `mcp-publisher` |
 | `mcpb` | `hosts/mcpb/manifest.json` and a `.mcpb` release asset packed from the npm tarball — the one-click install Claude Desktop takes | `mcpb validate` |
 | `openclaw-native` | `hosts/openclaw/`, mirroring `openclaw plugins init --type tool` | `openclaw plugins build --check`, `validate`, plugin-inspector |
 | `hermes-native` | `hosts/hermes/`, a manifest v2 plugin | `hermes plugins doctor --ci` |
 | `web` | `web/`, a shadcn/ui (Vite, React, Tailwind) app with a form per operation; your own pages sit beside it in `App.tsx` | `vite build`, Playwright |
 | `browser-extension` | `hosts/browser/`, one WXT extension built for Chromium, Firefox and Safari: the worker calls your kernel over loopback MCP, the popup is the `web` app, and the operations that need a page are yours to write in `entrypoints/` | `wxt build`, `web-ext lint`, Playwright against a real Chromium |
+| `vscode-extension` | `hosts/vscode/`, a native TypeScript extension with MCP discovery, command palette operations, settings and SecretStorage; activation and native contributions are yours | Microsoft `generator-code` scaffold comparison, `vsce package`, real Extension Development Host |
 | `dsh` (experimental) | `hosts/dsh/`, a zero-code DSH (DeepSeek Harness) bundle: one Cordis patch row attaching your MCP server through `@deepseek-ai/dsh-mcp-client` | a keyless `dsh --profile headless` boot |
 | workflows (always) | `ci.yml`, `release.yml` (gate → package → publish legs → GitHub Release, plus Pages), `compose.toolfactory.yaml`, `.env.example`, `renovate.json`; every step is one `toolfactory gate` / `toolfactory package` runs without GitHub | the workflow itself |
 | readme (always) | the Install section of `README.md` (a marked region): one install line per selected surface, plus a static Agent Skill badge | — |
+
+Select `vscode-extension` together with `mcp`, `cli`, and the runtime registry (`npm` for
+TypeScript, `pypi` for Python). Set `vscode.publisher` in `dev.toolfactory/tool.json`, then build.
+Open `hosts/vscode` and press F5 to use the checkout's runtime, or run `npm run vsix` in that
+directory to package it. Native commands, views, webviews, language services, chat participants,
+and language-model tools use the full VS Code API in your own `src/extension.ts`. Add contribution
+points directly to its `package.json`; rebuilds preserve author entries and additional fields
+on generated entries. Marketplace and Open VSX release jobs use `VSCE_PAT` and `OVSX_PAT` after
+you register the publisher. Both can be disabled individually in `tool.json`.
+
+The same native customization rule applies to the other surfaces: JSON, TOML and YAML manifests
+merge only projected fields, and host entry points retain your code outside the marked regions.
+OpenClaw, Hermes, DSH and browser shims can use their host's complete native API. `adopt` and
+`eject` remain available when replacing a generated integration entirely.
+
+Package distribution is opt-in. PyPI supports both `pip install` and `uv add`; pip uses the same
+published wheel/sdist. Other ecosystems consume real native packages and metadata supplied by the
+author. See [native package releases](docs/native-package-releases.md) and
+[system package releases](docs/system-package-releases.md) for configuration and registry setup.
+Toolfactory itself continues to use npm as its package registry.
 
 ## Driving toolfactory from an agent
 

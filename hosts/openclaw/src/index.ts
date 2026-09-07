@@ -192,7 +192,14 @@ const entry = defineToolPlugin({
               "readme",
               "gemini",
               "mcpb",
-              "browser-extension"
+              "browser-extension",
+              "vscode-extension",
+              "cargo",
+              "nuget",
+              "maven-central",
+              "rubygems",
+              "packagist",
+              "go-module"
             ]
           }
         },
@@ -283,7 +290,14 @@ const entry = defineToolPlugin({
                 "readme",
                 "gemini",
                 "mcpb",
-                "browser-extension"
+                "browser-extension",
+                "vscode-extension",
+                "cargo",
+                "nuget",
+                "maven-central",
+                "rubygems",
+                "packagist",
+                "go-module"
               ]
             }
           },
@@ -519,7 +533,14 @@ const entry = defineToolPlugin({
               "readme",
               "gemini",
               "mcpb",
-              "browser-extension"
+              "browser-extension",
+              "vscode-extension",
+              "cargo",
+              "nuget",
+              "maven-central",
+              "rubygems",
+              "packagist",
+              "go-module"
             ]
           }
         }

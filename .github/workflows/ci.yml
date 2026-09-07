@@ -61,6 +61,8 @@ jobs:
         run: pnpm run --if-present check
       - name: author tests
         run: pnpm test
+      - name: author integration tests
+        run: pnpm run --if-present test:integration
       - name: openclaw end-to-end (scripted model, no LLM key)
         run: npm --prefix hosts/openclaw run --if-present test:e2e
         if: matrix.node-version == '24'

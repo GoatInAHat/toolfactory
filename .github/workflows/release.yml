@@ -88,6 +88,8 @@ jobs:
         run: pnpm run --if-present check
       - name: author tests
         run: pnpm test
+      - name: author integration tests
+        run: pnpm run --if-present test:integration
       - name: openclaw end-to-end (scripted model, no LLM key)
         run: npm --prefix hosts/openclaw run --if-present test:e2e
       - id: presence
@@ -131,7 +133,7 @@ jobs:
       - name: npm tarball
         run: npm pack --pack-destination dist/release
       - name: MCPB bundle
-        run: rm -rf dist/mcpb && mkdir -p dist/mcpb && tar -xzf dist/release/toolfactory-0.1.2.tgz -C dist/mcpb --strip-components=1 && npm --prefix dist/mcpb install --omit=dev --ignore-scripts && cp hosts/mcpb/manifest.json dist/mcpb/manifest.json && npx -y @anthropic-ai/mcpb@2.1.2 pack dist/mcpb dist/release/toolfactory.mcpb
+        run: rm -rf dist/mcpb && mkdir -p dist/mcpb && tar -xzf dist/release/toolfactory-0.2.0.tgz -C dist/mcpb --strip-components=1 && npm --prefix dist/mcpb install --omit=dev --ignore-scripts && cp hosts/mcpb/manifest.json dist/mcpb/manifest.json && npx -y @anthropic-ai/mcpb@2.1.2 pack dist/mcpb dist/release/toolfactory.mcpb
       - name: OpenClaw plugin tarball
         run: npm --prefix hosts/openclaw install && npm --prefix hosts/openclaw run build && npm pack ./hosts/openclaw --pack-destination dist/release
       - name: DSH bundle tarball
@@ -172,7 +174,7 @@ jobs:
       - name: npm publish
         env:
           NPM_TOKEN: ${{ vars.NPM_TRUSTED_PUBLISHER != 'true' && secrets.NPM_TOKEN || '' }}
-        run: 'if npm view toolfactory@0.1.2 version >/dev/null 2>&1; then echo "::notice::npm: toolfactory@0.1.2 already published; skipping immutable version."; elif [ "$NPM_TRUSTED_PUBLISHER" = true ]; then npm publish ./release-assets/toolfactory-0.1.2.tgz --access public; else NODE_AUTH_TOKEN="$NPM_TOKEN" npm publish ./release-assets/toolfactory-0.1.2.tgz --access public; fi'
+        run: 'if npm view toolfactory@0.2.0 version >/dev/null 2>&1; then echo "::notice::npm: toolfactory@0.2.0 already published; skipping immutable version."; elif [ "$NPM_TRUSTED_PUBLISHER" = true ]; then npm publish ./release-assets/toolfactory-0.2.0.tgz --access public; else NODE_AUTH_TOKEN="$NPM_TOKEN" npm publish ./release-assets/toolfactory-0.2.0.tgz --access public; fi'
   publish-oci:
     needs: gate
     if: needs.gate.outputs.oci == 'true'
@@ -256,6 +258,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          MAVEN_GPG_PRIVATE_KEY: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+          RUBYGEMS_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
           CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
           CHROME_PUBLISHER_ID: ${{ secrets.CHROME_PUBLISHER_ID }}
           CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL: ${{ secrets.CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL }}
@@ -278,7 +289,7 @@ jobs:
           tag_name: ${{ inputs.tag || github.ref_name }}
           target_commitish: ${{ needs.gate.outputs.sha }}
           generate_release_notes: true
-          files: release-assets/*
+          files: release-assets/**/*
           fail_on_unmatched_files: true
   pages-build:
     needs: gate
