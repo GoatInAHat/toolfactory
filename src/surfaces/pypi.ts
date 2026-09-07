@@ -45,6 +45,23 @@ export const surface: Surface = {
                         [`${WEB_DIR}/dist`]: `${pythonPackage(project)}/${WEB_DIR}`,
                       },
                     },
+                    // This is the source MCPB stages, so include every declared project metadata
+                    // file alongside the package and built page. `only-include` ignores absent
+                    // legal files without making fresh checkouts fail.
+                    sdist: {
+                      "only-include": [
+                        "pyproject.toml",
+                        "README.md",
+                        "LICENSE",
+                        "LICENSE.md",
+                        "LICENSE.txt",
+                        "NOTICE",
+                        "NOTICE.md",
+                        "NOTICE.txt",
+                        `src/${pythonPackage(project)}`,
+                        `${WEB_DIR}/dist`,
+                      ],
+                    },
                   },
                 },
               },

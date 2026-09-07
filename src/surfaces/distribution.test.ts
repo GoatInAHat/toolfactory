@@ -1,3 +1,7 @@
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { Operation, Project, SurfaceId } from "../model.js";
 import { buildPlan } from "../project/plan.js";
@@ -97,6 +101,67 @@ describe("npm", () => {
       },
     });
     expect(JSON.stringify(file.patch)).not.toContain("force-include");
+  });
+});
+
+const uv = spawnSync("uv", ["--version"], { encoding: "utf8" }).status === 0;
+
+describe.skipIf(!uv)("Python release source", () => {
+  it("stages the built page and metadata from the canonical sdist for a uv bundle", () => {
+    const root = mkdtempSync(join(tmpdir(), "toolfactory-python-sdist-"));
+    mkdirSync(join(root, "src", "hello"), { recursive: true });
+    mkdirSync(join(root, "web", "dist"), { recursive: true });
+    writeFileSync(
+      join(root, "pyproject.toml"),
+      `[project]
+name = "hello"
+version = "0.1.0"
+readme = "README.md"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hello"]
+only-include = ["src/hello", "web/dist"]
+
+[tool.hatch.build.targets.wheel.sources]
+src = ""
+"web/dist" = "hello/web"
+
+[tool.hatch.build.targets.sdist]
+only-include = ["pyproject.toml", "README.md", "LICENSE", "src/hello", "web/dist"]
+`,
+    );
+    writeFileSync(join(root, "README.md"), "# hello\n");
+    writeFileSync(join(root, "LICENSE"), "MIT\n");
+    writeFileSync(join(root, "src", "hello", "__init__.py"), "");
+    writeFileSync(join(root, "web", "dist", "index.html"), "<main>hello</main>\n");
+    const build = spawnSync("uv", ["build", "--sdist", "--out-dir", "dist/release/pypi"], {
+      cwd: root,
+      encoding: "utf8",
+    });
+    expect(build.status, build.stderr).toBe(0);
+    const stage = join(root, "dist", "mcpb");
+    mkdirSync(stage, { recursive: true });
+    const extract = spawnSync(
+      "tar",
+      [
+        "-xzf",
+        join(root, "dist", "release", "pypi", "hello-0.1.0.tar.gz"),
+        "-C",
+        stage,
+        "--strip-components=1",
+      ],
+      { encoding: "utf8" },
+    );
+    expect(extract.status, extract.stderr).toBe(0);
+    const sync = spawnSync("uv", ["sync", "--quiet", "--no-dev"], { cwd: stage, encoding: "utf8" });
+    expect(sync.status, sync.stderr).toBe(0);
+    expect(existsSync(join(stage, "README.md"))).toBe(true);
+    expect(existsSync(join(stage, "LICENSE"))).toBe(true);
+    expect(existsSync(join(stage, "web", "dist", "index.html"))).toBe(true);
   });
 });
 
