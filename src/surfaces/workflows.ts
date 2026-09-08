@@ -20,6 +20,7 @@
 import { stringify as yamlStringify } from "yaml";
 import { LIVE_TEST_COMMAND } from "../bindings/python.js";
 import { nativePublishJobs } from "../distribution/native.js";
+import { systemPackageJobs, systemPublishJobs } from "../distribution/system.js";
 import { githubOwner } from "../identity/name.js";
 import {
   isInstructionOnly,
@@ -238,6 +239,7 @@ function ciDocument(project: Project): Record<string, unknown> {
   const node = typescript ? "${{ matrix.node-version }}" : "24";
   const job = compact({
     "runs-on": "ubuntu-latest",
+    env: { TOOLFACTORY_SYSTEM_NATIVE_JOBS: "true" },
     strategy: typescript ? { matrix: { "node-version": ["22", "24"] } } : undefined,
     steps: [
       ...toolchainSteps(project, node),
@@ -255,7 +257,7 @@ function ciDocument(project: Project): Record<string, unknown> {
       workflow_dispatch: live ? {} : undefined,
     }),
     permissions: { contents: "read" },
-    jobs: compact({ test: job, live }),
+    jobs: compact({ test: job, live, ...systemPackageJobs(project, "${{ github.sha }}") }),
   };
 }
 
@@ -438,11 +440,14 @@ function releaseDocument(
 
   const cli = toolfactoryCli(project);
   const assert = tagVersionAssert(project);
+  const systemJobs = systemPackageJobs(project, RELEASE_SHA);
+  for (const job of Object.values(systemJobs)) job.needs = "gate";
   const jobs: Record<string, unknown> = {
+    ...systemJobs,
     gate: compact({
       "runs-on": "ubuntu-latest",
       permissions: compact({ contents: "read", pages: has(project, "web") ? "read" : undefined }),
-      env: { RELEASE_TAG: TAG_NAME },
+      env: { RELEASE_TAG: TAG_NAME, TOOLFACTORY_SYSTEM_NATIVE_JOBS: "true" },
       outputs: { sha: "${{ steps.tag.outputs.sha }}", ...presenceOutputs(rows) },
       steps: [
         // The whole history: the tag may exist (a re-run) or not yet (a dispatch cuts it), and
@@ -461,7 +466,7 @@ function releaseDocument(
       ],
     }),
     package: compact({
-      needs: "gate",
+      needs: needsOf(["gate", ...Object.keys(systemJobs)]),
       "runs-on": "ubuntu-latest",
       permissions: { contents: "read" },
       // The Firefox self-hosted xpi packageSteps emits (gate.ts) is opt-in on this pair: present,
@@ -474,7 +479,11 @@ function releaseDocument(
         : undefined,
       steps: [
         ...toolchainSteps(project, "24", RELEASE_SHA),
-        ...packageSteps(project).map((step) => actionStep(step, false)),
+        ...packageSteps(project, { system: false }).map((step) => actionStep(step, false)),
+        ...Object.keys(systemJobs).map((name) => ({
+          uses: "actions/download-artifact@v8",
+          with: { name, path: `${RELEASE_DIR}/system/${name.replace(/^system-/, "")}` },
+        })),
         {
           uses: "actions/upload-artifact@v7",
           with: { name: RELEASE_ARTIFACT, path: `${RELEASE_DIR}/` },
@@ -482,6 +491,7 @@ function releaseDocument(
       ],
     }),
   };
+  Object.assign(jobs, systemPublishJobs(project, RELEASE_ARTIFACT, RELEASE_SHA));
   const nativeJobs = nativePublishJobs(project, RELEASE_ARTIFACT, RELEASE_SHA);
   Object.assign(jobs, nativeJobs);
   const priorLegs: string[] = Object.keys(nativeJobs);
@@ -536,7 +546,7 @@ function releaseDocument(
         {
           name: "Publish package distributions to PyPI",
           uses: "pypa/gh-action-pypi-publish@release/v1",
-          with: { "packages-dir": `${RELEASE_ARTIFACT}/pypi/` },
+          with: { "packages-dir": `${RELEASE_ARTIFACT}/pypi/`, "skip-existing": true },
         },
       ],
     });
@@ -695,9 +705,10 @@ function releaseDocument(
         ? `npx --yes @vscode/vsce@${VSCE_VERSION} publish --packagePath ${file} --skip-duplicate`
         : `npx --yes ovsx@${OVSX_VERSION} publish ${file} --skip-duplicate`;
     const job = `publish-${id}`;
+    const runtimeJob = project.tool.binding === "python" ? "publish-pypi" : "publish-npm";
     jobs[job] = {
-      needs: ["gate", "package"],
-      if: gated(id),
+      needs: ["gate", "package", runtimeJob],
+      if: `!cancelled() && !contains(needs.*.result, 'failure') && ${gated(id)}`,
       "runs-on": "ubuntu-latest",
       permissions: { contents: "read" },
       env: Object.fromEntries(row.secrets.map((key) => [key, `\${{ secrets.${key} }}`])),

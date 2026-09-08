@@ -16,6 +16,7 @@
  */
 
 import { nativeInstallLines } from "../distribution/native.js";
+import { systemInstallLines } from "../distribution/system.js";
 import { githubSlug } from "../hosts/github.js";
 import { projectName } from "../identity/name.js";
 import type { Project, Surface } from "../model.js";
@@ -87,6 +88,7 @@ function installLines(project: Project): string[] {
   const slug = githubSlug(identity.repository);
   const lines: string[] = [];
   lines.push(...nativeInstallLines(project).map((line) => `- **Native package** — ${line}`));
+  lines.push(...systemInstallLines(project).map((line) => `- **System package** — ${line}`));
   if (has(project, "vscode-extension"))
     lines.push(
       `- **VS Code extension** — download \`${vsixName(project)}\` from the release, then \`code --install-extension ${vsixName(project)}\``,

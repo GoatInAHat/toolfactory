@@ -62,7 +62,13 @@
           "maven-central",
           "rubygems",
           "packagist",
-          "go-module"
+          "go-module",
+          "homebrew",
+          "winget",
+          "scoop",
+          "chocolatey",
+          "apt",
+          "rpm"
         ]
       },
       "description": "Selected surfaces. A file exists iff a selected surface owns it."
@@ -273,6 +279,101 @@
           "path",
           "identity",
           "name"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "systemPackages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "homebrew",
+              "winget",
+              "scoop",
+              "chocolatey",
+              "apt",
+              "rpm"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "identity": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Native package metadata path relative to path."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Native package/catalog identity; never inferred from Toolfactory name."
+          },
+          "versionCommand": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Command run in path that prints only the authored package version."
+          },
+          "buildCommand": {
+            "description": "Author-owned native build command, run in path before an archive or installer is staged.",
+            "type": "string",
+            "minLength": 1
+          },
+          "buildDependencies": {
+            "default": [],
+            "description": "Native OS packages installed by the Debian or Fedora CI builder.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "asset": {
+            "description": "Repository-relative, author-built archive or installer when the manager consumes one.",
+            "type": "string",
+            "minLength": 1
+          },
+          "tap": {
+            "description": "Author-controlled Homebrew tap (owner/homebrew-tap).",
+            "type": "string",
+            "minLength": 1
+          },
+          "bucket": {
+            "description": "Author-controlled Scoop bucket repository (owner/repo).",
+            "type": "string",
+            "minLength": 1
+          },
+          "bucketName": {
+            "description": "Local Scoop bucket name used by install commands.",
+            "type": "string",
+            "minLength": 1
+          },
+          "catalogPath": {
+            "description": "Repository-relative destination inside the author-controlled tap or bucket.",
+            "type": "string",
+            "minLength": 1
+          },
+          "ppa": {
+            "description": "Launchpad PPA as owner/archive.",
+            "type": "string",
+            "minLength": 1
+          },
+          "coprProject": {
+            "description": "COPR project name (owner/project).",
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "path",
+          "identity",
+          "name",
+          "versionCommand"
         ],
         "additionalProperties": false
       }

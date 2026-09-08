@@ -199,7 +199,13 @@ const entry = defineToolPlugin({
               "maven-central",
               "rubygems",
               "packagist",
-              "go-module"
+              "go-module",
+              "homebrew",
+              "winget",
+              "scoop",
+              "chocolatey",
+              "apt",
+              "rpm"
             ]
           }
         },
@@ -297,7 +303,13 @@ const entry = defineToolPlugin({
                 "maven-central",
                 "rubygems",
                 "packagist",
-                "go-module"
+                "go-module",
+                "homebrew",
+                "winget",
+                "scoop",
+                "chocolatey",
+                "apt",
+                "rpm"
               ]
             }
           },
@@ -540,7 +552,13 @@ const entry = defineToolPlugin({
               "maven-central",
               "rubygems",
               "packagist",
-              "go-module"
+              "go-module",
+              "homebrew",
+              "winget",
+              "scoop",
+              "chocolatey",
+              "apt",
+              "rpm"
             ]
           }
         }

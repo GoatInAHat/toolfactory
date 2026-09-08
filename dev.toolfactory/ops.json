@@ -407,7 +407,13 @@
               "maven-central",
               "rubygems",
               "packagist",
-              "go-module"
+              "go-module",
+              "homebrew",
+              "winget",
+              "scoop",
+              "chocolatey",
+              "apt",
+              "rpm"
             ]
           }
         },
@@ -560,7 +566,13 @@
                 "maven-central",
                 "rubygems",
                 "packagist",
-                "go-module"
+                "go-module",
+                "homebrew",
+                "winget",
+                "scoop",
+                "chocolatey",
+                "apt",
+                "rpm"
               ]
             }
           },
@@ -1055,7 +1067,13 @@
                 "maven-central",
                 "rubygems",
                 "packagist",
-                "go-module"
+                "go-module",
+                "homebrew",
+                "winget",
+                "scoop",
+                "chocolatey",
+                "apt",
+                "rpm"
               ]
             }
           },
@@ -1161,7 +1179,13 @@
               "maven-central",
               "rubygems",
               "packagist",
-              "go-module"
+              "go-module",
+              "homebrew",
+              "winget",
+              "scoop",
+              "chocolatey",
+              "apt",
+              "rpm"
             ]
           }
         },
