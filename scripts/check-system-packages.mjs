@@ -32,7 +32,7 @@ const windowsExe = () => {
 function fixtureConfig() {
   switch (id) {
     case "homebrew": {
-      const asset = "toolfactory-smoke-1.2.3.tar.gz";
+      const asset = "toolfactory-smoke.tar.gz";
       const absoluteAsset = join(fixture, asset);
       write("bin/toolfactory-smoke", `#!/bin/sh\necho ${version}\n`);
       chmodSync(join(fixture, "bin/toolfactory-smoke"), 0o755);
@@ -64,7 +64,7 @@ function fixtureConfig() {
       );
       write(
         `${manifests}/${identifier}.locale.en-US.yaml`,
-        `PackageIdentifier: ${identifier}\nPackageVersion: ${version}\nPackageLocale: en-US\nPublisher: Toolfactory\nPackageName: Toolfactory smoke fixture\nShortDescription: Disposable package validation fixture\nManifestType: defaultLocale\nManifestVersion: 1.6.0\n`,
+        `PackageIdentifier: ${identifier}\nPackageVersion: ${version}\nPackageLocale: en-US\nPublisher: Toolfactory\nPackageName: Toolfactory smoke fixture\nLicense: MIT\nShortDescription: Disposable package validation fixture\nManifestType: defaultLocale\nManifestVersion: 1.6.0\n`,
       );
       write(
         `${manifests}/${identifier}.yaml`,
