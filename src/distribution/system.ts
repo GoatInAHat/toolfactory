@@ -538,7 +538,7 @@ export function systemPackageJobs(project: Project, releaseSha: string): Record<
         steps: [
           checkout(releaseSha),
           {
-            run: `sudo apt-get update && sudo apt-get install -y devscripts dpkg-dev ${dependencies}`,
+            run: `sudo apt-get update && sudo apt-get install -y devscripts dpkg-dev build-essential ${dependencies}`,
           },
           ...(posixBuild ? [posixBuild] : []),
           { run: versionAssert(project, entry) },
