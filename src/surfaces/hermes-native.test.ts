@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
 import { describe, expect, it } from "vitest";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
@@ -217,11 +217,7 @@ describe.skipIf(!hasHermes())("hermes plugins doctor", () => {
   it("loads and registers the generated plugin", () => {
     const root = mkdtempSync(join(tmpdir(), "toolfactory-hermes-"));
     try {
-      for (const file of surface.plan(project())) {
-        if (file.kind !== "file") continue;
-        mkdirSync(dirname(join(root, file.path)), { recursive: true });
-        writeFileSync(join(root, file.path), file.content);
-      }
+      apply(root, surface.plan(project()), "0.1.0");
       const commands = surface.validate?.({ ...project(), root }) ?? [];
       const command = commands.find((c) => c.label === "hermes plugins doctor");
       if (!command) throw new Error("the hermes surface no longer declares a doctor validator");

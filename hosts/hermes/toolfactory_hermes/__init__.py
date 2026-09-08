@@ -156,7 +156,13 @@ TOOLS = json.loads(
             "maven-central",
             "rubygems",
             "packagist",
-            "go-module"
+            "go-module",
+            "homebrew",
+            "winget",
+            "scoop",
+            "chocolatey",
+            "apt",
+            "rpm"
           ]
         }
       },
@@ -244,7 +250,13 @@ TOOLS = json.loads(
               "maven-central",
               "rubygems",
               "packagist",
-              "go-module"
+              "go-module",
+              "homebrew",
+              "winget",
+              "scoop",
+              "chocolatey",
+              "apt",
+              "rpm"
             ]
           }
         },
@@ -457,7 +469,13 @@ TOOLS = json.loads(
             "maven-central",
             "rubygems",
             "packagist",
-            "go-module"
+            "go-module",
+            "homebrew",
+            "winget",
+            "scoop",
+            "chocolatey",
+            "apt",
+            "rpm"
           ]
         }
       }

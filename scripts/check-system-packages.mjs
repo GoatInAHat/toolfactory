@@ -48,7 +48,7 @@ function fixtureConfig() {
         name: "toolfactory-smoke",
         versionCommand:
           'ruby -ne \'puts $1 if /version \\"([^\\"]+)\\"/ =~ $_\' Formula/toolfactory-smoke.rb',
-        buildCommand: `mkdir -p bin && printf '#!/bin/sh\\necho ${version}\\n' > bin/toolfactory-smoke && chmod +x bin/toolfactory-smoke && tar -czf ${asset} bin`,
+        buildCommand: `test -f ${asset}`,
         asset: `${path}/${asset}`,
         tap: "toolfactory-ci/homebrew-tap",
         catalogPath: "Formula/toolfactory-smoke.rb",
@@ -75,7 +75,7 @@ function fixtureConfig() {
         path,
         identity: manifests,
         name: identifier,
-        versionCommand: `(Get-Content -Raw '${manifests}/${identifier}.yaml' | Select-String -Pattern '^PackageVersion: (.+)$').Matches[0].Groups[1].Value`,
+        versionCommand: `(Get-Content -Raw '${manifests}/${identifier}.yaml' | Select-String -Pattern '(?m)^PackageVersion: (\\S+)').Matches[0].Groups[1].Value`,
         buildCommand: `Copy-Item -Force "$env:SystemRoot\\System32\\cmd.exe" toolfactory-smoke.exe`,
         asset: `${path}/toolfactory-smoke.exe`,
       };
@@ -118,7 +118,7 @@ function fixtureConfig() {
     case "apt":
       write(
         "debian/changelog",
-        `toolfactory-smoke (${version}-1) unstable; urgency=medium\n\n  * Disposable Toolfactory package smoke fixture.\n\n -- Toolfactory <smoke@example.com>  Sun, 07 Sep 2026 12:00:00 +0000\n`,
+        `toolfactory-smoke (${version}) unstable; urgency=medium\n\n  * Disposable Toolfactory package smoke fixture.\n\n -- Toolfactory <smoke@example.com>  Mon, 07 Sep 2026 12:00:00 +0000\n`,
       );
       write(
         "debian/control",
@@ -141,7 +141,7 @@ function fixtureConfig() {
       write("toolfactory-smoke.txt", "Toolfactory package smoke fixture.\n");
       write(
         "toolfactory-smoke.spec",
-        `Name: toolfactory-smoke\nVersion: ${version}\nRelease: 1%{?dist}\nSummary: Toolfactory package smoke fixture\nLicense: MIT\nBuildArch: noarch\nSource0: toolfactory-smoke.txt\n\n%description\nDisposable Toolfactory package validation fixture.\n\n%prep\n%setup -q -c -T\ncp %{_sourcedir}/toolfactory-smoke.txt .\n\n%build\n\n%install\nmkdir -p %{buildroot}%{_datadir}/toolfactory-smoke\ncp toolfactory-smoke.txt %{buildroot}%{_datadir}/toolfactory-smoke/\n\n%files\n%{_datadir}/toolfactory-smoke/toolfactory-smoke.txt\n\n%changelog\n* Sun Sep 07 2026 Toolfactory <smoke@example.com> - ${version}-1\n- Disposable smoke fixture\n`,
+        `Name: toolfactory-smoke\nVersion: ${version}\nRelease: 1%{?dist}\nSummary: Toolfactory package smoke fixture\nLicense: MIT\nBuildArch: noarch\nSource0: toolfactory-smoke.txt\n\n%description\nDisposable Toolfactory package validation fixture.\n\n%prep\n%setup -q -c -T\ncp %{_sourcedir}/toolfactory-smoke.txt .\n\n%build\n\n%install\nmkdir -p %{buildroot}%{_datadir}/toolfactory-smoke\ncp toolfactory-smoke.txt %{buildroot}%{_datadir}/toolfactory-smoke/\n\n%files\n%{_datadir}/toolfactory-smoke/toolfactory-smoke.txt\n\n%changelog\n* Mon Sep 07 2026 Toolfactory <smoke@example.com> - ${version}-1\n- Disposable smoke fixture\n`,
       );
       return {
         id,

@@ -31,9 +31,9 @@ to continue when it differs from the shared identity version.
 The release workflow runs each selected surface in a native job and uploads a separate
 `system-<id>` artifact. The generic Ubuntu gate and package job must omit these surfaces, then
 merge those artifacts under `dist/release/system/<id>`. Homebrew runs on macOS; WinGet, Scoop, and
-Chocolatey on Windows; apt on Ubuntu; and RPM in Fedora. Local validation reports a successful
-delegation when the current host cannot run a selected package manager or the manager needs its
-isolated native CI setup.
+Chocolatey on Windows; apt on Ubuntu; and RPM in Fedora. Local validation reports which native CI
+jobs must run elsewhere. Local packaging refuses an incompatible OS; the generated release
+workflow gathers every platform's artifacts into one release.
 
 Homebrew, WinGet, and Scoop are catalog submissions. Toolfactory stages and validates the authored
 formula/manifest and archive, but a Homebrew core, WinGet, or public Scoop listing remains a reviewed

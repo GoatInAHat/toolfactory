@@ -193,7 +193,7 @@ describe("workflows", () => {
       {
         name: "Publish package distributions to PyPI",
         uses: "pypa/gh-action-pypi-publish@release/v1",
-        with: { "packages-dir": "release-assets/pypi/" },
+        with: { "packages-dir": "release-assets/pypi/", "skip-existing": true },
       },
     ]);
     expect(release.jobs.release.steps.at(-1)?.with.files).toBe("release-assets/**/*");

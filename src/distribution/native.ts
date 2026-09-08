@@ -30,14 +30,14 @@ export const nativePackageConfigSchema = z
       .string()
       .min(1)
       .refine(
-        (path) => !path.startsWith("/") && !path.split("/").includes(".."),
+        (path) => !/^(?:[A-Za-z]:|[\\/])/.test(path) && !path.split(/[\\/]/).includes(".."),
         "path must stay inside the repository.",
       ),
     identity: z
       .string()
       .min(1)
       .refine(
-        (path) => !path.startsWith("/") && !path.split("/").includes(".."),
+        (path) => !/^(?:[A-Za-z]:|[\\/])/.test(path) && !path.split(/[\\/]/).includes(".."),
         "identity must be relative to path.",
       ),
     name: z

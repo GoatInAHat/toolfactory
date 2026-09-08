@@ -20,7 +20,7 @@ const repositoryPath = z
   .string()
   .min(1)
   .refine(
-    (value) => !value.startsWith("/") && !value.split("/").includes(".."),
+    (value) => !/^(?:[A-Za-z]:|[\\/])/.test(value) && !value.split(/[\\/]/).includes(".."),
     "path must stay inside the repository.",
   );
 
@@ -139,7 +139,6 @@ export const systemPackageConfigSchema = z
   .strict();
 export type SystemPackageConfig = z.infer<typeof systemPackageConfigSchema>;
 
-type SystemTool = Project["tool"] & { systemPackages?: SystemPackageConfig[] };
 function quote(value: string): string {
   return `'${value.replace(/'/g, "'\\''")}'`;
 }
@@ -147,7 +146,7 @@ function powershellQuote(value: string): string {
   return `'${value.replace(/'/g, "''")}'`;
 }
 function all(project: Project): SystemPackageConfig[] {
-  const values = ((project.tool as SystemTool).systemPackages ?? []).map((value) =>
+  const values = (project.tool.systemPackages ?? []).map((value) =>
     systemPackageConfigSchema.parse(value),
   );
   const duplicates = values.filter(
@@ -160,7 +159,7 @@ function all(project: Project): SystemPackageConfig[] {
   return values;
 }
 function selected(project: Project, id: SystemPackageId): boolean {
-  return (project.tool.surfaces as string[]).includes(id);
+  return project.tool.surfaces.includes(id);
 }
 function one(project: Project, id: SystemPackageId): SystemPackageConfig {
   const values = all(project).filter((value) => value.id === id);
@@ -207,7 +206,7 @@ const validators: Record<SystemPackageId, (entry: SystemPackageConfig) => Comman
       args: [
         "-NoProfile",
         "-Command",
-        `Get-Content -Raw ${entry.identity} | ConvertFrom-Json | Out-Null`,
+        `Get-Content -Raw ${powershellQuote(entry.identity)} | ConvertFrom-Json | Out-Null`,
       ],
       cwd: entry.path,
     },
@@ -240,14 +239,18 @@ function compatibleLocally(id: SystemPackageId): boolean {
 }
 
 export const systemPackageSurfaces: Surface[] = SYSTEM_PACKAGE_IDS.map((id) => ({
-  id: id as Surface["id"],
+  id,
   plan(project) {
     one(project, id);
     return [];
   },
   validate(project) {
     const entry = one(project, id);
-    if (id === "homebrew" || !compatibleLocally(id)) {
+    if (
+      process.env.TOOLFACTORY_SYSTEM_NATIVE_JOBS === "true" ||
+      id === "homebrew" ||
+      !compatibleLocally(id)
+    ) {
       return [
         {
           label: `${id} validation is delegated to native CI`,
@@ -297,14 +300,10 @@ export function systemPackageSteps(
 ): GateStep[] {
   if (options.include === false) return [];
   return active(project).flatMap((entry) => {
-    if (options.local !== false && (entry.id === "homebrew" || !compatibleLocally(entry.id))) {
-      return [
-        {
-          name: `${entry.id} package is delegated to native CI`,
-          run: `echo ${quote(`${entry.id} requires its native runner; see system-${entry.id} release job.`)}`,
-        },
-      ];
-    }
+    if (options.local !== false && !compatibleLocally(entry.id))
+      throw new Error(
+        `${entry.id} cannot be packaged on ${process.platform}; run its generated system-${entry.id} job or use its native OS.`,
+      );
     const out = destination(entry);
     const asset = entry.asset ? quote(entry.asset) : undefined;
     const steps: GateStep[] = [
@@ -361,7 +360,7 @@ export function systemPackageSteps(
 
 function registry(project: Project, entry: SystemPackageConfig): Registry {
   const v = version(project, entry);
-  const shared = {
+  const shared: Pick<Registry, "id" | "surfaces" | "url"> = {
     id: entry.id,
     surfaces: [entry.id],
     url: {
@@ -381,42 +380,42 @@ function registry(project: Project, entry: SystemPackageConfig): Registry {
         exists: `choco search ${quote(entry.name)} --exact --version ${quote(v)} --limit-output | grep -q ${quote(`${entry.name}|${v}`)}`,
         gate: '[ -n "$CHOCOLATEY_API_KEY" ]',
         retractUrl: `https://community.chocolatey.org/packages/${entry.name}`,
-      } as unknown as Registry;
+      };
     case "apt":
       return {
         ...shared,
         secrets: ["APT_GPG_PRIVATE_KEY", "APT_GPG_KEY_ID"],
         gate: '[ -n "$APT_GPG_PRIVATE_KEY" ] && [ -n "$APT_GPG_KEY_ID" ]',
         retractUrl: shared.url,
-      } as unknown as Registry;
+      };
     case "rpm":
       return {
         ...shared,
         secrets: ["COPR_LOGIN", "COPR_TOKEN"],
         gate: '[ -n "$COPR_LOGIN" ] && [ -n "$COPR_TOKEN" ]',
         retractUrl: shared.url,
-      } as unknown as Registry;
+      };
     case "homebrew":
       return {
         ...shared,
         secrets: ["HOMEBREW_TAP_TOKEN"],
         gate: '[ -n "$HOMEBREW_TAP_TOKEN" ]',
         retractUrl: shared.url,
-      } as unknown as Registry;
+      };
     case "winget":
       return {
         ...shared,
         secrets: [],
         gate: "true",
         retractUrl: shared.url,
-      } as unknown as Registry;
+      };
     case "scoop":
       return {
         ...shared,
         secrets: ["SCOOP_BUCKET_TOKEN"],
         gate: '[ -n "$SCOOP_BUCKET_TOKEN" ]',
         retractUrl: shared.url,
-      } as unknown as Registry;
+      };
   }
 }
 export function systemRegistryRows(project: Project): Registry[] {
@@ -430,8 +429,8 @@ const download = (name: string, path: string) => ({
 });
 const checkout = (sha: string) => ({ uses: "actions/checkout@v7", with: { ref: sha } });
 const upload = (id: SystemPackageId) => ({
-  uses: "actions/upload-artifact@v6",
-  with: { name: `system-${id}`, path: `dist/release/system/${id}` },
+  uses: "actions/upload-artifact@v7",
+  with: { name: `system-${id}`, path: `dist/release/system/${id}`, "if-no-files-found": "error" },
 });
 
 /**
@@ -648,6 +647,7 @@ export function systemPublishJobs(
       const stagedMetadata = quote(`.system-package/${entry.identity.split("/").at(-1) ?? ""}`);
       jobs[`publish-${entry.id}`] = {
         ...base,
+        "runs-on": entry.id === "homebrew" ? "macos-latest" : "ubuntu-latest",
         permissions: { contents: "read" },
         env: { CATALOG_TOKEN: `\${{ secrets.${token} }}` },
         steps: [

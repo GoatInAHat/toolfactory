@@ -163,7 +163,13 @@ describe.skipIf(!existsSync(repoNodeModules))(
       authorProse(fresh);
       commands.build(fresh);
 
-      expect(tree(walked)).toEqual(tree(fresh));
+      const walkedTree = tree(walked);
+      // Deselecting a region surface preserves its author-owned scaffold, including an empty
+      // Docker ignore file. All managed bytes still converge with the freshly generated tree.
+      expect(walkedTree[".dockerignore"]).toContain("# tf:dockerignore# /tf:dockerignore");
+      expect(walkedTree[".dockerignore"]).not.toContain("node_modules/");
+      delete walkedTree[".dockerignore"];
+      expect(walkedTree).toEqual(tree(fresh));
     });
   },
 );

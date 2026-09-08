@@ -8,6 +8,7 @@
  */
 import { z } from "zod";
 import { NATIVE_PACKAGE_IDS, nativePackageConfigSchema } from "./distribution/native.js";
+import { SYSTEM_PACKAGE_IDS, systemPackageConfigSchema } from "./distribution/system.js";
 import { vscodeConfigSchema } from "./surfaces/vscode-extension.js";
 
 export const CAPABILITIES = [
@@ -52,6 +53,7 @@ export const SURFACE_IDS = [
   "browser-extension",
   "vscode-extension",
   ...NATIVE_PACKAGE_IDS,
+  ...SYSTEM_PACKAGE_IDS,
 ] as const;
 export type SurfaceId = (typeof SURFACE_IDS)[number];
 
@@ -193,6 +195,7 @@ export const ToolConfigSchema = z
     hermes: z.object({ toolset: z.string().optional() }).optional(),
     vscode: vscodeConfigSchema.optional(),
     nativePackages: z.array(nativePackageConfigSchema).optional(),
+    systemPackages: z.array(systemPackageConfigSchema).optional(),
     openclaw: z
       .object({
         registers: z

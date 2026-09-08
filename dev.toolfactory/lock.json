@@ -153,7 +153,7 @@
       "state": "generated"
     },
     ".github/workflows/ci.yml": {
-      "sha256": "e2efa885b0cd9a34b5cd5278de8d2b1c290b4d14e23dcd0157c357b83dece67c",
+      "sha256": "0b9be18ff45209a9044c598cdc8aef10a0650d63f9784165ac577b457406254d",
       "state": "generated"
     },
     ".github/workflows/copilot-setup-steps.yml": {
@@ -161,7 +161,7 @@
       "state": "generated"
     },
     ".github/workflows/release.yml": {
-      "sha256": "5c8750d26c1c84b3d1c3b9a9c7def909d24553495c816c86835da96370bc5702",
+      "sha256": "5dd776dcec4bc82e36206b1d2b39f01696fa0b7bca41738b67b6ebbdabbe10ca",
       "state": "generated"
     },
     ".gitignore": {
@@ -201,7 +201,7 @@
       "state": "generated"
     },
     "dev.toolfactory/tool.schema.json": {
-      "sha256": "66d32230b7a2786919b1173564cbc76c7d3700318f5a738243d418cd44a642d2",
+      "sha256": "41a69c7cbcaad8741f80559f127eb32b43bd9e4147e6f958639d9e914e9f7e61",
       "state": "generated"
     },
     "Dockerfile": {
@@ -277,7 +277,7 @@
       "state": "generated"
     },
     "hosts/hermes/toolfactory_hermes/__init__.py": {
-      "sha256": "ae014abba6b4ef2c724bb91ee5d10433c9ff8ac872b318f2f9f48ac508955da9",
+      "sha256": "ba844de4dc7aefa1dcab68a52322f299bc9cf960ed381679a12bbbfe1b334be5",
       "state": "generated",
       "regions": [
         {
@@ -375,7 +375,7 @@
       "state": "generated"
     },
     "hosts/openclaw/src/index.ts": {
-      "sha256": "0f519516f86e0e33e35b28b02eab74e8c9236af3d6b37ac2d8a1eabf86b398c5",
+      "sha256": "4a9457307c9fcb5be889e6f1f572d30ca8426a02e688c85f01581790ffb43f96",
       "state": "generated",
       "regions": [
         {
@@ -555,7 +555,7 @@
       "state": "generated"
     },
     "web/src/ops.json": {
-      "sha256": "ea2fb48cc6fccf7d4807ba19d3c1e3e09448665f19f18ef53b1c44063bac3825",
+      "sha256": "bc3482842df30e1c5035551b4c3c81ba98f71be205953ca1eca6bf7d36508464",
       "state": "generated"
     },
     "web/src/schema-form.tsx": {

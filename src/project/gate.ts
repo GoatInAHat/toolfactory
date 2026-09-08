@@ -16,6 +16,11 @@ import {
   nativeRegistryRows,
   nativeToolchainSteps,
 } from "../distribution/native.js";
+import {
+  type SystemPackageId,
+  systemPackageSteps,
+  systemRegistryRows,
+} from "../distribution/system.js";
 import { githubSlug } from "../hosts/github.js";
 import { githubOwner, projectName } from "../identity/name.js";
 import { isInstructionOnly, type PackageManager, type Project, type SurfaceId } from "../model.js";
@@ -241,7 +246,7 @@ const LEGAL_BUNDLE_PATHS = [
  * the release workflow's `package` job, which uploads the directory as one artifact. Publishing
  * to a registry stays a CI concern; producing the artifacts never is.
  */
-export function packageSteps(project: Project): GateStep[] {
+export function packageSteps(project: Project, options: { system?: boolean } = {}): GateStep[] {
   const cli = toolfactoryCli(project);
   const name = project.identity.name;
   const steps: GateStep[] = [
@@ -250,6 +255,7 @@ export function packageSteps(project: Project): GateStep[] {
     outputsStep(project),
     ...nativeToolchainSteps(project),
     ...nativePackageSteps(project),
+    ...systemPackageSteps(project, { include: options.system !== false }),
   ];
   if (has(project, "web")) {
     steps.push({
@@ -385,6 +391,7 @@ export interface Registry {
   /** Stable id: the release job suffix, the `secrets status` row, the unpublish step name. */
   id:
     | NativePackageId
+    | SystemPackageId
     | "npm"
     | "pypi"
     | "mcp-registry"
@@ -488,6 +495,13 @@ export const RELEASE_SECRET_NAMES = [
   "MAVEN_GPG_PRIVATE_KEY",
   "MAVEN_GPG_PASSPHRASE",
   "RUBYGEMS_API_KEY",
+  "HOMEBREW_TAP_TOKEN",
+  "SCOOP_BUCKET_TOKEN",
+  "CHOCOLATEY_API_KEY",
+  "APT_GPG_PRIVATE_KEY",
+  "APT_GPG_KEY_ID",
+  "COPR_LOGIN",
+  "COPR_TOKEN",
   ...CHROME_SECRETS,
   ...FIREFOX_SECRETS,
   ...EDGE_SECRETS,
@@ -516,6 +530,7 @@ export function registries(project: Project): Registry[] {
 
   const rows: Registry[] = [
     ...nativeRegistryRows(project),
+    ...systemRegistryRows(project),
     {
       id: "vscode-marketplace",
       surfaces: ["vscode-extension"],
@@ -702,6 +717,14 @@ export function registries(project: Project): Registry[] {
     mcpRegistry.gate = packages.length
       ? packages.map((row) => `[ "$${gateVariable(row)}" = true ]`).join(" && ")
       : "true";
+  }
+  const runtime = selected.find(
+    (row) => row.id === (project.tool.binding === "python" ? "pypi" : "npm"),
+  );
+  for (const row of selected.filter(
+    (row) => row.id === "vscode-marketplace" || row.id === "open-vsx",
+  )) {
+    if (runtime) row.gate = `(${row.gate}) && { ${runtime.exists} || { ${runtime.gate}; }; }`;
   }
   return selected;
 }

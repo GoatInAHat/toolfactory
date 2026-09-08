@@ -1,4 +1,5 @@
 import { nativePackageSurfaces } from "../distribution/native.js";
+import { systemPackageSurfaces } from "../distribution/system.js";
 import type { Surface, SurfaceId } from "../model.js";
 import { surface as agentPlugins } from "./agent-plugins.js";
 import { surface as agents } from "./agents.js";
@@ -24,6 +25,7 @@ import { surface as workflows } from "./workflows.js";
 
 const registry: Partial<Record<SurfaceId, Surface>> = {
   ...Object.fromEntries(nativePackageSurfaces.map((surface) => [surface.id, surface])),
+  ...Object.fromEntries(systemPackageSurfaces.map((surface) => [surface.id, surface])),
   "agent-plugins": agentPlugins,
   agents,
   "browser-extension": { ...browserExtension, requires: ["mcp"] },

@@ -11,6 +11,8 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      TOOLFACTORY_SYSTEM_NATIVE_JOBS: "true"
     strategy:
       matrix:
         node-version:
