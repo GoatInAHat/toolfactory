@@ -78,8 +78,10 @@ suite('Native extension freedom', () => { test('native command and generated MCP
   );
   apply(root, plan(), "0.1.2");
   assert.deepEqual(check(root, plan(), "0.1.2"), []);
-  run("npm", ["install"]);
-  run("npm", ["install"], host);
+  // Node 22 bundles npm 10, whose peer resolver crashes on Vitest's optional peers.
+  // Use the same npm CLI on both CI Node versions without changing the fixture's dependencies.
+  run("npx", ["--yes", "npm@11.12.0", "install"]);
+  run("npx", ["--yes", "npm@11.12.0", "install"], host);
   run("npm", ["run", "vsix"], host);
   if (process.platform === "linux") run("xvfb-run", ["-a", "npm", "test"], host);
   else run("npm", ["test"], host);

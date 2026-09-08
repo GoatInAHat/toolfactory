@@ -12,7 +12,7 @@ the Toolfactory TypeScript/Python kernel in another runtime. Each selected surfa
       "path": "packaging/homebrew",
       "identity": "tool.rb",
       "name": "tool",
-      "versionCommand": "ruby -ne 'puts $1 if /version \\\"([^\\\"]+)/i' tool.rb'",
+      "versionCommand": "ruby -ne 'puts $1 if /version \"([^\"]+)/' tool.rb",
       "buildCommand": "make release-archive",
       "asset": "dist/tool-darwin-arm64.tar.gz",
       "tap": "acme/homebrew-tap",
@@ -22,7 +22,8 @@ the Toolfactory TypeScript/Python kernel in another runtime. Each selected surfa
 }
 ```
 
-`path`, `identity`, and `asset` are repository-relative. `identity` is a formula file for Homebrew,
+`path` and `asset` are repository-relative; `identity` is relative to `path`.
+`identity` is a formula file for Homebrew,
 a manifest directory for WinGet, a manifest file for Scoop, a `.nuspec` file for Chocolatey, a
 Debian source directory, or an RPM `.spec` file. The supplied `versionCommand` is deliberately an
 author-owned escape hatch: it must print the version in that native metadata, and packaging refuses
