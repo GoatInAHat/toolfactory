@@ -134,7 +134,7 @@ jobs:
       - name: npm tarball
         run: npm pack --pack-destination dist/release
       - name: MCPB bundle
-        run: rm -rf dist/mcpb && mkdir -p dist/mcpb && tar -xzf dist/release/toolfactory-0.2.0.tgz -C dist/mcpb --strip-components=1 && npm --prefix dist/mcpb install --omit=dev --ignore-scripts && cp hosts/mcpb/manifest.json dist/mcpb/manifest.json && npx -y @anthropic-ai/mcpb@2.1.2 pack dist/mcpb dist/release/toolfactory.mcpb
+        run: rm -rf dist/mcpb && mkdir -p dist/mcpb && tar -xzf dist/release/toolfactory-0.2.1.tgz -C dist/mcpb --strip-components=1 && npm --prefix dist/mcpb install --omit=dev --ignore-scripts && cp hosts/mcpb/manifest.json dist/mcpb/manifest.json && npx -y @anthropic-ai/mcpb@2.1.2 pack dist/mcpb dist/release/toolfactory.mcpb
       - name: OpenClaw plugin tarball
         run: npm --prefix hosts/openclaw install && npm --prefix hosts/openclaw run build && npm pack ./hosts/openclaw --pack-destination dist/release
       - name: DSH bundle tarball
@@ -175,7 +175,7 @@ jobs:
       - name: npm publish
         env:
           NPM_TOKEN: ${{ vars.NPM_TRUSTED_PUBLISHER != 'true' && secrets.NPM_TOKEN || '' }}
-        run: 'if npm view toolfactory@0.2.0 version >/dev/null 2>&1; then echo "::notice::npm: toolfactory@0.2.0 already published; skipping immutable version."; elif [ "$NPM_TRUSTED_PUBLISHER" = true ]; then npm publish ./release-assets/toolfactory-0.2.0.tgz --access public; else NODE_AUTH_TOKEN="$NPM_TOKEN" npm publish ./release-assets/toolfactory-0.2.0.tgz --access public; fi'
+        run: 'if npm view toolfactory@0.2.1 version >/dev/null 2>&1; then echo "::notice::npm: toolfactory@0.2.1 already published; skipping immutable version."; elif [ "$NPM_TRUSTED_PUBLISHER" = true ]; then npm publish ./release-assets/toolfactory-0.2.1.tgz --access public; else NODE_AUTH_TOKEN="$NPM_TOKEN" npm publish ./release-assets/toolfactory-0.2.1.tgz --access public; fi'
   publish-oci:
     needs: gate
     if: needs.gate.outputs.oci == 'true'
