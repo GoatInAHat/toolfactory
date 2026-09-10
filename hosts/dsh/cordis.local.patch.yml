@@ -1,4 +1,5 @@
-# tf:mcp- insert:
+# tf:mcp
+- insert:
     - id: mcp-toolfactory
       name: "@deepseek-ai/dsh-mcp-client"
       config:

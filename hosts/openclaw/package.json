@@ -1,6 +1,6 @@
 {
   "name": "openclaw-plugin-toolfactory",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Build an agent tool once; ship it as Agent Skills, MCP servers, Agent Plugins / Claude / Codex / Cursor bundles, OpenClaw and Hermes plugins, CLIs, and packages, with the tests and releases to match.",
   "type": "module",
   "private": true,
@@ -24,7 +24,7 @@
     "toolfactory": "file:../.."
   },
   "devDependencies": {
-    "openclaw": "latest",
+    "openclaw": "2026.9.2",
     "typescript": "^5.9.0",
     "vitest": "^3.2.0",
     "@copilotkit/aimock": "^1.39.0"

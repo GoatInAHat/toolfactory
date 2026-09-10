@@ -90,7 +90,8 @@ function patch(project: Project, launch: { command: string; args: string[] }): s
       failOnStartupError: true,
     }),
   };
-  return yamlStringify([{ insert: [row] }], { lineWidth: 0 });
+  // Region replacement starts immediately after the comment marker.
+  return `\n${yamlStringify([{ insert: [row] }], { lineWidth: 0 })}`;
 }
 
 function patchTemplate(): string {

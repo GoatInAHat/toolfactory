@@ -154,7 +154,7 @@ export default defineConfig({
       "@tailwindcss/vite": "^4.3.3",
       "class-variance-authority": "^0.7.1",
       cn: "^0.2.6",
-      "lucide-react": "^1.42.0",
+      "lucide-react": "^1.43.0",
       react: "^19.2.8",
       "react-dom": "^19.2.8",
       shadcn: "^4.21.0",
