@@ -1,6 +1,10 @@
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
 import type { Operation, Project } from "../model.js";
+import { apply, replaceRegions } from "../project/apply.js";
 import { DSH_PIN, surface as dsh } from "./dsh.js";
 
 const echo: Operation = { name: "echo", inputSchema: { type: "object" }, requires: [] };
@@ -42,12 +46,38 @@ const files = Object.fromEntries(
         ? file.content
         : file.kind === "merge"
           ? JSON.stringify(file.patch)
-          : file.regions.map((region) => region.content).join(""),
+          : (replaceRegions(file.template, file) ?? file.template),
     ];
   }),
 );
 
 describe("dsh", () => {
+  it("rebuilds legacy patch regions without commenting out insert or losing authored rows", () => {
+    const root = mkdtempSync(join(tmpdir(), "toolfactory-dsh-"));
+    try {
+      const plan = dsh.plan({ ...project, root });
+      const patches = plan.filter((file) => file.kind === "region");
+      apply(root, plan, project.toolfactoryVersion);
+      for (const file of patches) {
+        const path = join(root, file.path);
+        const legacy = readFileSync(path, "utf8").replace("# tf:mcp\n", "# tf:mcp");
+        writeFileSync(path, `${legacy}\n- insert:\n    - id: authored\n`);
+      }
+
+      apply(root, plan, project.toolfactoryVersion);
+      for (const file of patches) {
+        const rendered = readFileSync(join(root, file.path), "utf8");
+        expect(rendered).toMatch(/^# tf:mcp\n- insert:/);
+        expect(parseYaml(rendered, { logLevel: "silent" })).toMatchObject([
+          { insert: [{ id: "mcp-hello-tool" }] },
+          { insert: [{ id: "authored" }] },
+        ]);
+      }
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("is two shipped files and no code: the bundle manifest and one mcp-client insert row", () => {
     // `dsh.bundle.patch` is DSH's whole acceptance test for a bundle; a dependency would be wrong,
     // because @deepseek-ai/dsh-mcp-client is @deepseek-ai/dsh's own.

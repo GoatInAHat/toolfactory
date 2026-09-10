@@ -221,7 +221,7 @@
       ]
     },
     "hosts/dsh/cordis.local.patch.yml": {
-      "sha256": "1dc11e67d58aea8a0b5f3c90cceb2a90f319a41463abb20970cb6b5f96083fab",
+      "sha256": "2f68ec53b22f79208129b32025d5d5a47fcb029867537248a614b07c72cba7b2",
       "state": "generated",
       "regions": [
         {
@@ -231,7 +231,7 @@
       ]
     },
     "hosts/dsh/cordis.patch.yml": {
-      "sha256": "fb0e5de6a403573c61a027bfc884b6ca3dae5996013c2219ad4174d3677c1276",
+      "sha256": "36c9a02e333c154502c49825bf25a935f6356ed7240dc4e6dbd09bf8fc5ecf3d",
       "state": "generated",
       "regions": [
         {
@@ -333,7 +333,7 @@
       ]
     },
     "hosts/openclaw/package.json": {
-      "sha256": "15e56a14b675042482d07596300c23f0717703067babb36a610525940ceb8813",
+      "sha256": "9bfc7da046c057133d941e293a51b5dea3794440bd96505d1efabfbc516e6624",
       "state": "generated",
       "keys": [
         "name",
