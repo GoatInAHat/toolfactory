@@ -17,6 +17,7 @@ import {
   LIVE_ENVIRONMENT,
   bootstrapRepo as prepareRepository,
 } from "./hosts/github.js";
+import { coreCopyDrift } from "./hosts/openclaw.js";
 import { assertValidName, projectName } from "./identity/name.js";
 import { introspect as runIntrospect, snapshot } from "./introspect/index.js";
 import type {
@@ -336,11 +337,16 @@ export async function check(root = "."): Promise<{ project: Project; drift: Drif
   const project = loadProject(root);
   assertNoSensitiveArgument(project.tool.config, project.operations);
   const drift = checkPlan(project.root, buildPlan(project), TOOLFACTORY_VERSION);
+  const hostDrift = coreCopyDrift(project.root);
   const ops = isInstructionOnly(project.tool) ? undefined : await snapshot(project);
   if (ops?.changed) drift.unshift({ kind: "changed", path: OPS_PATH });
+  drift.push(...hostDrift);
   if (drift.length) {
+    const remedy = hostDrift.length
+      ? "\nthe materialized host core copy is stale: cp -r dist/. hosts/openclaw/node_modules/toolfactory/dist/"
+      : "";
     throw new Error(
-      `${drift.length} generated file(s) out of date; run \`toolfactory ${ops?.changed ? "introspect" : "build"}\`:\n${drift.map((d) => `  ${d.kind}: ${d.path}`).join("\n")}`,
+      `${drift.length} generated file(s) out of date; run \`toolfactory ${ops?.changed ? "introspect" : "build"}\`:\n${drift.map((d) => `  ${d.kind}: ${d.path}`).join("\n")}${remedy}`,
     );
   }
   return { project, drift };

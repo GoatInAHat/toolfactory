@@ -8,12 +8,13 @@
  * `validate()` step reaches it: one Command like every other validator.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { argv, exit, stderr, stdout } from "node:process";
 import { fileURLToPath } from "node:url";
 import type { PlannedFile, Project } from "../model.js";
+import type { Drift } from "../project/apply.js";
 import { loadProject } from "../project/load.js";
 import { HOST_DIR, surface } from "../surfaces/openclaw-native.js";
 
@@ -104,6 +105,49 @@ export function scaffoldDrift(project: Project): string[] {
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
+}
+
+/**
+ * The copy is what the plugin's runtime lookup resolves, and nothing syncs it: after the core
+ * gains an operation, a stale copy still registers the tool but every call fails with
+ * "operation … is missing from the core package". Opt-in via a MATERIALIZED marker, so
+ * npm-installed cores in generated tools are never compared against a workspace build.
+ */
+export function coreCopyDrift(root: string): Drift[] {
+  // Resolves HOST_DIR lazily: this module sits in an import cycle with
+  // surfaces/openclaw-native.js (DRIFT_ENTRY), so nothing may touch its exports at module scope.
+  const copy = join(root, HOST_DIR, "node_modules", "toolfactory");
+  if (!existsSync(join(copy, "MATERIALIZED"))) return [];
+  const source = join(root, "dist");
+  if (!existsSync(source)) return [];
+  return treeDrift(
+    source,
+    join(copy, "dist"),
+    join(HOST_DIR, "node_modules", "toolfactory", "dist"),
+  );
+}
+
+/** Byte-compare two trees in both directions; `label` prefixes every reported path. */
+function treeDrift(source: string, copy: string, label: string): Drift[] {
+  if (!existsSync(copy)) return [{ kind: "changed", path: label }];
+  const drift: Drift[] = [];
+  for (const name of new Set([...readdirSync(source), ...readdirSync(copy)])) {
+    const ours = join(source, name);
+    const theirs = join(copy, name);
+    const oursDir = existsSync(ours) && statSync(ours).isDirectory();
+    const theirsDir = existsSync(theirs) && statSync(theirs).isDirectory();
+    if (oursDir || theirsDir) {
+      if (oursDir && theirsDir) drift.push(...treeDrift(ours, theirs, join(label, name)));
+      else drift.push({ kind: "changed", path: join(label, name) });
+    } else if (
+      !existsSync(ours) ||
+      !existsSync(theirs) ||
+      !readFileSync(ours).equals(readFileSync(theirs))
+    ) {
+      drift.push({ kind: "changed", path: join(label, name) });
+    }
+  }
+  return drift;
 }
 
 if (argv[1] === DRIFT_ENTRY) {
