@@ -57,6 +57,7 @@ import {
 } from "./project/load.js";
 import { readLock } from "./project/lock.js";
 import { buildPlan, TOOL_SCHEMA_PATH } from "./project/plan.js";
+import { reviewPrompt as evaluatePrompt, type PromptReviewReport } from "./prompt/review.js";
 import { type Coverage, computeCoverage } from "./report/coverage.js";
 import { PLUGIN_SCHEMA_ID } from "./surfaces/agent-plugins.js";
 import { reloadLine, SETUP_PATH } from "./surfaces/agents.js";
@@ -884,3 +885,8 @@ export function doctor(): DoctorReport {
 }
 
 export const SURFACES = SURFACE_IDS;
+
+/** `review-prompt`: the codex-prompt-standard loop's evaluator (see `src/prompt/review.ts`). */
+export function reviewPrompt(input: { prompt: string; reference?: string }): PromptReviewReport {
+  return evaluatePrompt(input);
+}

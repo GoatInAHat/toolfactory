@@ -419,6 +419,32 @@ const entry = defineToolPlugin({
         }),
     }),
     tool({
+      name: "review-prompt",
+      description: "Evaluate a prompt draft against the codex-prompt-standard rubric: anatomy sections, convention checks, and concrete directives. Draft, run this, fix what it flags, and re-run until it passes.",
+      parameters: Type.Unsafe({
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The prompt draft to evaluate"
+          },
+          "reference": {
+            "description": "The closest reference prompt's full text, fetched per the standard (an OpenAI Codex core prompt); sections it has that the draft lacks become the bar",
+            "type": "string"
+          }
+        },
+        "required": [
+          "prompt"
+        ]
+      }),
+      execute: async (params, config) =>
+        operation("review-prompt").handler(params as never, {
+          config: config as Record<string, string | undefined>,
+          dataDir: dataDir(),
+        }),
+    }),
+    tool({
       name: "secrets",
       description: "Every credential this project's surfaces need — the tool's own sensitive config keys and the release registries' tokens — with where each one is set, whether it is present locally and on GitHub, and (check) whether the registry accepts it. Never a value.",
       parameters: Type.Unsafe({

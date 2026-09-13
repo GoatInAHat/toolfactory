@@ -24,7 +24,9 @@ one identity file plus `dev.toolfactory/tool.json` and the operation snapshot
   `src/project/` plan, apply/check, lock, and `gate.ts`, the gate and release assets as step
   data that `src/surfaces/workflows.ts` renders into CI and `toolfactory gate` / `package` run
   locally. `src/introspect/` kernel spawn +
-  snapshot. `src/report/` coverage. `src/surfaces/<id>.ts` one pure
+  snapshot. `src/report/` coverage. `src/prompt/` the codex-prompt-standard
+  rubric and the `review-prompt` evaluator (the draft → evaluate → iterate loop).
+  `src/surfaces/<id>.ts` one pure
   `plan(project)` projector per surface, registered in `registry.ts`.
   `src/bindings/<lang>.ts` kernel + scaffold templates per language.
   `src/hosts/` the I/O a surface delegates to (scaffold drift checks, `gh`).

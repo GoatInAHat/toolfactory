@@ -1,6 +1,6 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { join, resolve } from "node:path";
+import { join, relative, resolve, sep } from "node:path";
 import { z } from "zod";
 import { readIdentityFile } from "../identity/read.js";
 import {
@@ -11,6 +11,7 @@ import {
   PACKAGE_MANAGERS,
   type PackageManager,
   type Project,
+  type ProjectSkill,
   ToolConfigSchema,
 } from "../model.js";
 import { TOOLFACTORY_DIR } from "./lock.js";
@@ -84,6 +85,25 @@ function readPackageManager(root: string): PackageManager | undefined {
   return name as PackageManager;
 }
 
+/** `.agents/skills/<name>/` as a shippable unit: every file, sorted, content in memory. */
+function readProjectSkill(root: string, name: string): ProjectSkill {
+  const directory = join(root, ".agents", "skills", name);
+  if (!existsSync(directory)) {
+    throw new Error(
+      `openclaw.skills declares "${name}" but ${join(".agents", "skills", name)} does not exist`,
+    );
+  }
+  const files = readdirSync(directory, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => join(entry.parentPath, entry.name))
+    .sort()
+    .map((absolute) => ({
+      path: relative(directory, absolute).replaceAll(sep, "/"),
+      content: readFileSync(absolute, "utf8"),
+    }));
+  return { name, files };
+}
+
 export function loadProject(rootInput = "."): Project {
   const root = resolve(rootInput);
   const toolPath = join(root, TOOL_PATH);
@@ -98,6 +118,7 @@ export function loadProject(rootInput = "."): Project {
     identity: identityFile.identity,
     identityExtra: identityFile.extra,
     operations: isInstructionOnly(tool) ? [] : readOps(root),
+    skills: (tool.openclaw?.skills ?? []).map((name) => readProjectSkill(root, name)),
     toolfactoryVersion: TOOLFACTORY_VERSION,
     packageManager: readPackageManager(root),
   };

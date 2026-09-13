@@ -181,6 +181,35 @@ export const operations = [
     handler: async ({ root }) => commands.coverage(root),
   }),
   operation({
+    name: "review-prompt",
+    description:
+      "Evaluate a prompt draft against the codex-prompt-standard rubric: anatomy sections, convention checks, and concrete directives. Draft, run this, fix what it flags, and re-run until it passes.",
+    input: z.object({
+      prompt: z.string().min(1).describe("The prompt draft to evaluate"),
+      reference: z
+        .string()
+        .optional()
+        .describe(
+          "The closest reference prompt's full text, fetched per the standard (an OpenAI Codex core prompt); sections it has that the draft lacks become the bar",
+        ),
+    }),
+    output: z.object({
+      verdict: z.enum(["pass", "polish", "revise"]),
+      sections: z.object({ present: z.array(z.string()), missing: z.array(z.string()) }),
+      checks: z.array(
+        z.object({
+          id: z.string(),
+          status: z.enum(["pass", "warn", "fail"]),
+          detail: z.string(),
+        }),
+      ),
+      directives: z.array(z.string()),
+      reference: z.object({ sectionsMissingHere: z.array(z.string()) }).optional(),
+    }),
+    annotations: { readOnlyHint: true, idempotentHint: true },
+    handler: async ({ prompt, reference }) => commands.reviewPrompt({ prompt, reference }),
+  }),
+  operation({
     name: "adopt",
     description:
       "Stop regenerating one file; it becomes the author's (recorded as manual in the lock).",

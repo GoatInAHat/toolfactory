@@ -123,6 +123,11 @@ export function registrations(project: Project): Registration[] {
   return project.tool.openclaw?.registers ?? [];
 }
 
+/** Whether the plugin ships `.agents/skills/` directories (`openclaw.skills` in tool.json). */
+export function shipsSkills(project: Project): boolean {
+  return (project.tool.openclaw?.skills?.length ?? 0) > 0;
+}
+
 /**
  * The gateway route and the Control UI tab the plugin adds when the tool also has a `web`
  * surface. Only for the in-process binding: the route hands requests to the core package's own
@@ -257,7 +262,7 @@ function packageJson(
     type: "module",
     private: OPENCLAW_SCAFFOLD.private,
     scripts: { ...OPENCLAW_SCAFFOLD.scripts, ...e2e },
-    files: OPENCLAW_SCAFFOLD.files,
+    files: shipsSkills(project) ? [...OPENCLAW_SCAFFOLD.files, "skills"] : OPENCLAW_SCAFFOLD.files,
     peerDependencies: { openclaw: pluginApi(project), ...extra?.peerDependencies },
     dependencies: { ...OPENCLAW_SCAFFOLD.dependencies, ...core, ...extra?.dependencies },
     devDependencies: {
@@ -299,6 +304,7 @@ function pluginManifest(project: Project, operations: Operation[]): Record<strin
     configSchema: configSchema(project),
     uiHints: sensitive.length ? Object.fromEntries(sensitive) : undefined,
     activation: activation(project),
+    skills: shipsSkills(project) ? ["./skills"] : undefined,
     contracts: {
       tools: operations.map((operation) => operation.name),
       ...Object.fromEntries(declared),
@@ -955,6 +961,13 @@ export const surface: Surface = {
         path: `${HOST_DIR}/vitest.config.ts`,
         content: OPENCLAW_SCAFFOLD.vitestConfig,
       },
+      ...(project.skills ?? []).flatMap((skill) =>
+        skill.files.map((file) => ({
+          kind: "file" as const,
+          path: `${HOST_DIR}/skills/${skill.name}/${file.path}`,
+          content: file.content,
+        })),
+      ),
       {
         kind: "merge",
         path: `${HOST_DIR}/openclaw.plugin.json`,

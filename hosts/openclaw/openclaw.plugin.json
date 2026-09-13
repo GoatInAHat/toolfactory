@@ -11,6 +11,9 @@
   "activation": {
     "onStartup": true
   },
+  "skills": [
+    "./skills"
+  ],
   "contracts": {
     "tools": [
       "adopt",
@@ -24,6 +27,7 @@
       "init",
       "introspect",
       "package",
+      "review-prompt",
       "secrets",
       "unadopt",
       "unpublish",

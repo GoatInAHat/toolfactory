@@ -189,11 +189,11 @@
       "state": "generated"
     },
     "COVERAGE.md": {
-      "sha256": "52a1332c56f36b23d4fe407a5d75b251b2c479097c6bae3431e91438d4b5dc88",
+      "sha256": "c97df3ca4b05725139f01d305a4b911593a1f840fd22eccdc5947db904328de1",
       "state": "generated"
     },
     "dev.toolfactory/coverage.json": {
-      "sha256": "d29bb2cb3d4306d8227274534b6b9cb4d39c7ac8b713d573b15f2c717f2556c7",
+      "sha256": "2423e90f3312f08632eed1813f4ffbebeebd096c0354aface064cc2955d97e29",
       "state": "generated"
     },
     "dev.toolfactory/inspector.json": {
@@ -201,7 +201,7 @@
       "state": "generated"
     },
     "dev.toolfactory/tool.schema.json": {
-      "sha256": "41a69c7cbcaad8741f80559f127eb32b43bd9e4147e6f958639d9e914e9f7e61",
+      "sha256": "f1c24445cf1a94efbe1e60e4df6f7390bd87164374c953602256190bd09d6b9c",
       "state": "generated"
     },
     "Dockerfile": {
@@ -269,15 +269,15 @@
       ]
     },
     "hosts/hermes/README.md": {
-      "sha256": "50291ec912ea64b39ea0de3eb4326d7ad494b49bcaddddf0879653e15f290dab",
+      "sha256": "7959d98d88a9ab9e36c2d9679f789919d549d4a4cba9b7e98912081417a7b1a2",
       "state": "generated"
     },
     "hosts/hermes/tests/test_plugin.py": {
-      "sha256": "5ae1485a7849ba94468296c474103d177c2bf9721f9612c184edc5b2d9b1e8fb",
+      "sha256": "6dbb409e20869f534b1418613afa1e2b67a256d0ad1cbb607e96887b86b9f102",
       "state": "generated"
     },
     "hosts/hermes/toolfactory_hermes/__init__.py": {
-      "sha256": "ba844de4dc7aefa1dcab68a52322f299bc9cf960ed381679a12bbbfe1b334be5",
+      "sha256": "7ba882bfd1998285913085c591f0c8c7d035cab244362a8bfd6fe5d98537cf78",
       "state": "generated",
       "regions": [
         {
@@ -287,7 +287,7 @@
       ]
     },
     "hosts/hermes/toolfactory_hermes/plugin.yaml": {
-      "sha256": "6d4f1933da7c92e5a5d786b5bbb2a187319c7cb2faaae222f640523ac1bd4a52",
+      "sha256": "8a29b8c99a4a9b7fb39a657b62b8f163457c60eeae7b4a77b4189e5a44d57589",
       "state": "generated",
       "keys": [
         "manifest_version",
@@ -302,7 +302,7 @@
       ]
     },
     "hosts/mcpb/manifest.json": {
-      "sha256": "a1118160ee79f4e2f2263cfdbc1adb63525cbdecbba40f84a4777f97059f901d",
+      "sha256": "867e251042ec526c33f93dc8641af608d87d452a9e7233fe761a0d6ebfdeec88",
       "state": "generated"
     },
     "hosts/openclaw/.npmrc": {
@@ -314,11 +314,11 @@
       "state": "generated"
     },
     "hosts/openclaw/e2e/openclaw.e2e.test.ts": {
-      "sha256": "f81409301fba25c0a958a3b6faa35bdac1bd6c9e02a5a0431f78fc23f9a484fb",
+      "sha256": "da56edc973fa7e31c2eaf17d987732a183ebc238f86a8b7c730333087ae38fd0",
       "state": "generated"
     },
     "hosts/openclaw/openclaw.plugin.json": {
-      "sha256": "9ca5563df4a7036a0ba5aafee3e9e123de725845fe4f404862f11023404f8b08",
+      "sha256": "f616e3934885c13ec98f26bf272b8cf8dba9d7c8373dc51adaf3967b2b1db83a",
       "state": "generated",
       "keys": [
         "id",
@@ -329,11 +329,12 @@
         "configSchema.properties",
         "configSchema.additionalProperties",
         "activation.onStartup",
+        "skills",
         "contracts.tools"
       ]
     },
     "hosts/openclaw/package.json": {
-      "sha256": "9bfc7da046c057133d941e293a51b5dea3794440bd96505d1efabfbc516e6624",
+      "sha256": "efdb194ceda96bb9c8ce0b14d9bd9dc9a4cfc37963665f4d328c5d3689d9969d",
       "state": "generated",
       "keys": [
         "name",
@@ -367,15 +368,19 @@
       ]
     },
     "hosts/openclaw/README.md": {
-      "sha256": "aea1e03c41596016febf9b35d893d021f54d025227e84c121a1b329452751e06",
+      "sha256": "0cd704c65508fc879c7ccf91f8a89a47a065a7b6443429a6fc3742815aebcc1e",
+      "state": "generated"
+    },
+    "hosts/openclaw/skills/codex-prompt-standard/SKILL.md": {
+      "sha256": "d1168b0a8965c6e2664f00c1cf95375a738db0007be66e834f8fc91ac28a2195",
       "state": "generated"
     },
     "hosts/openclaw/src/index.test.ts": {
-      "sha256": "8e548dc64e3a9c4a4712909d4eb7c16f6bf6007379086cd64b0b207046572191",
+      "sha256": "38ca5d97fe33a740c7c1af2d584cc5fdd7581af4988a33728dac93057d798be2",
       "state": "generated"
     },
     "hosts/openclaw/src/index.ts": {
-      "sha256": "4a9457307c9fcb5be889e6f1f572d30ca8426a02e688c85f01581790ffb43f96",
+      "sha256": "32e33983b2c56ffa71b4dc5cabb10f2f3e74cf8bb5f506b174a2f4a0405ae6f3",
       "state": "generated",
       "regions": [
         {
@@ -449,7 +454,7 @@
       "state": "generated"
     },
     "skills/toolfactory/SKILL.md": {
-      "sha256": "2f6f374ba022b641538760dbe7abbf019db95227c5613e7ab8a97ef4e6304ef8",
+      "sha256": "dfb46b0fc6ae0b425e9e94178f647de7149c701841b7218098d1895f61717b46",
       "state": "generated",
       "regions": [
         {
@@ -555,7 +560,7 @@
       "state": "generated"
     },
     "web/src/ops.json": {
-      "sha256": "cae7e9a3951ff7c570fabd7553c64367fe13b907cf712e30f630488c0f1bc927",
+      "sha256": "f6527275da41f9747887747300a3740d9602dadbabbd359ffd1c27b50fe40511",
       "state": "generated"
     },
     "web/src/schema-form.tsx": {

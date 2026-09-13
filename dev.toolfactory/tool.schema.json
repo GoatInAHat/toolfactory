@@ -422,6 +422,13 @@
           "description": "Plugin API range for compat.pluginApi and the openclaw peer dependency.",
           "type": "string"
         },
+        "skills": {
+          "description": "Skill directories under `.agents/skills/` that the OpenClaw plugin ships; OpenClaw loads them through the manifest's `skills` roots.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "dependencies": {
           "type": "object",
           "propertyNames": {

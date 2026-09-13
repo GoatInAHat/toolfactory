@@ -19,6 +19,7 @@ provides_tools:
   - init
   - introspect
   - package
+  - review-prompt
   - secrets
   - unadopt
   - unpublish

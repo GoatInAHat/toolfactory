@@ -221,6 +221,12 @@ export const ToolConfigSchema = z
           .string()
           .optional()
           .describe("Plugin API range for compat.pluginApi and the openclaw peer dependency."),
+        skills: z
+          .array(z.string())
+          .optional()
+          .describe(
+            "Skill directories under `.agents/skills/` that the OpenClaw plugin ships; OpenClaw loads them through the manifest's `skills` roots.",
+          ),
         dependencies: z.record(z.string(), z.string()).optional(),
         peerDependencies: z.record(z.string(), z.string()).optional(),
         devDependencies: z.record(z.string(), z.string()).optional(),
@@ -345,6 +351,13 @@ export interface Command {
   env?: Record<string, string>;
 }
 
+/** One `.agents/skills/<name>/` directory a plugin surface ships, read at load time. */
+export interface ProjectSkill {
+  name: string;
+  /** Files of the skill directory, relative and sorted; content as UTF-8 text. */
+  files: { path: string; content: string }[];
+}
+
 export interface Project {
   root: string;
   tool: ToolConfig;
@@ -355,6 +368,8 @@ export interface Project {
   toolfactoryVersion: string;
   /** From the root package.json `packageManager` field; npm when absent. */
   packageManager?: PackageManager;
+  /** Skills `openclaw.skills` declares, read once so projectors stay pure. */
+  skills?: ProjectSkill[];
 }
 
 export interface Surface {

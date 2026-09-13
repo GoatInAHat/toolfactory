@@ -81,6 +81,10 @@
       "description": "Build every release asset into dist/release/ — npm tarball, Python distributions, OpenClaw plugin tarball, plugin bundle zip, web build, coverage — by the same steps the release workflow's package job runs. Publishing stays a CI concern."
     },
     {
+      "name": "review-prompt",
+      "description": "Evaluate a prompt draft against the codex-prompt-standard rubric: anatomy sections, convention checks, and concrete directives. Draft, run this, fix what it flags, and re-run until it passes."
+    },
+    {
       "name": "secrets",
       "description": "Every credential this project's surfaces need — the tool's own sensitive config keys and the release registries' tokens — with where each one is set, whether it is present locally and on GitHub, and (check) whether the registry accepts it. Never a value."
     },

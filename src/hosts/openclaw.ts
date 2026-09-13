@@ -36,6 +36,8 @@ function overridden(project: Project): Set<string> {
     paths.add(".peerDependencies.openclaw");
     paths.add(".openclaw.compat.pluginApi");
   }
+  // Shipped skills append to `files`; upstream's entries must still survive (checked below).
+  if (openclaw?.skills?.length) paths.add(".files");
   return paths;
 }
 
@@ -92,6 +94,12 @@ export function scaffoldDrift(project: Project): string[] {
         ? []
         : ["vitest.config.ts: upstream template changed"]),
     ];
+    if (project.tool.openclaw?.skills?.length) {
+      const upstream = (JSON.parse(scaffold("package.json")) as { files?: string[] }).files ?? [];
+      const ours = (JSON.parse(planned(files, "package.json")) as { files?: string[] }).files ?? [];
+      const lost = upstream.filter((entry) => !ours.includes(entry));
+      if (lost.length) drift.push(`package.json.files lost upstream entries: ${lost.join(", ")}`);
+    }
     return drift;
   } finally {
     rmSync(directory, { recursive: true, force: true });

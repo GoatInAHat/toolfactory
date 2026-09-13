@@ -837,6 +837,129 @@
       }
     },
     {
+      "name": "review-prompt",
+      "description": "Evaluate a prompt draft against the codex-prompt-standard rubric: anatomy sections, convention checks, and concrete directives. Draft, run this, fix what it flags, and re-run until it passes.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The prompt draft to evaluate"
+          },
+          "reference": {
+            "description": "The closest reference prompt's full text, fetched per the standard (an OpenAI Codex core prompt); sections it has that the draft lacks become the bar",
+            "type": "string"
+          }
+        },
+        "required": [
+          "prompt"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "polish",
+              "revise"
+            ]
+          },
+          "sections": {
+            "type": "object",
+            "properties": {
+              "present": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "missing": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "present",
+              "missing"
+            ],
+            "additionalProperties": false
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pass",
+                    "warn",
+                    "fail"
+                  ]
+                },
+                "detail": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "status",
+                "detail"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "directives": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reference": {
+            "type": "object",
+            "properties": {
+              "sectionsMissingHere": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "sectionsMissingHere"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "verdict",
+          "sections",
+          "checks",
+          "directives"
+        ],
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": true
+      },
+      "_meta": {
+        "dev.toolfactory": {
+          "requires": []
+        }
+      }
+    },
+    {
       "name": "secrets",
       "description": "Every credential this project's surfaces need — the tool's own sensitive config keys and the release registries' tokens — with where each one is set, whether it is present locally and on GitHub, and (check) whether the registry accepts it. Never a value.",
       "inputSchema": {

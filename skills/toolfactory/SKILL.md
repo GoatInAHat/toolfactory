@@ -136,6 +136,14 @@ Arguments: `root`.
 
 `toolfactory package --json '<arguments>'` prints a JSON result. MCP tool `package` on server `toolfactory` returns the same result as `structuredContent`.
 
+### review-prompt
+
+Evaluate a prompt draft against the codex-prompt-standard rubric: anatomy sections, convention checks, and concrete directives. Draft, run this, fix what it flags, and re-run until it passes.
+
+Arguments: `prompt`, `reference`.
+
+`toolfactory review-prompt --json '<arguments>'` prints a JSON result. MCP tool `review-prompt` on server `toolfactory` returns the same result as `structuredContent`.
+
 ### secrets
 
 Every credential this project's surfaces need — the tool's own sensitive config keys and the release registries' tokens — with where each one is set, whether it is present locally and on GitHub, and (check) whether the registry accepts it. Never a value.
