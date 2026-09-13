@@ -299,13 +299,19 @@ export function packageSteps(project: Project, options: { system?: boolean } = {
   }
   if (has(project, "openclaw-native")) {
     // ClawHub's reusable workflow has no build step of its own, so the tarball it publishes has
-    // to arrive already built (`package_artifact_name`).
+    // to arrive already built (`package_artifact_name`). Consumers install this tarball outside
+    // the monorepo, where the checkout-relative `file:../..` core dependency cannot resolve, so
+    // pack against the npm-published core of the same release and restore the workspace manifest.
     steps.push({
       name: "OpenClaw plugin tarball",
       run: [
         `npm --prefix ${OPENCLAW_HOST_DIR} install`,
         `npm --prefix ${OPENCLAW_HOST_DIR} run build`,
+        `v=$(node -p "require('./package.json').version")`,
+        `cp ${OPENCLAW_HOST_DIR}/package.json ${OPENCLAW_HOST_DIR}/package.json.prepack`,
+        `(cd ${OPENCLAW_HOST_DIR} && npm pkg set dependencies.toolfactory=$v)`,
         `npm pack ./${OPENCLAW_HOST_DIR} --pack-destination ${RELEASE_DIR}`,
+        `mv ${OPENCLAW_HOST_DIR}/package.json.prepack ${OPENCLAW_HOST_DIR}/package.json`,
       ].join(" && "),
     });
   }
