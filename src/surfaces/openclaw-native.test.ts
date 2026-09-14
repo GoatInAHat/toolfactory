@@ -133,6 +133,7 @@ describe("openclaw-native", () => {
     expect(files[`${HOST_DIR}/README.md`]).toContain("`shoot` — requires browser");
 
     const pkg = JSON.parse(files[`${HOST_DIR}/package.json`] ?? "{}");
+    expect(pkg.devDependencies).toMatchObject(OPENCLAW_SCAFFOLD.devDependencies);
     expect(pkg.openclaw).toEqual({
       extensions: ["./dist/index.js"],
       compat: { pluginApi: OPENCLAW_SCAFFOLD.pluginApi },
@@ -212,6 +213,10 @@ describe("openclaw-native", () => {
 
   it("drives manifest, inspector and test from one `registers` declaration", () => {
     const target = voice();
+    target.tool.openclaw = {
+      ...target.tool.openclaw,
+      devDependencies: { openclaw: "2026.9.2", "@types/ws": "^8.18.0" },
+    };
     const files = emitted(target);
     const manifest = JSON.parse(files[`${HOST_DIR}/openclaw.plugin.json`] ?? "{}");
     expect(manifest.contracts).toEqual({ tools: [], realtimeVoiceProviders: ["codex"] });
@@ -223,6 +228,11 @@ describe("openclaw-native", () => {
     });
     // The author's extra dependency merges after the scaffold's; the core is not imported at all.
     expect(pkg.dependencies).toEqual({ ...OPENCLAW_SCAFFOLD.dependencies, ws: "^8.18.0" });
+    expect(pkg.devDependencies).toEqual({
+      ...OPENCLAW_SCAFFOLD.devDependencies,
+      openclaw: "2026.9.2",
+      "@types/ws": "^8.18.0",
+    });
     expect(pkg.peerDependencies.openclaw).toBe(">=2026.8.2");
     expect(pkg.openclaw.compat.pluginApi).toBe(">=2026.8.2");
 

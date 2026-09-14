@@ -406,6 +406,13 @@ CLI, and `COVERAGE.md` says `degraded:out-of-process`.
 Live-test pass or skip state is the test runner's own report; `coverage.json` and `COVERAGE.md`
 stay projection verdicts.
 
+New TypeScript scaffolds run core tests with `vitest run --dir src --passWithNoTests`.
+Host tests run from their own packages/toolchains, not the core runner; the OpenClaw host
+already declares its SDK in `hosts/openclaw/package.json` devDependencies (overridable through
+`openclaw.devDependencies`). `test:live` separately selects `tests/live.test.ts`. Existing
+author-owned package scripts are preserved by `init` and `build`; update their test command
+explicitly to adopt this scope.
+
 T0 through T3 are one command: `toolfactory gate` runs the step list of §7 in order, in this
 checkout, stopping at the first failure and skipping only the steps marked as runner
 provisioning. It is the same list `ci.yml` renders, so a project with no CI — no GitHub, plain

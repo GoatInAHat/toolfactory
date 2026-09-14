@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
@@ -257,6 +257,36 @@ async function waitForInitialize(
     }
   }
 }
+
+describe.skipIf(!existsSync(repoNodeModules))("typescript scaffold test commands", () => {
+  it("runs core tests without collecting host or live tests, preserving the explicit live lane", () => {
+    const root = mkdtempSync(join(tmpdir(), "toolfactory-test-scope-"));
+    symlinkSync(repoNodeModules, join(root, "node_modules"), "dir");
+    writeFileSync(join(root, "package.json"), text(scaffold(project(["cli"])), "package.json"));
+    const writeTest = (path: string, body: string) => {
+      mkdirSync(dirname(join(root, path)), { recursive: true });
+      writeFileSync(join(root, path), body);
+    };
+    const passing = 'import { it } from "vitest"; it("core receipt", () => {});';
+    const failing =
+      'import { it } from "vitest"; it("scope sentinel", () => { throw new Error("outside core"); });';
+    writeTest("src/core.test.ts", passing);
+    writeTest("hosts/openclaw/src/index.test.ts", failing);
+    writeTest("hosts/browser/tests/background.test.ts", failing);
+    writeTest("tests/live.test.ts", failing);
+    const run = (script: string) =>
+      spawnSync("npm", ["run", script], { cwd: root, encoding: "utf8" });
+    const core = run("test");
+    expect(core.status, core.stdout + core.stderr).toBe(0);
+    expect(core.stdout).toMatch(/Tests\s+1 passed/);
+    writeTest("src/core.test.ts", failing);
+    expect(run("test").status).toBe(1);
+    writeTest("tests/live.test.ts", passing);
+    const live = run("test:live");
+    expect(live.status, live.stdout + live.stderr).toBe(0);
+    expect(live.stdout).toMatch(/Tests\s+1 passed/);
+  });
+});
 
 describe.skipIf(!existsSync(repoNodeModules))("typescript kernel, really run over http", () => {
   it("serves tools/list over --http, and requires the token minted by --pair", {

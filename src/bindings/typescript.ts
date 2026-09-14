@@ -779,7 +779,7 @@ export function scaffold(project: Project): PlannedFile[] {
     engines: { node: NODE_ENGINES },
     scripts: {
       build: "tsc -p tsconfig.json",
-      test: "vitest run --passWithNoTests",
+      test: "vitest run --dir src --passWithNoTests",
       "test:live": LIVE_TEST_SCRIPT,
     },
     dependencies: {
