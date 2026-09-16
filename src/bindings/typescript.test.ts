@@ -11,6 +11,7 @@ import { createServer as createNetServer } from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { stripVTControlCharacters } from "node:util";
 import { describe, expect, it } from "vitest";
 import type { FullFile, PlannedFile, Project, SurfaceId } from "../model.js";
 import { ToolConfigSchema } from "../model.js";
@@ -278,13 +279,13 @@ describe.skipIf(!existsSync(repoNodeModules))("typescript scaffold test commands
       spawnSync("npm", ["run", script], { cwd: root, encoding: "utf8" });
     const core = run("test");
     expect(core.status, core.stdout + core.stderr).toBe(0);
-    expect(core.stdout).toMatch(/Tests\s+1 passed/);
+    expect(stripVTControlCharacters(core.stdout)).toMatch(/Tests\s+1 passed/);
     writeTest("src/core.test.ts", failing);
     expect(run("test").status).toBe(1);
     writeTest("tests/live.test.ts", passing);
     const live = run("test:live");
     expect(live.status, live.stdout + live.stderr).toBe(0);
-    expect(live.stdout).toMatch(/Tests\s+1 passed/);
+    expect(stripVTControlCharacters(live.stdout)).toMatch(/Tests\s+1 passed/);
   });
 });
 

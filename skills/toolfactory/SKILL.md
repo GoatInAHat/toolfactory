@@ -144,13 +144,13 @@ Arguments: `prompt`, `reference`.
 
 `toolfactory review-prompt --json '<arguments>'` prints a JSON result. MCP tool `review-prompt` on server `toolfactory` returns the same result as `structuredContent`.
 
-### secrets
+### secrets-usage
 
 Every credential this project's surfaces need — the tool's own sensitive config keys and the release registries' tokens — with where each one is set, whether it is present locally and on GitHub, and (check) whether the registry accepts it. Never a value.
 
 Arguments: `root`, `action`, `key`.
 
-`toolfactory secrets --json '<arguments>'` prints a JSON result. MCP tool `secrets` on server `toolfactory` returns the same result as `structuredContent`.
+`toolfactory secrets-usage --json '<arguments>'` prints a JSON result. MCP tool `secrets-usage` on server `toolfactory` returns the same result as `structuredContent`.
 
 ### unadopt
 

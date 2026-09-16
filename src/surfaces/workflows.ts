@@ -625,7 +625,7 @@ function releaseDocument(
     "`gh workflow run release.yml -f tag=vX.Y.Z` — never `gh run rerun`, which replays the",
     "original run's secret snapshot. `release` first retracts every registry a surface dropped",
     "since the previous tag published to (git is the ledger; `toolfactory unpublish`), and",
-    "`toolfactory secrets status` / `bootstrap-repo` cover the one-time steps that are left.",
+    "`toolfactory secrets-usage status` / `bootstrap-repo` cover the one-time steps that are left.",
   ];
   if (clawhubSelected) {
     jobs["publish-clawhub"] = compact({
@@ -904,7 +904,7 @@ function envExample(project: Project): string {
     lines.push(
       "",
       "# Release credentials (repository secrets; `toolfactory bootstrap-repo` pushes them from .env,",
-      "# `toolfactory secrets status` explains each). Leave one empty to skip that registry.",
+      "# `toolfactory secrets-usage status` explains each). Leave one empty to skip that registry.",
     );
     for (const row of release) {
       lines.push("", `# ${row.id}: ${row.url}`, ...row.secrets.map((name) => `${name}=`));

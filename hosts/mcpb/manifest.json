@@ -2,7 +2,7 @@
   "manifest_version": "0.2",
   "name": "toolfactory",
   "display_name": "toolfactory",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Build an agent tool once; ship it as Agent Skills, MCP servers, Agent Plugins / Claude / Codex / Cursor bundles, OpenClaw and Hermes plugins, CLIs, and packages, with the tests and releases to match.",
   "author": {
     "name": "GoatInAHat"
@@ -85,7 +85,7 @@
       "description": "Evaluate a prompt draft against the codex-prompt-standard rubric: anatomy sections, convention checks, and concrete directives. Draft, run this, fix what it flags, and re-run until it passes."
     },
     {
-      "name": "secrets",
+      "name": "secrets-usage",
       "description": "Every credential this project's surfaces need — the tool's own sensitive config keys and the release registries' tokens — with where each one is set, whether it is present locally and on GitHub, and (check) whether the registry accepts it. Never a value."
     },
     {

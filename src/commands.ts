@@ -735,7 +735,7 @@ function secretsSummary(report: SecretsReport): string | undefined {
   const missing = rows.filter((row) => !row.local).map((row) => row.name);
   return `Secrets: ${rows.length - missing.length} of ${rows.length} present in .env${
     missing.length ? ` (missing ${missing.join(", ")})` : ""
-  }. \`toolfactory secrets\` prints where each one is set, per host and per registry.`;
+  }. \`toolfactory secrets-usage\` prints where each one is set, per host and per registry.`;
 }
 
 // ---------------------------------------------------------------------------------------------

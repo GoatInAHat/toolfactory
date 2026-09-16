@@ -6,7 +6,7 @@ import entry from "./index.js";
 
 describe("toolfactory", () => {
   it("declares tool metadata", () => {
-    expect(getToolPluginMetadata(entry)?.tools.map((tool) => tool.name)).toEqual(["adopt","bootstrap-repo","build","check","coverage","doctor","eject","gate","init","introspect","package","review-prompt","secrets","unadopt","unpublish","validate","web"]);
+    expect(getToolPluginMetadata(entry)?.tools.map((tool) => tool.name)).toEqual(["adopt","bootstrap-repo","build","check","coverage","doctor","eject","gate","init","introspect","package","review-prompt","secrets-usage","unadopt","unpublish","validate","web"]);
   });
 
   it("serves the web app as a Control UI tab", () => {

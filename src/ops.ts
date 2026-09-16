@@ -266,7 +266,7 @@ export const operations = [
     handler: async (args) => commands.bootstrapRepo(args),
   }),
   operation({
-    name: "secrets",
+    name: "secrets-usage",
     description:
       "Every credential this project's surfaces need — the tool's own sensitive config keys and the release registries' tokens — with where each one is set, whether it is present locally and on GitHub, and (check) whether the registry accepts it. Never a value.",
     input: z.object({

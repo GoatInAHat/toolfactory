@@ -192,7 +192,7 @@ describe("web", () => {
     expect(app).toContain("Authorization: `Bearer ${TOKEN}`");
     // The Secrets panel is the developer's `.env`, and it is the kernel's `/env` that answers.
     expect(app).toContain('new URL("env", document.baseURI).href');
-    expect(app).toContain("toolfactory secrets check");
+    expect(app).toContain("toolfactory secrets-usage check");
     expect(app).toContain('type="password"');
 
     // The smoke drives the real kernel over --http instead of a static server of its own.

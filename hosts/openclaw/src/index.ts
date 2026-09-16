@@ -445,7 +445,7 @@ const entry = defineToolPlugin({
         }),
     }),
     tool({
-      name: "secrets",
+      name: "secrets-usage",
       description: "Every credential this project's surfaces need — the tool's own sensitive config keys and the release registries' tokens — with where each one is set, whether it is present locally and on GitHub, and (check) whether the registry accepts it. Never a value.",
       parameters: Type.Unsafe({
         "type": "object",
@@ -471,7 +471,7 @@ const entry = defineToolPlugin({
         }
       }),
       execute: async (params, config) =>
-        operation("secrets").handler(params as never, {
+        operation("secrets-usage").handler(params as never, {
           config: config as Record<string, string | undefined>,
           dataDir: dataDir(),
         }),

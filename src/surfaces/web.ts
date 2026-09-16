@@ -637,7 +637,7 @@ function SecretsPanel() {
         <CardTitle>Secrets</CardTitle>
         <CardDescription>
           Written to this checkout's gitignored <code>.env</code>, which the live tests and
-          <code> toolfactory bootstrap-repo</code> read. Run <code>toolfactory secrets check</code>{" "}
+          <code> toolfactory bootstrap-repo</code> read. Run <code>toolfactory secrets-usage check</code>{" "}
           to ask each registry whether it accepts them.
         </CardDescription>
       </CardHeader>
