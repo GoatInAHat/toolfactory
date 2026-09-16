@@ -122,7 +122,7 @@ describe("openclaw-native", () => {
   it("projects only the operations OpenClaw can run and pins the scaffold in one place", () => {
     const files = emitted(project());
     const manifest = JSON.parse(files[`${HOST_DIR}/openclaw.plugin.json`] ?? "{}");
-    expect(manifest.contracts).toEqual({ tools: ["echo"] });
+    expect(manifest.contracts).toEqual({ tools: ["hello_echo"] });
     expect(manifest.activation).toEqual({ onStartup: true });
     expect(surface.verdict?.(shoot, project())).toEqual({
       kind: "excluded",
@@ -169,7 +169,7 @@ describe("openclaw-native", () => {
     expect(index).toContain("api.registerControlUiDescriptor(descriptor)");
     // Neither registrar is a manifest contract key; both are what the inspector expects to see.
     expect(JSON.parse(files[`${HOST_DIR}/openclaw.plugin.json`] ?? "{}").contracts).toEqual({
-      tools: ["echo"],
+      tools: ["hello_echo"],
     });
     expect(
       JSON.parse(files[`${HOST_DIR}/package.json`] ?? "{}").pluginInspector.plugin.expect
@@ -259,8 +259,8 @@ describe("openclaw-native", () => {
     // when the tool's own result carries a name its output schema promises; leg 3 catches the rest.
     expect(fixtures.fixtures).toEqual([
       {
-        match: { toolName: "echo", hasToolResult: false },
-        response: { toolCalls: [{ name: "echo", arguments: { text: "hello" } }] },
+        match: { toolName: "hello_echo", hasToolResult: false },
+        response: { toolCalls: [{ name: "hello_echo", arguments: { text: "hello" } }] },
       },
       {
         match: { hasToolResult: true, toolResultContains: "echoed" },

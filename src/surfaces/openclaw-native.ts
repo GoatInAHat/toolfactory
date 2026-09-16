@@ -97,6 +97,16 @@ export function openclawVersion(project: Project): string {
   return project.tool.openclaw?.devDependencies?.openclaw ?? OPENCLAW_SCAFFOLD.openclawVersion;
 }
 
+/**
+ * The gateway has one flat tool namespace, so the plugin's tool names are the tool id prefix
+ * plus the operation name with dots flattened: unprefixed names collide across plugins (two
+ * `web`s) and dotted ones fold onto core tools (`sessions.list` → `sessions_list`). The
+ * kernel, CLI and MCP server keep the bare operation names; only this host renames.
+ */
+export function toolName(project: Project, operation: Operation): string {
+  return `${project.identity.name}_${operation.name.replace(/\./g, "_")}`;
+}
+
 export const OPENCLAW_ADDITIONS = {
   /** Without it `tsc` emits a `dist/` from source that failed type-checking. */
   compilerOptions: { noEmitOnError: true },
@@ -317,7 +327,7 @@ function pluginManifest(project: Project, operations: Operation[]): Record<strin
     activation: activation(project),
     skills: shipsSkills(project) ? ["./skills"] : undefined,
     contracts: {
-      tools: operations.map((operation) => operation.name),
+      tools: operations.map((operation) => toolName(project, operation)),
       ...Object.fromEntries(declared),
     },
   }) as Record<string, unknown>;
@@ -421,7 +431,7 @@ const execFileAsync = promisify(execFile);
 ${pythonKernel(project)}`;
   const tools = operations.map(
     (operation) => `    tool({
-      name: ${JSON.stringify(operation.name)},
+      name: ${JSON.stringify(toolName(project, operation))},
       description: ${JSON.stringify(operation.description ?? operation.name)},
       parameters: Type.Unsafe(${literal(normalizeSchema(operation.inputSchema), 6)}),
       ${executeBody(project, operation)}
@@ -582,7 +592,7 @@ import entry from "./index.js";
 
 describe(${JSON.stringify(project.identity.name)}, () => {
   it("declares tool metadata", () => {
-    expect(getToolPluginMetadata(entry)?.tools.map((tool) => tool.name)).toEqual(${JSON.stringify(operations.map((operation) => operation.name))});
+    expect(getToolPluginMetadata(entry)?.tools.map((tool) => tool.name)).toEqual(${JSON.stringify(operations.map((operation) => toolName(project, operation)))});
   });
 ${registrationTest}${web}});
 `;
@@ -628,8 +638,8 @@ function e2eCase(project: Project, operations: Operation[]): E2eCase | undefined
  * would answer OK even for a tool that threw, because the host reports that in a tool message too.
  * An operation that promises no output names has nothing to gate on, so it gets no failure leg.
  */
-function e2eFixtures(kase: E2eCase): string {
-  const name = kase.operation.name;
+function e2eFixtures(project: Project, kase: E2eCase): string {
+  const name = toolName(project, kase.operation);
   return json({
     fixtures: [
       {
@@ -775,7 +785,7 @@ describe(${JSON.stringify(`${id} in a real OpenClaw agent turn`)}, () => {
   it("registers its tools at runtime", async () => {
     const inspected = JSON.parse(await oc(["plugins", "inspect", ${JSON.stringify(id)}, "--runtime", "--json"]));
     expect(inspected.plugin.status).toBe("loaded");
-    expect(inspected.plugin.toolNames).toEqual(${JSON.stringify(operations.map((operation) => operation.name))});
+    expect(inspected.plugin.toolNames).toEqual(${JSON.stringify(operations.map((operation) => toolName(project, operation)))});
   });
 
   it(${JSON.stringify(`the model calls ${kase.operation.name} and the tool's result reaches the reply`)}, async () => {
@@ -1008,7 +1018,7 @@ export const surface: Surface = {
             {
               kind: "file" as const,
               path: `${HOST_DIR}/e2e/fixtures.json`,
-              content: e2eFixtures(kase),
+              content: e2eFixtures(project, kase),
             },
             {
               kind: "file" as const,

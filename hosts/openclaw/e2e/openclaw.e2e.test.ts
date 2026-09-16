@@ -124,7 +124,7 @@ describe("toolfactory in a real OpenClaw agent turn", () => {
   it("registers its tools at runtime", async () => {
     const inspected = JSON.parse(await oc(["plugins", "inspect", "toolfactory", "--runtime", "--json"]));
     expect(inspected.plugin.status).toBe("loaded");
-    expect(inspected.plugin.toolNames).toEqual(["adopt","bootstrap-repo","build","check","coverage","doctor","eject","gate","init","introspect","package","review-prompt","secrets-usage","unadopt","unpublish","validate","web"]);
+    expect(inspected.plugin.toolNames).toEqual(["toolfactory_adopt","toolfactory_bootstrap-repo","toolfactory_build","toolfactory_check","toolfactory_coverage","toolfactory_doctor","toolfactory_eject","toolfactory_gate","toolfactory_init","toolfactory_introspect","toolfactory_package","toolfactory_review-prompt","toolfactory_secrets-usage","toolfactory_unadopt","toolfactory_unpublish","toolfactory_validate","toolfactory_web"]);
   });
 
   it("the model calls doctor and the tool's result reaches the reply", async () => {

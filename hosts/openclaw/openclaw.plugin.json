@@ -2,7 +2,7 @@
   "id": "toolfactory",
   "name": "Toolfactory",
   "description": "Build an agent tool once; ship it as Agent Skills, MCP servers, Agent Plugins / Claude / Codex / Cursor bundles, OpenClaw and Hermes plugins, CLIs, and packages, with the tests and releases to match.",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "configSchema": {
     "type": "object",
     "properties": {},
@@ -16,23 +16,23 @@
   ],
   "contracts": {
     "tools": [
-      "adopt",
-      "bootstrap-repo",
-      "build",
-      "check",
-      "coverage",
-      "doctor",
-      "eject",
-      "gate",
-      "init",
-      "introspect",
-      "package",
-      "review-prompt",
-      "secrets-usage",
-      "unadopt",
-      "unpublish",
-      "validate",
-      "web"
+      "toolfactory_adopt",
+      "toolfactory_bootstrap-repo",
+      "toolfactory_build",
+      "toolfactory_check",
+      "toolfactory_coverage",
+      "toolfactory_doctor",
+      "toolfactory_eject",
+      "toolfactory_gate",
+      "toolfactory_init",
+      "toolfactory_introspect",
+      "toolfactory_package",
+      "toolfactory_review-prompt",
+      "toolfactory_secrets-usage",
+      "toolfactory_unadopt",
+      "toolfactory_unpublish",
+      "toolfactory_validate",
+      "toolfactory_web"
     ]
   }
 }

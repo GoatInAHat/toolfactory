@@ -31,7 +31,7 @@ const entry = defineToolPlugin({
   },
   tools: (tool) => [
     tool({
-      name: "adopt",
+      name: "toolfactory_adopt",
       description: "Stop regenerating one file; it becomes the author's (recorded as manual in the lock).",
       parameters: Type.Unsafe({
         "type": "object",
@@ -57,7 +57,7 @@ const entry = defineToolPlugin({
         }),
     }),
     tool({
-      name: "bootstrap-repo",
+      name: "toolfactory_bootstrap-repo",
       description: "Prepare the GitHub repository from the local .env: the `live-tests` environment with its required reviewers and the sensitive config keys inside it, the release registries' tokens at repository scope, GitHub Pages with source = Actions, and npm's trusted publisher. Values go to `gh` on stdin and are never returned.",
       parameters: Type.Unsafe({
         "type": "object",
@@ -89,7 +89,7 @@ const entry = defineToolPlugin({
         }),
     }),
     tool({
-      name: "build",
+      name: "toolfactory_build",
       description: "Generate every selected surface in-tree from the identity file and the operation snapshot, and refresh the lock.",
       parameters: Type.Unsafe({
         "type": "object",
@@ -108,7 +108,7 @@ const entry = defineToolPlugin({
         }),
     }),
     tool({
-      name: "check",
+      name: "toolfactory_check",
       description: "Fail if the operation snapshot or any generated file drifted from the code (the CI drift gate).",
       parameters: Type.Unsafe({
         "type": "object",
@@ -127,7 +127,7 @@ const entry = defineToolPlugin({
         }),
     }),
     tool({
-      name: "coverage",
+      name: "toolfactory_coverage",
       description: "The operation × surface verdict matrix: native, bridged, degraded, or excluded, with reasons.",
       parameters: Type.Unsafe({
         "type": "object",
@@ -146,7 +146,7 @@ const entry = defineToolPlugin({
         }),
     }),
     tool({
-      name: "doctor",
+      name: "toolfactory_doctor",
       description: "Report which upstream CLIs this machine can delegate to (git, gh, npm, uv, claude, openclaw, clawhub, hermes, uvx, agentskills, MCP Inspector, docker).",
       parameters: Type.Unsafe({
         "type": "object",
@@ -159,7 +159,7 @@ const entry = defineToolPlugin({
         }),
     }),
     tool({
-      name: "eject",
+      name: "toolfactory_eject",
       description: "Adopt every file a surface owns, so the author takes it over entirely.",
       parameters: Type.Unsafe({
         "type": "object",
@@ -220,7 +220,7 @@ const entry = defineToolPlugin({
         }),
     }),
     tool({
-      name: "gate",
+      name: "toolfactory_gate",
       description: "Run the gate here, in order: build, the drift check, every selected surface's upstream validator, the author's checks and tests, and the credential-free host end-to-end. The same step list the generated ci.yml renders, so a project with no CI has the identical gate.",
       parameters: Type.Unsafe({
         "type": "object",
@@ -239,7 +239,7 @@ const entry = defineToolPlugin({
         }),
     }),
     tool({
-      name: "init",
+      name: "toolfactory_init",
       description: "Create a new tool: dev.toolfactory/tool.json, the authored identity file, the kernel scaffold for the chosen language, and the first build of every selected surface.",
       parameters: Type.Unsafe({
         "type": "object",
@@ -381,7 +381,7 @@ const entry = defineToolPlugin({
         }),
     }),
     tool({
-      name: "introspect",
+      name: "toolfactory_introspect",
       description: "Spawn the kernel MCP server, list its tools, and snapshot them to dev.toolfactory/ops.json.",
       parameters: Type.Unsafe({
         "type": "object",
@@ -400,7 +400,7 @@ const entry = defineToolPlugin({
         }),
     }),
     tool({
-      name: "package",
+      name: "toolfactory_package",
       description: "Build every release asset into dist/release/ — npm tarball, Python distributions, OpenClaw plugin tarball, plugin bundle zip, web build, coverage — by the same steps the release workflow's package job runs. Publishing stays a CI concern.",
       parameters: Type.Unsafe({
         "type": "object",
@@ -419,7 +419,7 @@ const entry = defineToolPlugin({
         }),
     }),
     tool({
-      name: "review-prompt",
+      name: "toolfactory_review-prompt",
       description: "Evaluate a prompt draft against the codex-prompt-standard rubric: anatomy sections, convention checks, and concrete directives. Draft, run this, fix what it flags, and re-run until it passes.",
       parameters: Type.Unsafe({
         "type": "object",
@@ -445,7 +445,7 @@ const entry = defineToolPlugin({
         }),
     }),
     tool({
-      name: "secrets-usage",
+      name: "toolfactory_secrets-usage",
       description: "Every credential this project's surfaces need — the tool's own sensitive config keys and the release registries' tokens — with where each one is set, whether it is present locally and on GitHub, and (check) whether the registry accepts it. Never a value.",
       parameters: Type.Unsafe({
         "type": "object",
@@ -477,7 +477,7 @@ const entry = defineToolPlugin({
         }),
     }),
     tool({
-      name: "unadopt",
+      name: "toolfactory_unadopt",
       description: "Return an adopted file to toolfactory and regenerate it.",
       parameters: Type.Unsafe({
         "type": "object",
@@ -503,7 +503,7 @@ const entry = defineToolPlugin({
         }),
     }),
     tool({
-      name: "unpublish",
+      name: "toolfactory_unpublish",
       description: "Retract what a deselected surface used to publish. Git is the ledger: the previous tag's dev.toolfactory/tool.json says what was selected then, and every registry row that lost its surface is checked for the version that tag published and then retracted with the registry's own CLI — or reported with the exact page, where there is no API.",
       parameters: Type.Unsafe({
         "type": "object",
@@ -537,7 +537,7 @@ const entry = defineToolPlugin({
         }),
     }),
     tool({
-      name: "validate",
+      name: "toolfactory_validate",
       description: "Run each selected surface's own upstream validator (agentskills, claude plugin validate, MCP Inspector, openclaw, hermes, npm pack, uv build).",
       parameters: Type.Unsafe({
         "type": "object",
@@ -596,7 +596,7 @@ const entry = defineToolPlugin({
         }),
     }),
     tool({
-      name: "web",
+      name: "toolfactory_web",
       description: "Open this tool's web app: serves the operations page and the MCP endpoint on a free local port, opens a browser there, and returns the URL.",
       parameters: Type.Unsafe({
         "type": "object",

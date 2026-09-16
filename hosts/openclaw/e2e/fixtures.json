@@ -2,13 +2,13 @@
   "fixtures": [
     {
       "match": {
-        "toolName": "doctor",
+        "toolName": "toolfactory_doctor",
         "hasToolResult": false
       },
       "response": {
         "toolCalls": [
           {
-            "name": "doctor",
+            "name": "toolfactory_doctor",
             "arguments": {}
           }
         ]
