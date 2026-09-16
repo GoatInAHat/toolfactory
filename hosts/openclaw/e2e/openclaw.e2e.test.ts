@@ -127,16 +127,16 @@ describe("toolfactory in a real OpenClaw agent turn", () => {
     expect(inspected.plugin.toolNames).toEqual(["toolfactory_adopt","toolfactory_bootstrap-repo","toolfactory_build","toolfactory_check","toolfactory_coverage","toolfactory_doctor","toolfactory_eject","toolfactory_gate","toolfactory_init","toolfactory_introspect","toolfactory_package","toolfactory_review-prompt","toolfactory_secrets-usage","toolfactory_unadopt","toolfactory_unpublish","toolfactory_validate","toolfactory_web"]);
   });
 
-  it("the model calls doctor and the tool's result reaches the reply", async () => {
+  it("the model calls toolfactory_doctor and the tool's result reaches the reply", async () => {
     const turn = JSON.parse(
       await oc([
         "agent", "--local", "--agent", "main", "--session-id", `e2e-${Date.now()}`,
         "--model", MODEL, "--thinking", "off", "--timeout", "120", "--json",
         "--message",
-        "Call the tool named doctor. Reply with only the exact text returned by that tool.",
+        "Call the tool named toolfactory_doctor. Reply with only the exact text returned by that tool.",
       ]),
     );
-    expect(turn.meta.agentMeta.terminalReceipt.successfulToolNames).toContain("doctor");
+    expect(turn.meta.agentMeta.terminalReceipt.successfulToolNames).toContain("toolfactory_doctor");
     expect(turn.payloads[0].text).toBe("TOOLFACTORY_OK");
   }, 180_000);
 });

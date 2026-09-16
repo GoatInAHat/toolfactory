@@ -788,16 +788,16 @@ describe(${JSON.stringify(`${id} in a real OpenClaw agent turn`)}, () => {
     expect(inspected.plugin.toolNames).toEqual(${JSON.stringify(operations.map((operation) => toolName(project, operation)))});
   });
 
-  it(${JSON.stringify(`the model calls ${kase.operation.name} and the tool's result reaches the reply`)}, async () => {
+  it(${JSON.stringify(`the model calls ${toolName(project, kase.operation)} and the tool's result reaches the reply`)}, async () => {
     const turn = JSON.parse(
       await oc([
         "agent", "--local", "--agent", "main", "--session-id", \`e2e-\${Date.now()}\`,
         "--model", MODEL, "--thinking", "off", "--timeout", "120", "--json",
         "--message",
-        ${JSON.stringify(`Call the tool named ${kase.operation.name}. Reply with only the exact text returned by that tool.`)},
+        ${JSON.stringify(`Call the tool named ${toolName(project, kase.operation)}. Reply with only the exact text returned by that tool.`)},
       ]),
     );
-    expect(turn.meta.agentMeta.terminalReceipt.successfulToolNames).toContain(${JSON.stringify(kase.operation.name)});
+    expect(turn.meta.agentMeta.terminalReceipt.successfulToolNames).toContain(${JSON.stringify(toolName(project, kase.operation))});
     expect(turn.payloads[0].text).toBe(${JSON.stringify(kase.ok)});
   }, 180_000);
 });
@@ -887,7 +887,7 @@ function readme(project: Project, operations: Operation[], kase?: E2eCase): stri
       "`npm run test:e2e` runs one real OpenClaw agent turn against a scripted OpenAI-compatible",
       "model (`@copilotkit/aimock`, the same package OpenClaw's own QA lane uses). `e2e/fixtures.json`",
       "is projected from `dev.toolfactory/ops.json` and `tool.json`'s `tests.examples`: the model asks",
-      `for \`${kase.operation.name}\` with those arguments, and answers \`${kase.ok}\` only when the tool's own`,
+      `for \`${toolName(project, kase.operation)}\` with those arguments, and answers \`${kase.ok}\` only when the tool's own`,
       "result comes back carrying what its output schema promises.",
       "",
     );

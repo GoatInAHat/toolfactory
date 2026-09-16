@@ -39,7 +39,7 @@ and changes nothing (openclaw 2026.8.2).
 `npm run test:e2e` runs one real OpenClaw agent turn against a scripted OpenAI-compatible
 model (`@copilotkit/aimock`, the same package OpenClaw's own QA lane uses). `e2e/fixtures.json`
 is projected from `dev.toolfactory/ops.json` and `tool.json`'s `tests.examples`: the model asks
-for `doctor` with those arguments, and answers `TOOLFACTORY_OK` only when the tool's own
+for `toolfactory_doctor` with those arguments, and answers `TOOLFACTORY_OK` only when the tool's own
 result comes back carrying what its output schema promises.
 
 ## Tools
