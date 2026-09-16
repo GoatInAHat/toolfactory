@@ -6,7 +6,7 @@
       "command": "npx",
       "args": [
         "-y",
-        "toolfactory@0.2.3",
+        "toolfactory@0.2.4",
         "mcp"
       ]
     }

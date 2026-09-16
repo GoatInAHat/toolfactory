@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 import type { PlannedFile, Project } from "../model.js";
 import type { Drift } from "../project/apply.js";
 import { loadProject } from "../project/load.js";
-import { HOST_DIR, surface } from "../surfaces/openclaw-native.js";
+import { HOST_DIR, OPENCLAW_SCAFFOLD, surface } from "../surfaces/openclaw-native.js";
 
 export const DRIFT_ENTRY = fileURLToPath(import.meta.url);
 
@@ -75,12 +75,28 @@ function planned(files: PlannedFile[], path: string): string {
 export function scaffoldDrift(project: Project): string[] {
   const files = surface.plan(project);
   const directory = mkdtempSync(join(tmpdir(), "toolfactory-openclaw-"));
-  // Prefer the openclaw the plugin pins as a devDependency over whatever is on PATH.
+  // The probe must run the exact openclaw this project pins (author override or the
+  // scaffold default) - never whatever happens to be on PATH, which made the drift verdict
+  // environment-dependent: the scaffold openclawVersion is the running CLI own version.
+  const pin =
+    project.tool.openclaw?.devDependencies?.openclaw ?? OPENCLAW_SCAFFOLD.devDependencies.openclaw;
   const pinned = join(project.root, HOST_DIR, "node_modules/.bin/openclaw");
   try {
+    const probe = existsSync(pinned)
+      ? { command: pinned, pre: [] as string[] }
+      : { command: "npx", pre: ["--yes", `openclaw@${pin}`] };
     execFileSync(
-      existsSync(pinned) ? pinned : "openclaw",
-      ["plugins", "init", "tf-probe", "--type", "tool", "--directory", join(directory, "probe")],
+      probe.command,
+      [
+        ...probe.pre,
+        "plugins",
+        "init",
+        "tf-probe",
+        "--type",
+        "tool",
+        "--directory",
+        join(directory, "probe"),
+      ],
       { stdio: "pipe" },
     );
     const scaffold = (path: string) => readFileSync(join(directory, "probe", path), "utf8");

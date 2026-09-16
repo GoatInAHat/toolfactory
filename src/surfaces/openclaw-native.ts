@@ -86,6 +86,17 @@ export default defineConfig({
  * survive into the projection but allows extra ones: upstream stays the source of truth for
  * everything it does write.
  */
+/**
+ * The version `openclaw plugins init` stamps into its scaffold is the CLI's own version, so
+ * the generated manifest carries the openclaw this project actually pins (author override via
+ * `openclaw.devDependencies.openclaw`), and the scaffold default only when the project rides
+ * `latest`. hosts/openclaw.ts runs the same pin in its drift probe, so the upstream/generated
+ * comparison is identical in every environment.
+ */
+export function openclawVersion(project: Project): string {
+  return project.tool.openclaw?.devDependencies?.openclaw ?? OPENCLAW_SCAFFOLD.openclawVersion;
+}
+
 export const OPENCLAW_ADDITIONS = {
   /** Without it `tsc` emits a `dist/` from source that failed type-checking. */
   compilerOptions: { noEmitOnError: true },
@@ -273,7 +284,7 @@ function packageJson(
     openclaw: {
       extensions: [OPENCLAW_SCAFFOLD.entry],
       compat: { pluginApi: pluginApi(project) },
-      build: { openclawVersion: OPENCLAW_SCAFFOLD.openclawVersion },
+      build: { openclawVersion: openclawVersion(project) },
     },
     pluginInspector: expectedRegistrations(project, operations).length
       ? pluginInspector(project, operations)
