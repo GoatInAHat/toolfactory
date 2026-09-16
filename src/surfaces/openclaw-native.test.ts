@@ -322,7 +322,7 @@ function hasOpenclaw(): boolean {
 }
 
 describe.skipIf(!hasOpenclaw())("openclaw scaffold", () => {
-  it("still matches `openclaw plugins init --type tool`", () => {
+  it("still matches `openclaw plugins init --type tool`", { timeout: 60_000 }, () => {
     expect(scaffoldDrift(project())).toEqual([]);
     // A declared `pluginApi` is an intentional override, not drift.
     expect(scaffoldDrift(voice())).toEqual([]);

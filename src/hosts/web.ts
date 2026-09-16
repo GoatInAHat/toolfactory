@@ -15,6 +15,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { argv, exit, stderr, stdout } from "node:process";
 import { fileURLToPath } from "node:url";
+import { inspect, isDeepStrictEqual } from "node:util";
 import type { PlannedFile, Project } from "../model.js";
 import { loadProject } from "../project/load.js";
 import { surface, TAILWIND_CSS, WEB_DIR, WEB_SCAFFOLD } from "../surfaces/web.js";
@@ -35,10 +36,12 @@ function parse(text: string): unknown {
   return JSON.parse(text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, ""));
 }
 
-function differs(label: string, upstream: unknown, pinned: unknown): string[] {
-  return JSON.stringify(upstream) === JSON.stringify(pinned)
+export function differs(label: string, upstream: unknown, pinned: unknown): string[] {
+  return isDeepStrictEqual(upstream, pinned)
     ? []
-    : [`${label}: upstream and WEB_SCAFFOLD no longer agree`];
+    : [
+        `${label}: upstream ${inspect(upstream, { sorted: true })}, pinned ${inspect(pinned, { sorted: true })}`,
+      ];
 }
 
 /** Human-readable drift lines; empty means the generators still write what WEB_SCAFFOLD says. */
