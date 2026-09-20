@@ -13,7 +13,7 @@ One row per feature; committed here so the plan survives across sessions.
 
 ## Planned
 
-### Project + session lifecycle on `init` — PLANNED, not started
+### Project + session lifecycle on `init` — DECIDED 2026-09-19 (owner), code not started
 
 Every new build ask should leave behind a registered OpenClaw project and a
 visible session bound to it, instead of that being a one-off the agent does by
@@ -25,7 +25,14 @@ hand (the gsd-pi registration on 2026-09-13 was exactly such a one-off).
   visible dashboard session per project) for the calling agent.
 - Session creation itself stays host/agent territory — toolfactory registers
   the row and states the next step; it never owns a session.
-- Open decision (owner): default-on when an OpenClaw context is detected, or an
-  explicit `--openclaw-project` flag with skill guidance. Current lean: flag.
+- Owner decision 2026-09-19: default-on. Every build that will live on this
+  gateway roots at `~/.openclaw/projects/<id>` (the shared project registry) —
+  no ad-hoc scratch roots — and is registered via `projects.register` after its
+  first successful build. Isolated work uses managed worktrees
+  (`openclaw worktrees create`), never manual `git worktree add` in scratch
+  directories. Live gateway plugins load from the registered checkout via
+  `plugins.load.paths` (`<repo>/hosts/openclaw`); tgz→`extensions/` installs are
+  for node-side installs only (e.g. the Mac). Interim until `init` enforces
+  this: agents follow this doc.
 - Coordination: gsd-pi#2135's sync-service also registers projects; design gets
   a gsd-pi glance before this lands.

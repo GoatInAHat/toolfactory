@@ -63,6 +63,10 @@ one identity file plus `dev.toolfactory/tool.json` and the operation snapshot
   with `pnpm vendor:template`; `toolfactory validate` fails when the template moves.
 - `rtk` compresses command output; when output will be large and no hook rewrote the command,
   prefix it yourself: `rtk git diff`, `rtk pytest`.
+- On this gateway, built tools live as registered OpenClaw projects at
+  `~/.openclaw/projects/<id>` and load via `plugins.load.paths`; isolated work
+  uses managed worktrees (`openclaw worktrees create`). Owner decision
+  2026-09-19 — see `docs/adoption.md`.
 
 ## Defaults
 
