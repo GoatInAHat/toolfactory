@@ -251,3 +251,37 @@ describe("unpublish", () => {
     expect(result.steps.some((step) => step.run.includes("npm deprecate probe@'*'"))).toBe(true);
   });
 });
+
+describe("registerOpenClawProject", () => {
+  it("reports the exact register call for a tool scaffolded under the shared registry (dry-run)", () => {
+    const registry = join(mkdtempSync(join(tmpdir(), "tf-home-")), ".openclaw", "projects");
+    process.env.TOOLFACTORY_OPENCLAW_PROJECTS_ROOT = registry;
+    const root = join(registry, "probe");
+    const result = commands.init({
+      root,
+      name: "probe",
+      binding: "typescript",
+      setup: false,
+      git: false,
+      dryRun: true,
+    });
+    const line = result.nextSteps.find((step) => step.startsWith("OpenClaw:"));
+    expect(line).toBe(
+      "OpenClaw: run `openclaw gateway call projects.register --params " +
+        JSON.stringify({ path: root }) +
+        "` to add it to the shared project registry.",
+    );
+  });
+
+  it("says nothing outside the shared registry", () => {
+    const result = commands.init({
+      root: join(tmpdir(), "tf-plain"),
+      name: "probe",
+      binding: "typescript",
+      setup: false,
+      git: false,
+      dryRun: true,
+    });
+    expect(result.nextSteps.some((step) => step.startsWith("OpenClaw:"))).toBe(false);
+  });
+});

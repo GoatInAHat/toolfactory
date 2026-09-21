@@ -5,7 +5,8 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname, join, resolve } from "node:path";
+import { homedir } from "node:os";
+import { dirname, join, relative, resolve } from "node:path";
 import { parseEnv } from "node:util";
 import { getBinding } from "./bindings/index.js";
 import { LIVE_TEST_COMMAND } from "./bindings/python.js";
@@ -163,6 +164,29 @@ function agentSetup(root: string): InitResult["agentConfig"] {
   return { setup: result.status === 0, harnesses };
 }
 
+/**
+ * The shared OpenClaw project registry (owner decision 2026-09-19, `docs/adoption.md`): a tool
+ * scaffolded under `~/.openclaw/projects/<id>` gets its project row at `init` time, best-effort
+ * the way `.agents/setup` is — no reachable gateway (or CLI) still leaves a scaffolded project,
+ * and the next step carries the exact call to run. Session creation stays with the calling agent.
+ * TOOLFACTORY_OPENCLAW_PROJECTS_ROOT overrides the registry root (deployments, tests).
+ */
+function registerOpenClawProject(root: string, dryRun: boolean): string | undefined {
+  const registryRoot =
+    process.env.TOOLFACTORY_OPENCLAW_PROJECTS_ROOT ?? join(homedir(), ".openclaw", "projects");
+  const beneath = relative(registryRoot, root);
+  if (!beneath || beneath.startsWith("..") || resolve(beneath) === beneath) return undefined;
+  const args = ["gateway", "call", "projects.register", "--params", JSON.stringify({ path: root })];
+  if (dryRun)
+    return (
+      "OpenClaw: run `openclaw " + args.join(" ") + "` to add it to the shared project registry."
+    );
+  const registered = spawnSync("openclaw", args, { timeout: 60_000 });
+  return registered.status === 0
+    ? "OpenClaw: registered in the shared project registry; bind one visible dashboard session to it for ongoing work."
+    : "OpenClaw: registration did not succeed — run the `openclaw gateway call projects.register` step once the gateway is reachable.";
+}
+
 function nextSteps(project: Project, agentConfig: InitResult["agentConfig"]): string[] {
   const cli = toolfactoryCli(project);
   const ops =
@@ -290,10 +314,13 @@ export function init(options: InitOptions): InitResult {
       git(root, [...commitIdentity(root), "commit", "-q", "--no-verify", "-m", "toolfactory init"]);
     }
   }
+  const steps = nextSteps(built.project, agentConfig);
+  // Last, because registration wants the committed repository on record, not a bare scaffold.
+  const openclaw = registerOpenClawProject(root, options.dryRun === true);
   const result: InitResult = {
     written,
     agentConfig,
-    nextSteps: nextSteps(built.project, agentConfig),
+    nextSteps: openclaw ? [...steps, openclaw] : steps,
   };
   if (options.repo) {
     const project = loadProject(root);
