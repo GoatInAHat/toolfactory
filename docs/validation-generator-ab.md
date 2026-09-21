@@ -44,9 +44,33 @@ Raw local logs: `/tmp/tf-generator-ab-{build,drift,check,focused,tests,baseline}
 
 ## Separate dependencies
 
-- Review-prompt still requires real guest tool execution proof; no module-import proof
-  is substituted, and this receipt makes no claim that the guest path works.
+- Review-prompt guest execution was pending at the A/B checkpoint; the follow-up
+  below closes that verification independently of generator validation.
 - ClawHub authentication/publication remains separate. No login or publish attempted.
 - No shared Gateway restart, plugin deployment, loaded host-core refresh, additional
   worker, Vanderbilt scaffold/auth change, or Runtime bridge change was performed.
 - The pre-existing untracked `IDENTITY.md`, `SOUL.md`, and `USER.md` remain untouched.
+
+## Guest tool execution follow-up — 2026-09-14 03:02 UTC
+
+PASS through the current supported guest code-mode path:
+`functions.exec` → `tools.openclaw__review_prompt(...)`. These were actual plugin
+tool calls, not a module import, CLI substitute, new runtime, or unit-test run.
+
+The two existing inputs from `src/prompt/review.test.ts` produced:
+
+| Input | Actual tool result |
+| --- | --- |
+| `Ship the build. Be quick.` | `verdict: revise`; all seven anatomy sections missing; nine actionable directives. |
+| Existing `GOOD_PROMPT` release-assistant fixture (verbatim) | `verdict: pass`; all seven sections present; none missing; empty directives; both checks pass (three hard imperatives, zero hedges). |
+
+Both calls returned complete structured reports in the calling guest. The historical
+`operation review-prompt is missing from the core package` error did not occur.
+Before invoking, read the Codex Prompt Standard skill, re-listed upstream core Markdown
+files, and read the full `gpt_5_2_prompt.md` reference. The optional `reference` argument
+was omitted for this existing-fixture transport verification.
+
+Reconciliation found no later proof in the existing TF card or saved receipt; memory
+search returned only unrelated interruption notices. No generator checks were replayed.
+No Gateway restart, config/auth changes, plugin deployment, Mac call, child/runtime,
+login reissue, or publication was performed. ClawHub remains separately gated.
