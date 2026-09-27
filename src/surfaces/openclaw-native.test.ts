@@ -133,7 +133,10 @@ describe("openclaw-native", () => {
     expect(files[`${HOST_DIR}/README.md`]).toContain("`shoot` — requires browser");
 
     const pkg = JSON.parse(files[`${HOST_DIR}/package.json`] ?? "{}");
-    expect(pkg.devDependencies).toMatchObject(OPENCLAW_SCAFFOLD.devDependencies);
+    expect(pkg.devDependencies).toMatchObject({
+      ...OPENCLAW_SCAFFOLD.devDependencies,
+      openclaw: OPENCLAW_SCAFFOLD.openclawVersion,
+    });
     expect(pkg.openclaw).toEqual({
       extensions: ["./dist/index.js"],
       compat: { pluginApi: OPENCLAW_SCAFFOLD.pluginApi },

@@ -637,7 +637,13 @@ function setupTail(project: Project): string {
             "    exit 1",
             "fi",
           ]
-        : ["npm install --no-audit --no-fund"];
+        : [
+            "if [ -f package-lock.json ]; then",
+            "    npm ci --no-audit --no-fund",
+            "else",
+            "    npm install --no-audit --no-fund",
+            "fi",
+          ];
   return [
     "",
     "# The pre-commit hook installed above converges agent config; toolfactory's drift gate goes in",

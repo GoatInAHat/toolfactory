@@ -120,6 +120,19 @@ describe("typescript binding", () => {
     );
   });
 
+  it("supports a host-vault live gate without making credentials globally required config", () => {
+    const base = project(["cli"]);
+    base.tool.tests.live = { credentials: ["LIVE_VAULT_READY"], ci: false };
+    base.operations = [{ name: "read", inputSchema: { type: "object" }, requires: [] }];
+    const live = liveTest(base)[0];
+    if (live?.kind !== "region") throw new Error("expected a region file");
+    expect(live.regions[0]?.content).toContain('const CREDENTIALS = ["LIVE_VAULT_READY"];');
+    expect(base.tool.config?.required).toBeUndefined();
+    expect(
+      ToolConfigSchema.safeParse({ ...base.tool, tests: { live: { credentials: [] } } }).success,
+    ).toBe(false);
+  });
+
   it("emits opt-in --http and --pair flags, defaulting to stdio, on the mcp module and the cli", () => {
     const files = [...kernel(project(["mcp", "cli"])), ...cliFiles(project(["mcp", "cli"]))];
     const mcp = text(files, "src/toolfactory/mcp.ts");

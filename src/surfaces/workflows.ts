@@ -199,11 +199,17 @@ function actionStep(step: GateStep, matrix: boolean): Step {
  * (an environment gates deployments, not the checkout an untrusted PR ships).
  */
 function liveJob(project: Project): Record<string, unknown> | undefined {
+  if (project.tool.tests.live?.ci === false) return undefined;
   if (liveCredentials(project).length === 0) return undefined;
   const properties = configProperties(project);
-  const secrets = Object.keys(properties).filter((key) =>
-    isSensitive(properties[key] as Record<string, unknown>),
-  );
+  const secrets = [
+    ...new Set([
+      ...Object.keys(properties).filter((key) =>
+        isSensitive(properties[key] as Record<string, unknown>),
+      ),
+      ...liveCredentials(project),
+    ]),
+  ];
   const pmName = project.packageManager ?? "npm";
   const pm = PACKAGE_MANAGER_COMMANDS[pmName];
   const steps: Step[] =

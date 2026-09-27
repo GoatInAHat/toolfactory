@@ -126,6 +126,7 @@ describe("agents", () => {
     expect(setup).not.toContain("# Project setup goes here");
     // Owner ask #11: a commit cannot leave a generated file stale, with or without CI.
     expect(setup).toContain("npx toolfactory check >/dev/null");
+    expect(setup).toContain("if [ -f package-lock.json ]; then\n    npm ci --no-audit --no-fund");
     expect(setup).toContain("npm install --no-audit --no-fund");
   });
 

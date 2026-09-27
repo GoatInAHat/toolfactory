@@ -118,6 +118,7 @@ export function dataDirEnvName(project: Project): string {
  * A tool with none has nothing to gate a live tier on, so no live test and no `live` CI job.
  */
 export function liveCredentials(project: Project): string[] {
+  if (project.tool.tests.live?.credentials) return project.tool.tests.live.credentials;
   const properties = configProperties(project);
   const required = new Set(requiredConfig(project));
   return Object.keys(properties).filter(

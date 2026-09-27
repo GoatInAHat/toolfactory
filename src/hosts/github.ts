@@ -87,13 +87,12 @@ export function bootstrapRepo(project: Project, options: BootstrapOptions = {}):
   const manual = (options.manual ?? []).filter((step) => !step.startsWith("npm:"));
   const envFile = options.envFile ?? join(project.root, ".env");
   const values = existsSync(envFile) ? parseEnv(readFileSync(envFile, "utf8")) : {};
-  const keys = liveCredentials(project);
+  const keys = project.tool.tests.live?.ci === false ? [] : liveCredentials(project);
   const commands: string[] = [];
   const written: string[] = [];
   const missing: string[] = [];
 
-  // The live tier's own environment, and only when the project has a live tier: a `tool.json`
-  // config key that is both required and sensitive is the whole trigger (§6 T4).
+  // A local-vault-only live tier does not need a GitHub environment or copied account secrets.
   if (keys.length) {
     const ids = reviewers.map((login) => {
       const args = ["api", `users/${login}`, "--jq", ".id"];

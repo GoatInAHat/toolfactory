@@ -131,7 +131,26 @@ export const ToolConfigSchema = z
         "JSON Schema 2020-12 object for the tool's configuration; mark secrets with x-toolfactory.sensitive.",
       ),
     tests: z
-      .object({ examples: z.record(z.string(), jsonObject).default({}) })
+      .object({
+        examples: z.record(z.string(), jsonObject).default({}),
+        live: z
+          .object({
+            credentials: z
+              .array(z.string().regex(/^[A-Z_][A-Z0-9_]*$/))
+              .min(1)
+              .optional()
+              .describe(
+                "Environment gates for live tests when auth is supplied outside tool config, such as a host vault. Names only, never values.",
+              ),
+            ci: z
+              .boolean()
+              .optional()
+              .describe(
+                "Set false for live tests that require a local vault or browser unavailable on hosted CI. The native local live-test tier is still generated.",
+              ),
+          })
+          .optional(),
+      })
       .default({ examples: {} })
       .describe("Example arguments per operation, used by the generated surface-smoke tests."),
     npm: z.object({ scope: z.string().optional() }).optional(),

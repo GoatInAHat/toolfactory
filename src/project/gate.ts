@@ -307,11 +307,10 @@ export function packageSteps(project: Project, options: { system?: boolean } = {
       run: [
         `npm --prefix ${OPENCLAW_HOST_DIR} install`,
         `npm --prefix ${OPENCLAW_HOST_DIR} run build`,
-        `v=$(node -p "require('./package.json').version")`,
         `cp ${OPENCLAW_HOST_DIR}/package.json ${OPENCLAW_HOST_DIR}/package.json.prepack`,
-        `(cd ${OPENCLAW_HOST_DIR} && npm pkg set dependencies.toolfactory=$v)`,
-        `npm pack ./${OPENCLAW_HOST_DIR} --pack-destination ${RELEASE_DIR}`,
-        `mv ${OPENCLAW_HOST_DIR}/package.json.prepack ${OPENCLAW_HOST_DIR}/package.json`,
+        `(trap 'mv ${OPENCLAW_HOST_DIR}/package.json.prepack ${OPENCLAW_HOST_DIR}/package.json' EXIT; ` +
+          `(cd ${OPENCLAW_HOST_DIR} && npm pkg set 'dependencies.${npmName(project)}=${project.identity.version}') && ` +
+          `npm pack ./${OPENCLAW_HOST_DIR} --pack-destination ${RELEASE_DIR})`,
       ].join(" && "),
     });
   }

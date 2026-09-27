@@ -288,6 +288,7 @@ function packageJson(
     dependencies: { ...OPENCLAW_SCAFFOLD.dependencies, ...core, ...extra?.dependencies },
     devDependencies: {
       ...OPENCLAW_SCAFFOLD.devDependencies,
+      openclaw: openclawVersion(project),
       ...(kase ? { "@copilotkit/aimock": OPENCLAW_ADDITIONS.aimock } : {}),
       ...extra?.devDependencies,
     },

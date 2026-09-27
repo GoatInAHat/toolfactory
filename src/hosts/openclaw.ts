@@ -29,7 +29,8 @@ const PER_TOOL_KEYS = new Set(["name", "version", "description"]);
  */
 function overridden(project: Project): Set<string> {
   const openclaw = project.tool.openclaw;
-  const paths = new Set<string>();
+  // The host development dependency is deliberately pinned to the recorded scaffold release.
+  const paths = new Set<string>([".devDependencies.openclaw"]);
   for (const section of ["dependencies", "peerDependencies", "devDependencies"] as const) {
     for (const key of Object.keys(openclaw?.[section] ?? {})) paths.add(`.${section}.${key}`);
   }
@@ -78,8 +79,7 @@ export function scaffoldDrift(project: Project): string[] {
   // The probe must run the exact openclaw this project pins (author override or the
   // scaffold default) - never whatever happens to be on PATH, which made the drift verdict
   // environment-dependent: the scaffold openclawVersion is the running CLI own version.
-  const pin =
-    project.tool.openclaw?.devDependencies?.openclaw ?? OPENCLAW_SCAFFOLD.devDependencies.openclaw;
+  const pin = project.tool.openclaw?.devDependencies?.openclaw ?? OPENCLAW_SCAFFOLD.openclawVersion;
   const pinned = join(project.root, HOST_DIR, "node_modules/.bin/openclaw");
   try {
     const probe = existsSync(pinned)

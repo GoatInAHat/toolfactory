@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -457,6 +457,20 @@ describe("workflows", () => {
     expect(composeHermes.services.openclaw).toBeUndefined();
   });
 
+  it("supports explicit live credentials without making runtime configuration mandatory", () => {
+    const target = project(["cli"]);
+    target.tool.config = undefined;
+    target.tool.tests.live = { credentials: ["LIVE_ACCOUNT_READY"] };
+    const ci = yamlParse(emitted(target)[".github/workflows/ci.yml"]);
+    expect(ci.jobs.live.env).toEqual({ LIVE_ACCOUNT_READY: "${{ secrets.LIVE_ACCOUNT_READY }}" });
+    expect(ci.jobs.live.environment).toBe("live-tests");
+
+    target.tool.tests.live.ci = false;
+    const localOnly = yamlParse(emitted(target)[".github/workflows/ci.yml"]);
+    expect(localOnly.jobs.live).toBeUndefined();
+    expect(localOnly.on.workflow_dispatch).toBeUndefined();
+  });
+
   it("adds the T4 live job, and workflow_dispatch, iff a config key is required and sensitive", () => {
     const ci = yamlParse(emitted(project(["cli"]))[".github/workflows/ci.yml"]);
     expect(ci.on.workflow_dispatch).toEqual({});
@@ -626,6 +640,11 @@ describe("bootstrap-repo", () => {
     );
     expect(release.manual.join(" ")).toContain("NPM_TRUSTED_PUBLISHER");
     expect(release.manual.filter((step) => step.startsWith("npm:"))).toHaveLength(1);
+
+    noCredential.tool.tests.live = { credentials: ["LOCAL_VAULT_READY"], ci: false };
+    const localOnly = bootstrapRepo(noCredential, { dryRun: true });
+    expect(localOnly.secrets).toEqual([]);
+    expect(localOnly.commands.some((command) => command.includes("live-tests"))).toBe(false);
   });
 });
 
@@ -660,6 +679,61 @@ describe("gate", () => {
       "toolfactory validate",
       "openclaw end-to-end (scripted model, no LLM key)",
     ]);
+  });
+
+  it("packs the actual core dependency and restores the host manifest after success or failure", () => {
+    const root = mkdtempSync(join(tmpdir(), "toolfactory-plugin-pack-"));
+    mkdirSync(join(root, "hosts/openclaw"), { recursive: true });
+    mkdirSync(join(root, "bin"));
+    const manifest = {
+      name: "openclaw-plugin-example",
+      dependencies: { "@example/core": "file:../.." },
+    };
+    writeFileSync(join(root, "hosts/openclaw/package.json"), JSON.stringify(manifest));
+    writeFileSync(
+      join(root, "bin/npm"),
+      `#!/usr/bin/env node
+const fs = require('node:fs');
+const path = require('node:path');
+const args = process.argv.slice(2);
+if (args[0] === 'pkg') {
+  const value = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+  const [key, version] = args[2].slice('dependencies.'.length).split('=');
+  value.dependencies[key] = version;
+  fs.writeFileSync('package.json', JSON.stringify(value));
+} else if (args[0] === 'pack') {
+  fs.copyFileSync('hosts/openclaw/package.json', 'packed.json');
+  process.exit(Number(process.env.PACK_EXIT || 0));
+}
+`,
+      { mode: 0o755 },
+    );
+    const target = project(["npm", "openclaw-native"], {
+      identity: { name: "core", version: "1.2.3", description: "Example" },
+    });
+    // npmName is the publication mapping, not the Tool Factory package's name.
+    target.tool.npm = { scope: "@example" };
+    const command = packageSteps(target).find(
+      (step) => step.name === "OpenClaw plugin tarball",
+    )?.run;
+    if (!command) throw new Error("OpenClaw packaging step is missing");
+    for (const code of [0, 7]) {
+      const result = spawnSync("sh", ["-c", command], {
+        cwd: root,
+        env: {
+          ...process.env,
+          PATH: `${join(root, "bin")}:${process.env.PATH}`,
+          PACK_EXIT: String(code),
+        },
+      });
+      expect(result.status, result.stderr.toString()).toBe(code);
+      expect(JSON.parse(readFileSync(join(root, "packed.json"), "utf8")).dependencies).toEqual({
+        "@example/core": "1.2.3",
+      });
+      expect(JSON.parse(readFileSync(join(root, "hosts/openclaw/package.json"), "utf8"))).toEqual(
+        manifest,
+      );
+    }
   });
 
   it("packages one asset per selected distribution surface into dist/release", () => {
