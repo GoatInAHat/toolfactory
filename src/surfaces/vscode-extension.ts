@@ -272,7 +272,7 @@ export const surface: Surface = {
         format: "json",
         patch: {
           compilerOptions: {
-            module: "Node16",
+            module: "NodeNext",
             target: "ES2022",
             lib: ["ES2022"],
             types: ["node", "mocha"],
