@@ -8,7 +8,7 @@
         command: npx
         args:
           - -y
-          - toolfactory@0.4.2
+          - toolfactory@0.4.3
           - mcp
         failOnStartupError: true
 # /tf:mcp
