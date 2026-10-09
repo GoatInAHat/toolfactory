@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.4
+
+- Refresh the web scaffold's lucide-react and shadcn dependencies to match the official generators.
+
 ## 0.2.1
 
 - Refresh the web scaffold's lucide-react dependency to match the official shadcn output.
