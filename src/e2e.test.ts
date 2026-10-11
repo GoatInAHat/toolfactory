@@ -7,6 +7,7 @@ import { execFileSync } from "node:child_process";
 import {
   existsSync,
   lstatSync,
+  mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
@@ -33,7 +34,15 @@ describe.skipIf(!existsSync(repoNodeModules))(
       const dir = mkdtempSync(join(tmpdir(), "toolfactory-e2e-"));
       symlinkSync(repoNodeModules, join(dir, "node_modules"), "dir");
 
-      const surfaces: SurfaceId[] = ["skill", "agent-plugins", "claude", "mcp", "cli", "npm"];
+      const surfaces: SurfaceId[] = [
+        "skill",
+        "agent-plugins",
+        "claude",
+        "mcp",
+        "cli",
+        "npm",
+        "openclaw-native",
+      ];
       const init = commands.init({
         root: dir,
         name: "hello",
@@ -53,8 +62,42 @@ describe.skipIf(!existsSync(repoNodeModules))(
       expect(echo.inputSchema.$schema).toBe("https://json-schema.org/draft/2020-12/schema");
       expect(echo.outputSchema?.$schema).toBe("https://json-schema.org/draft/2020-12/schema");
 
-      commands.build(dir);
+      const skillPath = join(dir, "skills/hello/SKILL.md");
+      writeFileSync(
+        skillPath,
+        readFileSync(skillPath, "utf8").replace("# hello", "# hello\n\nAuthor procedure."),
+      );
+      mkdirSync(join(dir, "skills/hello/references"));
+      writeFileSync(join(dir, "skills/hello/references/guide.md"), "Retained reference.\n");
+      const opsPath = join(dir, "src/ops.ts");
+      writeFileSync(
+        opsPath,
+        readFileSync(opsPath, "utf8").replace(
+          "Return the text you pass in.",
+          "Freshly rebuilt operation.",
+        ),
+      );
+      await commands.introspect(dir);
       await expect(commands.check(dir)).resolves.toBeDefined();
+      expect(commands.build(dir).result.written).toEqual([]);
+      const bundled = readFileSync(join(dir, "hosts/openclaw/skills/hello/SKILL.md"), "utf8");
+      expect(bundled).toBe(readFileSync(skillPath, "utf8"));
+      expect(bundled).toContain("Author procedure.");
+      expect(bundled).toContain("Freshly rebuilt operation.");
+      expect(bundled).not.toContain("Return the text you pass in.");
+      const packed = JSON.parse(
+        execFileSync("npm", ["pack", "./hosts/openclaw", "--dry-run", "--json"], {
+          cwd: dir,
+          encoding: "utf8",
+        }),
+      ) as { files: { path: string }[] }[];
+      expect(packed[0]?.files.map((file) => file.path)).toEqual(
+        expect.arrayContaining([
+          "openclaw.plugin.json",
+          "skills/hello/SKILL.md",
+          "skills/hello/references/guide.md",
+        ]),
+      );
 
       const opsOnDisk = JSON.parse(readFileSync(join(dir, "dev.toolfactory/ops.json"), "utf8"));
       expect(opsOnDisk.tools.map((t: { name: string }) => t.name)).toEqual(["echo"]);

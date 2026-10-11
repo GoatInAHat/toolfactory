@@ -1,6 +1,6 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, readFileSync, readlinkSync } from "node:fs";
 import { createRequire } from "node:module";
-import { join, relative, resolve, sep } from "node:path";
+import { dirname, join, relative, resolve, sep } from "node:path";
 import { z } from "zod";
 import { readIdentityFile } from "../identity/read.js";
 import {
@@ -14,7 +14,10 @@ import {
   type ProjectSkill,
   ToolConfigSchema,
 } from "../model.js";
-import { TOOLFACTORY_DIR } from "./lock.js";
+import { has } from "../surfaces/shared.js";
+import { skillFile } from "../surfaces/skill.js";
+import { renderFile } from "./apply.js";
+import { readLock, TOOLFACTORY_DIR } from "./lock.js";
 
 export const TOOL_PATH = `${TOOLFACTORY_DIR}/tool.json`;
 export const OPS_PATH = `${TOOLFACTORY_DIR}/ops.json`;
@@ -85,15 +88,33 @@ function readPackageManager(root: string): PackageManager | undefined {
   return name as PackageManager;
 }
 
-/** `.agents/skills/<name>/` as a shippable unit: every file, sorted, content in memory. */
-function readProjectSkill(root: string, name: string): ProjectSkill {
-  const directory = join(root, ".agents", "skills", name);
-  if (!existsSync(directory)) {
+/** The selected skill as a shippable unit: every text file, sorted, content in memory. */
+function readProjectSkill(project: Project, name: string): ProjectSkill {
+  const canonPath = `.agents/skills/${name}`;
+  const canon = join(project.root, canonPath);
+  const lock = readLock(project.root) ?? {
+    toolfactoryVersion: project.toolfactoryVersion,
+    files: {},
+  };
+  const entry = lstatSync(canon, { throwIfNoEntry: false });
+  const generatedAlias =
+    entry?.isSymbolicLink() &&
+    resolve(dirname(canon), readlinkSync(canon)) === join(project.root, "skills", name);
+  const custom =
+    project.tool.openclaw?.skills !== undefined &&
+    lock.files[canonPath]?.state === "manual" &&
+    !generatedAlias;
+  const own = has(project, "skill") && name === project.identity.name && !custom;
+  const planned = own ? skillFile(project) : undefined;
+  const directory = planned ? dirname(join(project.root, planned.path)) : canon;
+  if (!existsSync(directory) && !own) {
     throw new Error(
       `openclaw.skills declares "${name}" but ${join(".agents", "skills", name)} does not exist`,
     );
   }
-  const files = readdirSync(directory, { recursive: true, withFileTypes: true })
+  const files = (
+    existsSync(directory) ? readdirSync(directory, { recursive: true, withFileTypes: true }) : []
+  )
     .filter((entry) => entry.isFile())
     .map((entry) => join(entry.parentPath, entry.name))
     .sort()
@@ -101,6 +122,19 @@ function readProjectSkill(root: string, name: string): ProjectSkill {
       path: relative(directory, absolute).replaceAll(sep, "/"),
       content: readFileSync(absolute, "utf8"),
     }));
+  if (planned) {
+    const content =
+      lock.files[planned.path]?.state === "manual"
+        ? readFileSync(join(project.root, planned.path), "utf8")
+        : renderFile(project.root, planned, lock);
+    return {
+      name,
+      files: [
+        ...files.filter((file) => file.path !== "SKILL.md"),
+        { path: "SKILL.md", content },
+      ].sort((a, b) => a.path.localeCompare(b.path)),
+    };
+  }
   return { name, files };
 }
 
@@ -112,14 +146,18 @@ export function loadProject(rootInput = "."): Project {
   }
   const tool = ToolConfigSchema.parse(JSON.parse(readFileSync(toolPath, "utf8")));
   const identityFile = readIdentityFile(join(root, tool.identity));
-  return {
+  const project: Project = {
     root,
     tool,
     identity: identityFile.identity,
     identityExtra: identityFile.extra,
     operations: isInstructionOnly(tool) ? [] : readOps(root),
-    skills: (tool.openclaw?.skills ?? []).map((name) => readProjectSkill(root, name)),
     toolfactoryVersion: TOOLFACTORY_VERSION,
     packageManager: readPackageManager(root),
   };
+  const names =
+    tool.openclaw?.skills ??
+    (has(project, "openclaw-native") && has(project, "skill") ? [project.identity.name] : []);
+  project.skills = names.map((name) => readProjectSkill(project, name));
+  return project;
 }

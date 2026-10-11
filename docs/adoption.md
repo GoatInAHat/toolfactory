@@ -7,7 +7,7 @@ One row per feature; committed here so the plan survives across sessions.
 
 | Feature | Where |
 | --- | --- |
-| Plugin skill packaging (`openclaw.skills`) | `src/surfaces/openclaw-native.ts` — `.agents/skills/<name>/` mirrored into the plugin, `skills: ["./skills"]` in the manifest, npm `files` |
+| Plugin skill packaging (`openclaw.skills`) | `src/project/load.ts` resolves the generated own skill by default; `src/surfaces/openclaw-native.ts` packages the resolved skills, declares `skills: ["./skills"]` in the manifest and adds npm `files` |
 | Prompt loop (`review-prompt`) | `src/prompt/` — the codex-prompt-standard draft → evaluate → iterate loop as an operation |
 | Skill canon (Anthropic + workshop) | `.agents/skills/` — skill-creator, mcp-builder, webapp-testing, codex-prompt-standard, shadcn |
 

@@ -501,7 +501,8 @@ export function check(root: string, plan: PlannedFile[], toolfactoryVersion: str
   return drift;
 }
 
-function render(root: string, file: PlannedFile, previous: Lock): string {
+/** Read-only preview of the exact bytes apply writes, retaining authored regions and extensions. */
+export function renderFile(root: string, file: PlannedFile, previous: Lock): string {
   const path = join(root, file.path);
   if (file.kind === "file") return file.content;
   if (file.kind === "region") {
@@ -589,7 +590,7 @@ export function apply(root: string, plan: PlannedFile[], toolfactoryVersion: str
         result.written.push(file.path);
       }
     } else {
-      const next = render(root, file, previous);
+      const next = renderFile(root, file, previous);
       if (existsSync(path) && readFileSync(path, "utf8") === next) {
         result.unchanged.push(file.path);
       } else {

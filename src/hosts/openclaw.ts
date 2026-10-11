@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 import type { PlannedFile, Project } from "../model.js";
 import type { Drift } from "../project/apply.js";
 import { loadProject } from "../project/load.js";
-import { HOST_DIR, OPENCLAW_SCAFFOLD, surface } from "../surfaces/openclaw-native.js";
+import { HOST_DIR, OPENCLAW_SCAFFOLD, shipsSkills, surface } from "../surfaces/openclaw-native.js";
 
 export const DRIFT_ENTRY = fileURLToPath(import.meta.url);
 
@@ -39,7 +39,7 @@ function overridden(project: Project): Set<string> {
     paths.add(".openclaw.compat.pluginApi");
   }
   // Shipped skills append to `files`; upstream's entries must still survive (checked below).
-  if (openclaw?.skills?.length) paths.add(".files");
+  if (shipsSkills(project)) paths.add(".files");
   return paths;
 }
 
@@ -111,7 +111,7 @@ export function scaffoldDrift(project: Project): string[] {
         ? []
         : ["vitest.config.ts: upstream template changed"]),
     ];
-    if (project.tool.openclaw?.skills?.length) {
+    if (shipsSkills(project)) {
       const upstream = (JSON.parse(scaffold("package.json")) as { files?: string[] }).files ?? [];
       const ours = (JSON.parse(planned(files, "package.json")) as { files?: string[] }).files ?? [];
       const lost = upstream.filter((entry) => !ours.includes(entry));

@@ -91,7 +91,9 @@ export function buildPlan(
   const manual = Object.entries(lock?.files ?? {})
     .filter(([, entry]) => entry.state === "manual")
     .map(([path]) => path);
-  const total = Object.keys(lock?.files ?? {}).length || files.length;
+  // Count the plan being applied, including retained manual files, rather than the previous
+  // lock: newly bundled skill resources must not leave COVERAGE.md stale after one build.
+  const total = new Set([...files.map((file) => file.path), ...manual, "COVERAGE.md"]).size;
   files.push({
     kind: "file",
     path: "COVERAGE.md",

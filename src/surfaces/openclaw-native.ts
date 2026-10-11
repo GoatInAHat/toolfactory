@@ -144,9 +144,9 @@ export function registrations(project: Project): Registration[] {
   return project.tool.openclaw?.registers ?? [];
 }
 
-/** Whether the plugin ships `.agents/skills/` directories (`openclaw.skills` in tool.json). */
+/** Whether the loader resolved any skills for this plugin's payload. */
 export function shipsSkills(project: Project): boolean {
-  return (project.tool.openclaw?.skills?.length ?? 0) > 0;
+  return (project.skills?.length ?? 0) > 0;
 }
 
 /**
