@@ -1,7 +1,7 @@
 {
   "name": "toolfactory-web",
   "private": true,
-  "version": "0.4.4",
+  "version": "0.4.5",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,11 +11,11 @@
     "smoke": "node smoke.mjs"
   },
   "dependencies": {
-    "@base-ui/react": "^1.8.0",
+    "@base-ui/react": "^1.9.0",
     "@fontsource-variable/geist": "^5.3.0",
     "@tailwindcss/vite": "^4.3.3",
     "class-variance-authority": "^0.7.1",
-    "lucide-react": "^1.53.0",
+    "lucide-react": "^1.55.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "shadcn": "^4.21.4",
