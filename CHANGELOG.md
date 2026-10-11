@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.5
+
+- Refresh the web scaffold's Base UI and lucide-react dependencies to match the official Vite and shadcn generators.
+
 ## 0.4.4
 
 - Refresh the web scaffold's lucide-react and shadcn dependencies to match the official generators.
