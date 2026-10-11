@@ -11,6 +11,7 @@ import {
   isInstructionOnly,
   type Operation,
   type Project,
+  type RegionFile,
   type Surface,
   type Verdict,
 } from "../model.js";
@@ -86,28 +87,32 @@ export function frontmatter(project: Project): string {
   return `\n${yaml(document).trimEnd()}\n`;
 }
 
+export function skillFile(project: Project): RegionFile {
+  const path = skillPath(project);
+  const regions = [
+    { begin: "---", end: "---", content: frontmatter(project) },
+    { begin: OPERATIONS_BEGIN, end: OPERATIONS_END, content: renderOperations(project) },
+  ];
+  const template = [
+    "---",
+    "---",
+    "",
+    `# ${project.identity.name}`,
+    "",
+    "Explain here when an agent should reach for this tool and how to combine its operations.",
+    "",
+    OPERATIONS_BEGIN,
+    OPERATIONS_END,
+    "",
+  ].join("\n");
+  return { kind: "region", path, regions, template };
+}
+
 export const surface: Surface = {
   id: "skill",
   plan(project) {
-    const path = skillPath(project);
-    const regions = [
-      { begin: "---", end: "---", content: frontmatter(project) },
-      { begin: OPERATIONS_BEGIN, end: OPERATIONS_END, content: renderOperations(project) },
-    ];
-    const template = [
-      "---",
-      "---",
-      "",
-      `# ${project.identity.name}`,
-      "",
-      "Explain here when an agent should reach for this tool and how to combine its operations.",
-      "",
-      OPERATIONS_BEGIN,
-      OPERATIONS_END,
-      "",
-    ].join("\n");
     return [
-      { kind: "region", path, regions, template },
+      skillFile(project),
       {
         kind: "file",
         path: skillLinkPath(project),

@@ -22,7 +22,7 @@ generated and every surface still installs, builds and publishes.
 - **Gemini CLI extension** — `gemini extensions install https://github.com/GoatInAHat/toolfactory`
 - **OpenClaw plugin** — `openclaw plugins install --link hosts/openclaw` from a checkout
 - **Hermes plugin** — `hermes plugins install https://github.com/GoatInAHat/toolfactory#hosts/hermes/toolfactory_hermes`
-- **DSH plugin** (experimental) — `dsh plugin --profile <profile> add ./hosts/dsh` from a checkout, or the release tarball `toolfactory-dsh-0.4.5.tgz`
+- **DSH plugin** (experimental) — `dsh plugin --profile <profile> add ./hosts/dsh` from a checkout, or the release tarball `toolfactory-dsh-0.4.6.tgz`
 - **Web app** — `npx -y toolfactory mcp --http --open` serves the operations page beside the
   MCP endpoint on one port and opens it; over MCP or a skill, the `web` operation does the same and
   returns the URL.
@@ -154,6 +154,14 @@ author. See [native package releases](docs/native-package-releases.md) and
 Toolfactory itself continues to use npm as its package registry.
 
 ## Driving toolfactory from an agent
+
+Selecting both `skill` and `openclaw-native` ships the tool's own skill with the native plugin
+by default. `openclaw.skills` is an exact override: `[]` opts out; `["my-tool", "custom"]`
+ships the generated own skill and `.agents/skills/custom/`. An explicit custom-only list
+continues to ship only those skills. The own skill's generated regions are refreshed in the
+same build; authored prose and UTF-8 text resources are retained. The native manifest declares
+`skills: ["./skills"]`, and npm packaging includes that directory. No native plugin skill is
+inferred when the standalone `skill` surface is absent.
 
 Every command is an MCP tool, so a host can drive the whole loop without a shell — and nothing is
 registered by hand. Every generated project carries the `.agents/` canon, so `toolfactory` and the
