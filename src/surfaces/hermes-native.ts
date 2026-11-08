@@ -57,11 +57,12 @@ export const MANIFEST_VERSION = 1;
 /**
  * The Hermes this generator was proven against (C5). Hermes ships through its own installer
  * (it refuses wheel builds from git, and the PyPI release predates `plugins doctor`), so CI and
- * the container harness run that installer pinned to this commit.
+ * the container harness pin both the installer bytes and runtime to this commit.
  */
 export const HERMES_PIN = {
   commit: "180291162ff4df0d42b5dc4fecd08005cf7cebf9",
-  installer: "https://hermes-agent.nousresearch.com/install.sh",
+  installer:
+    "https://raw.githubusercontent.com/NousResearch/hermes-agent/180291162ff4df0d42b5dc4fecd08005cf7cebf9/scripts/install.sh",
 };
 
 /** The one-line install CI and compose share: headless, pinned, no browser or bundled skills. */

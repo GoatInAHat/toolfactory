@@ -153,7 +153,7 @@
       "state": "generated"
     },
     ".github/workflows/ci.yml": {
-      "sha256": "0b9be18ff45209a9044c598cdc8aef10a0650d63f9784165ac577b457406254d",
+      "sha256": "1194a6406c778051a19706316f177065c7204e9277aeb50cccbbdac820e35396",
       "state": "generated"
     },
     ".github/workflows/copilot-setup-steps.yml": {
@@ -161,7 +161,7 @@
       "state": "generated"
     },
     ".github/workflows/release.yml": {
-      "sha256": "b5f53a1ee76d5ee46e5f1c6935362786ed0dbc00c51aa603ac181325df536628",
+      "sha256": "85afa6ebabcb53fd74f42fe068f48655159e392f4d29d2ff8dce20008af46795",
       "state": "generated"
     },
     ".gitignore": {
@@ -185,7 +185,7 @@
       ]
     },
     "compose.toolfactory.yaml": {
-      "sha256": "78bd8ddb3cc47147b508c5e466ef1b4a313ba6556df33d6167af2a0d50a4ebae",
+      "sha256": "4e737b06423894d9eb76252599810b4f3e9b1620f1e7c4c61cb6c1457845edd9",
       "state": "generated"
     },
     "COVERAGE.md": {
