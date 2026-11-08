@@ -39,7 +39,7 @@ function fixtureConfig() {
       execFileSync("tar", ["-czf", absoluteAsset, "bin"], { cwd: fixture });
       write(
         "Formula/toolfactory-smoke.rb",
-        `class ToolfactorySmoke < Formula\n  desc "Disposable Toolfactory package smoke fixture"\n  homepage "https://example.com/toolfactory-smoke"\n  url "file://${absoluteAsset}"\n  version "${version}"\n  sha256 "${sha256(absoluteAsset)}"\n  license "MIT"\n\n  def install\n    bin.install "toolfactory-smoke"\n  end\nend\n`,
+        `class ToolfactorySmoke < Formula\n  desc "Disposable Toolfactory package smoke fixture"\n  homepage "https://example.com/toolfactory-smoke"\n  url "file://${absoluteAsset}"\n  version "${version}"\n  sha256 "${sha256(absoluteAsset)}"\n  license "MIT"\n\n  def install\n    bin.install "toolfactory-smoke"\n  end\n\n  test do\n    assert_match "${version}", shell_output("#{bin}/toolfactory-smoke")\n  end\nend\n`,
       );
       return {
         id,

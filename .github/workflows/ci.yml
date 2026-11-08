@@ -41,7 +41,7 @@ jobs:
           GIT_CONFIG_COUNT: "1"
           GIT_CONFIG_KEY_0: url.https://x-access-token:${{ github.token }}@github.com/.insteadOf
           GIT_CONFIG_VALUE_0: https://github.com/
-        run: curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash -s -- --commit 180291162ff4df0d42b5dc4fecd08005cf7cebf9 --skip-setup --skip-browser --skip-computer-use --non-interactive --no-skills
+        run: curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/180291162ff4df0d42b5dc4fecd08005cf7cebf9/scripts/install.sh | bash -s -- --commit 180291162ff4df0d42b5dc4fecd08005cf7cebf9 --skip-setup --skip-browser --skip-computer-use --non-interactive --no-skills
       - name: Hermes on PATH
         run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: install
