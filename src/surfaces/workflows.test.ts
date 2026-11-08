@@ -832,3 +832,42 @@ describe("browser-extension release legs", () => {
     expect(safariRelease.jobs.release.needs).not.toContain("publish-browser-ext-safari");
   });
 });
+
+describe("npm to MCP eventual visibility", () => {
+  it("waits for reads, without republishing, and fails closed if visibility never arrives", () => {
+    const release = yamlParse(
+      emitted(project(["npm", "mcp-registry"]))[".github/workflows/release.yml"],
+    );
+    const steps = release.jobs["publish-mcp-registry"].steps as { name?: string; run?: string }[];
+    const script = steps.find((step) => step.name === "wait for npm registry visibility")?.run;
+    expect(script).toBeDefined();
+    const root = mkdtempSync(join(tmpdir(), "tf-npm-ready-"));
+    const count = join(root, "count");
+    writeFileSync(
+      join(root, "npm"),
+      `#!/bin/sh
+n=0; [ ! -f "$COUNT" ] || n=$(cat "$COUNT")
+n=$((n+1)); echo "$n" > "$COUNT"
+[ "$1" = view ] || exit 99
+[ "$n" -ge "$VISIBLE_AFTER" ]
+`,
+      { mode: 0o755 },
+    );
+    writeFileSync(join(root, "sleep"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+    const run = (after: string) =>
+      spawnSync("bash", ["-c", script ?? "exit 99"], {
+        env: {
+          ...process.env,
+          PATH: `${root}:${process.env.PATH}`,
+          COUNT: count,
+          VISIBLE_AFTER: after,
+        },
+        encoding: "utf8",
+      });
+    expect(run("3").status).toBe(0);
+    expect(readFileSync(count, "utf8").trim()).toBe("3");
+    writeFileSync(count, "0");
+    expect(run("999").status).toBe(1);
+    expect(readFileSync(count, "utf8").trim()).toBe("60");
+  });
+});

@@ -97,6 +97,22 @@ export function openclawVersion(project: Project): string {
   return project.tool.openclaw?.devDependencies?.openclaw ?? OPENCLAW_SCAFFOLD.openclawVersion;
 }
 
+/** Recorded upstream template changes for supported, explicitly pinned SDK releases. */
+export function openclawScaffold(project: Project) {
+  if (openclawVersion(project) === "2026.10.10-beta.5") {
+    return {
+      ...OPENCLAW_SCAFFOLD,
+      devDependencies: { ...OPENCLAW_SCAFFOLD.devDependencies, typescript: "7.0.2" },
+      tsconfig: {
+        ...OPENCLAW_SCAFFOLD.tsconfig,
+        compilerOptions: { ...OPENCLAW_SCAFFOLD.tsconfig.compilerOptions, rootDir: "src" },
+        include: ["src/index.ts"],
+      },
+    };
+  }
+  return OPENCLAW_SCAFFOLD;
+}
+
 /**
  * The gateway has one flat tool namespace, so the plugin's tool names are the tool id prefix
  * plus the operation name with dots flattened: unprefixed names collide across plugins (two
@@ -287,7 +303,7 @@ function packageJson(
     peerDependencies: { openclaw: pluginApi(project), ...extra?.peerDependencies },
     dependencies: { ...OPENCLAW_SCAFFOLD.dependencies, ...core, ...extra?.dependencies },
     devDependencies: {
-      ...OPENCLAW_SCAFFOLD.devDependencies,
+      ...openclawScaffold(project).devDependencies,
       openclaw: openclawVersion(project),
       ...(kase ? { "@copilotkit/aimock": OPENCLAW_ADDITIONS.aimock } : {}),
       ...extra?.devDependencies,
@@ -970,9 +986,9 @@ export const surface: Surface = {
         kind: "file",
         path: `${HOST_DIR}/tsconfig.json`,
         content: json({
-          ...OPENCLAW_SCAFFOLD.tsconfig,
+          ...openclawScaffold(project).tsconfig,
           compilerOptions: {
-            ...OPENCLAW_SCAFFOLD.tsconfig.compilerOptions,
+            ...openclawScaffold(project).tsconfig.compilerOptions,
             ...OPENCLAW_ADDITIONS.compilerOptions,
           },
         }),
