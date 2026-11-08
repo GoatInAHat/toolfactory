@@ -461,7 +461,7 @@ export function systemPackageJobs(project: Project, releaseSha: string): Record<
           ...(posixBuild ? [posixBuild] : []),
           { run: versionAssert(project, entry) },
           {
-            run: `brew tap-new --no-git ${quote(temporaryTap)} && taproot=$(brew --repository ${quote(temporaryTap)}) && install -m 0644 ${quote(`${entry.path}/${entry.identity}`)} "$taproot/Formula/$(basename ${quote(entry.identity)})" && brew readall ${quote(temporaryTap)} && brew style --formula ${quote(`${temporaryTap}/${entry.name}`)} && brew audit --formula ${quote(`${temporaryTap}/${entry.name}`)}`,
+            run: `brew tap-new --no-git ${quote(temporaryTap)} && taproot=$(brew --repository ${quote(temporaryTap)}) && install -m 0644 ${quote(`${entry.path}/${entry.identity}`)} "$taproot/Formula/$(basename ${quote(entry.identity)})" && brew trust --formula ${quote(`${temporaryTap}/${entry.name}`)} && brew readall ${quote(temporaryTap)} && brew style --formula ${quote(`${temporaryTap}/${entry.name}`)} && brew audit --formula ${quote(`${temporaryTap}/${entry.name}`)}`,
           },
           {
             run: `mkdir -p ${quote(out)} && test -f ${quote(`${entry.path}/${entry.identity}`)} && test -f ${quote(entry.asset ?? "")} && cp ${quote(`${entry.path}/${entry.identity}`)} ${quote(out)}/ && cp ${quote(entry.asset ?? "")} ${quote(out)}/`,
