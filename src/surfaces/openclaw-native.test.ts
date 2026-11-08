@@ -331,3 +331,21 @@ describe.skipIf(!hasOpenclaw())("openclaw scaffold", () => {
     expect(scaffoldDrift(voice())).toEqual([]);
   });
 });
+
+describe("explicit SDK template projection", () => {
+  it("keeps the pinned beta template compatible without changing legacy projects", () => {
+    const legacy = project();
+    const beta = project({
+      tool: { ...legacy.tool, openclaw: { devDependencies: { openclaw: "2026.10.10-beta.5" } } },
+    });
+    const files = emitted(beta);
+    const pkg = JSON.parse(files["hosts/openclaw/package.json"]);
+    const config = JSON.parse(files["hosts/openclaw/tsconfig.json"]);
+    expect(pkg.devDependencies.typescript).toBe("7.0.2");
+    expect(config.compilerOptions.rootDir).toBe("src");
+    expect(config.include).toEqual(["src/index.ts"]);
+    expect(
+      JSON.parse(emitted(legacy)["hosts/openclaw/package.json"]).devDependencies.typescript,
+    ).toBe("^5.9.0");
+  });
+});
