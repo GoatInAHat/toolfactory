@@ -1,5 +1,5 @@
 {
-  "toolfactoryVersion": "0.4.7",
+  "toolfactoryVersion": "0.4.8",
   "files": {
     ".agents/mcp/servers.json": {
       "sha256": "09ea6f67acacefa8901eaea338b1cedd86e99a1fdad21eecb89e502b69a10789",
@@ -161,7 +161,7 @@
       "state": "generated"
     },
     ".github/workflows/release.yml": {
-      "sha256": "1dc2f460fdcf6bd1f9fab1a280694a02c40447e485c7c5504b0cefdbf9c9d460",
+      "sha256": "d25436c493e7b5e6bbc110a58fbdd250568531a4cef1af5a0ddfda478ac8b0a4",
       "state": "generated"
     },
     ".gitignore": {

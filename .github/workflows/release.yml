@@ -221,6 +221,14 @@ jobs:
         with:
           ref: ${{ needs.gate.outputs.sha }}
       - run: curl -sL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
+      - name: wait for npm registry visibility
+        run: |-
+          for attempt in {1..60}; do
+            if npm view toolfactory@0.4.8 version >/dev/null 2>&1; then exit 0; fi
+            sleep 10
+          done
+          echo "::error::npm version is not registry-visible after publication; not registering an unavailable package."
+          exit 1
       - run: ./mcp-publisher login github-oidc && ./mcp-publisher publish
   release:
     needs:

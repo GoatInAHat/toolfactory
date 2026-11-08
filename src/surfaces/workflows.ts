@@ -619,6 +619,19 @@ function releaseDocument(
       steps: [
         checkoutStep(RELEASE_SHA),
         { run: MCP_PUBLISHER_FETCH },
+        ...(npmSelected
+          ? [
+              {
+                name: "wait for npm registry visibility",
+                run: `for attempt in {1..60}; do
+  if npm view ${npmName(project)}@${project.identity.version ?? "0.0.0"} version >/dev/null 2>&1; then exit 0; fi
+  sleep 10
+done
+echo "::error::npm version is not registry-visible after publication; not registering an unavailable package."
+exit 1`,
+              },
+            ]
+          : []),
         { run: "./mcp-publisher login github-oidc && ./mcp-publisher publish" },
       ],
     });
