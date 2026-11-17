@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.9
+
+- Refresh the web scaffold's lucide-react dependency to ^1.74.0 to match the official shadcn output; the web scaffold drift validator failed for every generated tool until then.
+
 ## 0.4.5
 
 - Refresh the web scaffold's Base UI and lucide-react dependencies to match the official Vite and shadcn generators.
