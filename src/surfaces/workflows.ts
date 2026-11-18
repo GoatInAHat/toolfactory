@@ -651,8 +651,10 @@ exit 1`,
       if: "${{ !cancelled() && needs.package.result == 'success' && !contains(needs.*.result, 'failure') && needs.gate.outputs.clawhub_package == 'true' }}",
       // Last (§7): content-fingerprint deduped by ClawHub, therefore safe to retry. The reusable
       // workflow has no build step, so it publishes the tarball the `package` job already built
-      // rather than the repository subdirectory. It is a workflow call, so it has no `permissions`
-      // block of its own and inherits the file's `contents: read`.
+      // rather than the repository subdirectory. A called workflow's jobs can only narrow what
+      // the caller grants, and ClawHub's publish job asks for `actions: read` and
+      // `id-token: write`; under the file's `contents: read` alone GitHub refuses to start it.
+      permissions: { contents: "read", actions: "read", "id-token": "write" },
       needs: needsOf(["gate", "package", ...priorLegs]),
       uses: "openclaw/clawhub/.github/workflows/package-publish.yml@main",
       with: {
@@ -677,6 +679,8 @@ exit 1`,
     // ClawHub's own reusable workflow derives slug/name/version from SKILL.md and dedupes by
     // content fingerprint, same as `clawhub package publish` above — safe to retry.
     jobs["publish-clawhub-skill"] = compact({
+      // ClawHub's skill-publish job asks for `id-token: write`, which the caller must grant.
+      permissions: { contents: "read", "id-token": "write" },
       if: gated("clawhub-skill"),
       needs: "gate",
       uses: "openclaw/clawhub/.github/workflows/skill-publish.yml@main",
