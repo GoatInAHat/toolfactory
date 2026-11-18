@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.10
+
+- Grant the generated ClawHub release jobs the permissions ClawHub's reusable workflows request (`id-token: write`, plus `actions: read` for the package leg). Without them GitHub refused to start those jobs, so tools that publish to ClawHub had to keep `release.yml` by hand, which then stopped following new versions.
+
 ## 0.4.9
 
 - Refresh the web scaffold's lucide-react dependency to ^1.74.0 to match the official shadcn output; the web scaffold drift validator failed for every generated tool until then.

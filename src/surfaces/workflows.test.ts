@@ -357,14 +357,23 @@ describe("workflows", () => {
     expect(release.jobs["publish-clawhub-skill"].secrets.clawhub_token).toContain("CLAWHUB_TOKEN");
     expect(release.jobs.release.needs.at(-1)).toBe("publish-clawhub-skill");
 
-    // Every job that runs steps declares its own permissions; the workflow-call leg inherits the
-    // file's `contents: read`.
+    // Every job declares its own permissions. The ClawHub workflow calls grant what ClawHub's
+    // reusable jobs request, or GitHub refuses to start them.
     const withoutPermissions = Object.entries(
       release.jobs as Record<string, { permissions?: unknown }>,
     )
       .filter(([, job]) => job.permissions === undefined)
       .map(([name]) => name);
-    expect(withoutPermissions).toEqual(["publish-clawhub", "publish-clawhub-skill"]);
+    expect(withoutPermissions).toEqual([]);
+    expect(release.jobs["publish-clawhub"].permissions).toEqual({
+      contents: "read",
+      actions: "read",
+      "id-token": "write",
+    });
+    expect(release.jobs["publish-clawhub-skill"].permissions).toEqual({
+      contents: "read",
+      "id-token": "write",
+    });
     expect(release.permissions).toEqual({ contents: "read" });
     expect(release.jobs["publish-oci"].permissions).toEqual({
       contents: "read",
