@@ -57,7 +57,7 @@
       ]
     },
     ".claude-plugin/plugin.json": {
-      "sha256": "2617c67904bdb8fa9f1f111a21dfcad7f8447b6575ebb1592f7b8e38c981058c",
+      "sha256": "3ce8b1e31abfae1ff21850d80808ae50743067389fd809b693c2ff7a72e47ab5",
       "state": "generated",
       "keys": [
         "$schema",
@@ -80,7 +80,7 @@
       "state": "generated"
     },
     ".codex-plugin/plugin.json": {
-      "sha256": "5fa37d6005d71f01222d02df4878a8ad892ee1449cf1a02952f31f38023cf187",
+      "sha256": "7c2e7aa8351e1c456c78326f41151ba4f617b40303331ee7dfa4143c17b4e1f3",
       "state": "generated",
       "keys": [
         "name",
@@ -103,7 +103,7 @@
       ]
     },
     ".cursor-plugin/plugin.json": {
-      "sha256": "6ac8fada8953e2fdf768ccdb49df30d1b121e93caffd7ed03ccd0d1d672b130f",
+      "sha256": "e2d02695d32808cb1a1a080c375d7d85dd26bf77119ff062b63f05e164d252c9",
       "state": "generated",
       "keys": [
         "name",
@@ -161,7 +161,7 @@
       "state": "generated"
     },
     ".github/workflows/release.yml": {
-      "sha256": "7251d14c8aa0f66771810d432ae01482de920be9caa764bd8a86d808ea85b4f3",
+      "sha256": "9ad3015d3ba1bf5c173b85228a60e2a50a58e35c0e64cc0a8899433ed17c118c",
       "state": "generated"
     },
     ".gitignore": {
@@ -209,7 +209,7 @@
       "state": "generated"
     },
     "gemini-extension.json": {
-      "sha256": "214c9477e3aa6783707bc6a73680aedec2a2d4bd2172444deced4c1fbaab97bc",
+      "sha256": "e143b909b332521c6f41ac9f1b2be55d0268c25bffa898a7f561311344722bfd",
       "state": "generated",
       "keys": [
         "name",
@@ -231,7 +231,7 @@
       ]
     },
     "hosts/dsh/cordis.patch.yml": {
-      "sha256": "25c030412c27ff5b612eb6010c80ed1369657566babdc6775f5081505e6d8699",
+      "sha256": "25ac9309d4b61436e37fbfb3643dcbaaa229e0f8504a3b52e96c090413ec75a5",
       "state": "generated",
       "regions": [
         {
@@ -241,7 +241,7 @@
       ]
     },
     "hosts/dsh/package.json": {
-      "sha256": "ffd669147f7cfb86ca56b8221245f6e39910b023eee0a291bc000b3fc6d365a3",
+      "sha256": "2ab87d0c2b699d191bcc639209e384ae1bb9164554f408eea290ade4cd9eb443",
       "state": "generated",
       "keys": [
         "name",
@@ -253,7 +253,7 @@
       ]
     },
     "hosts/hermes/pyproject.toml": {
-      "sha256": "e228459e4b442a7bb7dd32cf2fba51e90af8c128589d495caea1178d5d6d80e2",
+      "sha256": "d8636254b6649fe83ce3148d6d05892107f4e23bcb0d90ed07632be2124643aa",
       "state": "generated",
       "keys": [
         "project.name",
@@ -287,7 +287,7 @@
       ]
     },
     "hosts/hermes/toolfactory_hermes/plugin.yaml": {
-      "sha256": "23e634b3bbd40dc33cf39ae3fe55de3889c0ffafc9afb0d5c2cafb0e0696f165",
+      "sha256": "7ccc423b89389a7266a367e0a3f583494bc2020b1d318061f46ab12bdc4aa368",
       "state": "generated",
       "keys": [
         "manifest_version",
@@ -302,7 +302,7 @@
       ]
     },
     "hosts/mcpb/manifest.json": {
-      "sha256": "d5df795611eb93ad153b8be91f2c2bf130145bb0f4f40f9ac6a01f5828c4d78e",
+      "sha256": "2fc8709296e83aa226988ec1ff22738b1b095d511c7cb6798b5e29d1dd17c14e",
       "state": "generated"
     },
     "hosts/openclaw/.npmrc": {
@@ -318,7 +318,7 @@
       "state": "generated"
     },
     "hosts/openclaw/openclaw.plugin.json": {
-      "sha256": "3fba3521337fe239a93b96224bec4133f0deaeb23a875186c06cdeb477397261",
+      "sha256": "9a31e74459c56582eac6113a323bb9d688f18b5d43987065fef6471c8cd8722b",
       "state": "generated",
       "keys": [
         "id",
@@ -334,7 +334,7 @@
       ]
     },
     "hosts/openclaw/package.json": {
-      "sha256": "cc198dcf5308b7f25397fe9458050cdab1578a2bfecef7ebad06cc129a761f2a",
+      "sha256": "05dbe4c55a04452e246e7da3098f6acfd45775c1652d3815169e980ddb626aac",
       "state": "generated",
       "keys": [
         "name",
@@ -406,7 +406,7 @@
       "state": "generated"
     },
     "mcp.json": {
-      "sha256": "daf6edbc68bf73794115ac9dc79c9a60dbcfbd8f1938c8c1ca5637b8a4c22cb8",
+      "sha256": "3d23cf77dd7eba8f334f7883bad404d2716da214a67bef42efc93eaaa020ac6f",
       "state": "generated",
       "keys": [
         "$schema",
@@ -416,7 +416,7 @@
       ]
     },
     "package.json": {
-      "sha256": "5596caef3768bc13bafca23fd1f08673378cb30465e6abf6dbe69e28894c034b",
+      "sha256": "afe21fd99b5dc70b9b46b87dc06a2e6c273f73fe66520af764ec6c020ffdd612",
       "state": "generated",
       "keys": [
         "name",
@@ -434,7 +434,7 @@
       ]
     },
     "README.md": {
-      "sha256": "c9ac36c4f1c97ac04ced30de4e42fa9b5a3c5a8169eae06f37f1bd4cce95ae43",
+      "sha256": "d4916f236b4ef305f9ed8bd694cde6e14bec578292ae18b05bf5bf9495415aa0",
       "state": "generated",
       "regions": [
         {
@@ -454,7 +454,7 @@
       ]
     },
     "server.json": {
-      "sha256": "ef8d08385dcb4c3a5eb609e5c8255107d7540e1ec3744352ba23f90718faf0e9",
+      "sha256": "0187f0638d74f2e85ae3d491be8d3595dda10d3837feffd205428787ef543053",
       "state": "generated"
     },
     "skills/toolfactory/SKILL.md": {
@@ -472,7 +472,7 @@
       ]
     },
     "src/toolfactory/cli.ts": {
-      "sha256": "e12ad9aec39cfbf6de603c28c34609e0e776cc4e2a1889bb9120b8304451b40c",
+      "sha256": "2f98a6ce2c75292b3739b24bdd7aba1744ea44e24c8e5d17d570d9e4bae29439",
       "state": "generated"
     },
     "src/toolfactory/config.ts": {
@@ -480,7 +480,7 @@
       "state": "generated"
     },
     "src/toolfactory/mcp.ts": {
-      "sha256": "4951e6170e90433732b0027cf0442149a843f7f821cc176c63d4952d5ff773ed",
+      "sha256": "43ddfa6708654c305a6cd63dc93aa4d0aa8b9a267f99294060f41dd58c1fc53a",
       "state": "generated"
     },
     "src/toolfactory/types.ts": {
@@ -504,7 +504,7 @@
       "state": "generated"
     },
     "web/package.json": {
-      "sha256": "f54ad5ed945f9cc389b11a190a7a230b546e85b93d0587b191c35c2f44f55f31",
+      "sha256": "06103e94b24f8987dea23bed2e95345f73c12d05387e4a4267813926462c1a93",
       "state": "generated",
       "keys": [
         "name",
@@ -564,7 +564,7 @@
       "state": "generated"
     },
     "web/src/ops.json": {
-      "sha256": "401f0ffb3244323913e2d97829a68e2ff4549add8efe7fc07d239ebcac2a8081",
+      "sha256": "bc37493247ce0a7c7bed66ea9d2b8a05c73fe4cf4cce718b922a8d420ba1bb1c",
       "state": "generated"
     },
     "web/src/schema-form.tsx": {
